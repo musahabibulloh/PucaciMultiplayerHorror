@@ -1,0 +1,40 @@
+# Unity .gitignore
+/[Ll]ibrary/
+/[Tt]emp/
+/[Oo]bj/
+/[Bb]uild/
+/[Bb]uilds/
+/[Ll]ogs/
+/[Uu]ser[Ss]ettings/
+/[Mm]emoryCaptures/
+/[Rr]ecordings/
+
+# Unity CLI bridge capture / test artifacts
+.unity/
+sysinfo.txt
+
+# Visual Studio & IDE cache directory
+.vs/
+.idea/
+.vscode/
+*.csproj
+*.unityproj
+*.sln
+*.suo
+*.tmp
+*.user
+*.userprefs
+*.pidb
+*.booproj
+*.svd
+*.pdb
+*.mdb
+*.opendb
+*.VC.db
+
+# Asset meta data should only be ignored if the corresponding asset is also ignored
+!/[Aa]ssets/**/*.meta
+
+# OS generated files
+.DS_Store
+Thumbs.db
