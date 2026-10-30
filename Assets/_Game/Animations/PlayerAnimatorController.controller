@@ -74,7 +74,7 @@ AnimatorState:
   m_MirrorParameterActive: 0
   m_CycleOffsetParameterActive: 0
   m_TimeParameterActive: 0
-  m_Motion: {fileID: 4061839508520268033, guid: dd1c0eff30777434eb55c1fe6a1ba892, type: 3}
+  m_Motion: {fileID: -203655887218126122, guid: 574979127d8ce9347b623a4d7979742c, type: 3}
   m_Tag: 
   m_SpeedParameter: 
   m_MirrorParameter: 
@@ -780,7 +780,7 @@ BlendTree:
   m_Name: LocomotionBlendTree
   m_Childs:
   - serializedVersion: 2
-    m_Motion: {fileID: 4061839508520268033, guid: dd1c0eff30777434eb55c1fe6a1ba892, type: 3}
+    m_Motion: {fileID: -203655887218126122, guid: 574979127d8ce9347b623a4d7979742c, type: 3}
     m_Threshold: 0
     m_Position: {x: 0, y: 0}
     m_TimeScale: 1
