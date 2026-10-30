@@ -22,14 +22,17 @@ namespace Pucaci.Player
         [Tooltip("Apakah senter aktif saat mulai bermain")]
         [SerializeField] private bool startsOn = true;
 
-        [Tooltip("Intensitas cahaya senter")]
-        [SerializeField] private float lightIntensity = 3.5f;
+        [Tooltip("Intensitas cahaya sorot utama senter")]
+        [SerializeField] private float lightIntensity = 22.0f;
 
         [Tooltip("Jarak sorot senter (meter)")]
-        [SerializeField] private float lightRange = 35f;
+        [SerializeField] private float lightRange = 65.0f;
 
-        [Tooltip("Sudut sorot senter")]
-        [SerializeField] private float spotAngle = 55f;
+        [Tooltip("Sudut sorot senter (lebar cone)")]
+        [SerializeField] private float spotAngle = 75.0f;
+
+        [Tooltip("Sudut sorot dalam senter (hotspot terang)")]
+        [SerializeField] private float innerSpotAngle = 38.0f;
 
         [Header("Crosshair Aiming")]
         [Tooltip("Jarak default sorot jika raycast tidak mengenai objek")]
@@ -119,6 +122,8 @@ namespace Pucaci.Player
         private float swayTimer;
         private Material dynamicMaterial;
         private PlayerCharacterController pcc;
+        private Vector3 smoothedAimPoint;
+        private bool aimPointInitialized;
 
         public bool IsOn => isFlashlightOn;
         public Light SpotLightComponent => spotLight;
@@ -162,6 +167,23 @@ namespace Pucaci.Player
             if (flashlightTransform == null && rightHandBone != null)
             {
                 flashlightTransform = rightHandBone.Find("Flashlight_Item");
+            }
+
+            // Bersihkan objek spill lama jika masih tertinggal agar karakter tidak glowing
+            if (flashlightTransform != null)
+            {
+                var oldSpill = flashlightTransform.Find("Flashlight_Spill");
+                if (oldSpill != null)
+                {
+                    if (Application.isPlaying)
+                    {
+                        Destroy(oldSpill.gameObject);
+                    }
+                    else
+                    {
+                        DestroyImmediate(oldSpill.gameObject);
+                    }
+                }
             }
 
             if (spotLight == null && flashlightTransform != null)
@@ -209,7 +231,10 @@ namespace Pucaci.Player
                 spotLight.type = LightType.Spot;
                 spotLight.range = lightRange;
                 spotLight.spotAngle = spotAngle;
+                spotLight.innerSpotAngle = innerSpotAngle;
                 spotLight.intensity = lightIntensity;
+                spotLight.color = new Color(1.0f, 0.98f, 0.94f, 1.0f);
+                spotLight.shadows = LightShadows.None; // Hindari shadow atlas thrashing penyebab kedap-kedip
             }
 
             SetFlashlightState(startsOn, playSound: false);
@@ -259,19 +284,52 @@ namespace Pucaci.Player
             Transform camTr = aimTargetReference != null ? aimTargetReference : (Camera.main != null ? Camera.main.transform : null);
             if (camTr == null) return;
 
-            // 1. Tentukan titik target 3D crosshair di tengah layar
-            Ray ray = new Ray(camTr.position, camTr.forward);
-            Vector3 crosshairPoint;
-            if (Physics.Raycast(ray, out RaycastHit hit, 100f, aimLayerMask, QueryTriggerInteraction.Ignore))
+            bool isFirstPerson = (pcc != null && pcc.CurrentPerspective == PlayerCharacterController.CameraPerspective.FirstPerson);
+
+            // 1. Tentukan titik target 3D crosshair yang stabil tanpa jitter
+            Vector3 desiredAimPoint;
+            if (isFirstPerson)
             {
-                crosshairPoint = hit.point;
+                // Pada First-Person, senter stabil 100% lurus mengarah ke depan crosshair
+                desiredAimPoint = camTr.position + camTr.forward * defaultAimDistance;
             }
             else
             {
-                crosshairPoint = ray.GetPoint(defaultAimDistance);
+                // Pada Third-Person, cari titik crosshair dengan menyaring collider pemain dan jarak minimal
+                Ray ray = new Ray(camTr.position, camTr.forward);
+                desiredAimPoint = ray.GetPoint(defaultAimDistance);
+
+                RaycastHit[] hits = Physics.RaycastAll(ray, 100f, aimLayerMask, QueryTriggerInteraction.Ignore);
+                if (hits != null && hits.Length > 0)
+                {
+                    System.Array.Sort(hits, (a, b) => a.distance.CompareTo(b.distance));
+                    for (int i = 0; i < hits.Length; i++)
+                    {
+                        var col = hits[i].collider;
+                        if (col == null || col.transform == transform || col.transform.IsChildOf(transform))
+                        {
+                            continue;
+                        }
+
+                        // Hindari snap ke rumput/tanah dekat kaki yang memicu kedap-kedip visual
+                        if (hits[i].distance >= 4.0f)
+                        {
+                            desiredAimPoint = hits[i].point;
+                            break;
+                        }
+                    }
+                }
             }
 
-            bool isFirstPerson = (pcc != null && pcc.CurrentPerspective == PlayerCharacterController.CameraPerspective.FirstPerson);
+            if (!aimPointInitialized)
+            {
+                smoothedAimPoint = desiredAimPoint;
+                aimPointInitialized = true;
+            }
+            else
+            {
+                smoothedAimPoint = Vector3.Lerp(smoothedAimPoint, desiredAimPoint, Time.deltaTime * 25f);
+            }
 
             // 2. Hitung goyangan halus (sway) - dinonaktifkan di FPP agar tangan diam stabil 100%
             float swayX = 0f;
@@ -406,11 +464,15 @@ namespace Pucaci.Player
                 }
             }
 
-            // 3. Pastikan sorot Spot Light SELALU mengarah 100% tepat ke titik crosshair
+            // 3. Pastikan sorot Spot Light SELALU mengarah mulus dan stabil ke titik target
             if (spotLight != null)
             {
-                Vector3 beamDir = (crosshairPoint - spotLight.transform.position).normalized;
-                spotLight.transform.rotation = Quaternion.LookRotation(beamDir);
+                Vector3 beamDir = smoothedAimPoint - spotLight.transform.position;
+                if (Vector3.Dot(camTr.forward, beamDir) < 0.1f)
+                {
+                    beamDir = camTr.forward;
+                }
+                spotLight.transform.rotation = Quaternion.LookRotation(beamDir.normalized);
             }
         }
 

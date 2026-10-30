@@ -1097,9 +1097,10 @@ MonoBehaviour:
   flashlightRenderer: {fileID: 6525891208701919441}
   flashlightTransform: {fileID: 5805781389648452347}
   startsOn: 1
-  lightIntensity: 3.5
-  lightRange: 30
-  spotAngle: 50
+  lightIntensity: 22
+  lightRange: 65
+  spotAngle: 75
+  innerSpotAngle: 38
   defaultAimDistance: 40
   aimLayerMask:
     serializedVersion: 2
@@ -1525,14 +1526,14 @@ Light:
   serializedVersion: 10
   m_Type: 0
   m_Shape: 0
-  m_Color: {r: 1, g: 0.96, b: 0.9, a: 1}
-  m_Intensity: 3.5
-  m_Range: 35
-  m_SpotAngle: 55
-  m_InnerSpotAngle: 35
+  m_Color: {r: 1, g: 0.98, b: 0.94, a: 1}
+  m_Intensity: 22
+  m_Range: 65
+  m_SpotAngle: 75
+  m_InnerSpotAngle: 38
   m_CookieSize: 10
   m_Shadows:
-    m_Type: 2
+    m_Type: 0
     m_Resolution: -1
     m_CustomResolution: -1
     m_Strength: 1
