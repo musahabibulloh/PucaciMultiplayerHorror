@@ -69,6 +69,13 @@ namespace Pucaci.Player
         [SerializeField] private Transform neckBone;
 
         public CameraPerspective CurrentPerspective => cameraPerspective;
+        public bool IsGrounded => isGrounded;
+        public bool IsSliding => isSliding;
+        public float CurrentHorizontalSpeed => currentHorizontalSpeed;
+        public float WalkSpeed => walkSpeed;
+        public float SprintSpeed => sprintSpeed;
+        public float VerticalVelocity => verticalVelocity;
+        public bool IsSprinting => isGrounded && currentHorizontalSpeed > (walkSpeed + sprintSpeed) * 0.5f;
 
         [Header("Camera Perspective (TPP / FPP)")]
         [Tooltip("Mode sudut pandang kamera awal (default Third-Person)")]
