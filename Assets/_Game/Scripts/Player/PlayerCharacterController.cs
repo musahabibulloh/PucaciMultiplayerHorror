@@ -101,6 +101,10 @@ namespace Pucaci.Player
         [Tooltip("Animator karakter")]
         [SerializeField] private Animator animator;
 
+        [Header("Idle / AFK")]
+        [Tooltip("Detik tanpa aktivitas sebelum animasi idle AFK menyala")]
+        [SerializeField] private float afkDelay = 3f;
+
         // Komponen
         private CharacterController controller;
 
@@ -113,6 +117,9 @@ namespace Pucaci.Player
         private Vector3 slideDirection;
         private Vector3 lastMoveDirection;
         private bool isDead;
+
+        // Timer idle AFK
+        private float idleTimer;
 
         // Kontrol kamera
         private float cameraPitch;
@@ -135,6 +142,7 @@ namespace Pucaci.Player
         private static readonly int StumbleHash = Animator.StringToHash("Stumble");
         private static readonly int DeathHash = Animator.StringToHash("Death");
         private static readonly int GetUpHash = Animator.StringToHash("GetUp");
+        private static readonly int IsAfkHash = Animator.StringToHash("IsAfk");
 
         // Parameter penghalusan gerakan animasi
         private float currentMoveX;
@@ -190,8 +198,8 @@ namespace Pucaci.Player
                 }
                 if (headBone == null)
                 {
-                    headBone = neckBone != null 
-                        ? neckBone.Find("mixamorig:Head") 
+                    headBone = neckBone != null
+                        ? neckBone.Find("mixamorig:Head")
                         : modelTransform.Find("mixamorig:Hips/mixamorig:Spine/mixamorig:Spine1/mixamorig:Spine2/mixamorig:Neck/mixamorig:Head");
                 }
             }
@@ -612,6 +620,19 @@ namespace Pucaci.Player
             currentMoveX = Mathf.MoveTowards(currentMoveX, targetMoveX, Time.deltaTime * smoothRate);
             currentMoveZ = Mathf.MoveTowards(currentMoveZ, targetMoveZ, Time.deltaTime * smoothRate);
 
+            // Hitung waktu diam: reset jika bergerak, di udara, slide, atau look back
+            bool isIdleNow = !hasMoveInput
+                             && isGrounded
+                             && !isSliding
+                             && !GetLookBackInput()
+                             && Mathf.Abs(currentMoveX) < 0.01f
+                             && Mathf.Abs(currentMoveZ) < 0.01f;
+
+            if (isIdleNow) idleTimer += Time.deltaTime;
+            else idleTimer = 0f;
+
+            animator.SetBool(IsAfkHash, idleTimer >= afkDelay);
+
             animator.SetFloat(SpeedHash, normalizedSpeed);
             animator.SetFloat(MoveXHash, currentMoveX);
             animator.SetFloat(MoveZHash, currentMoveZ);
@@ -623,6 +644,7 @@ namespace Pucaci.Player
         #region Public Action Triggers
         public void TriggerStumble()
         {
+            idleTimer = 0f;
             if (animator != null)
             {
                 animator.SetTrigger(StumbleHash);
@@ -632,9 +654,11 @@ namespace Pucaci.Player
 
         public void TriggerDeath()
         {
+            idleTimer = 0f;
             isDead = true;
             if (animator != null)
             {
+                animator.SetBool(IsAfkHash, false);
                 animator.SetTrigger(DeathHash);
             }
         }
