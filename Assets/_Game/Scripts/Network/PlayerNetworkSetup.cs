@@ -88,6 +88,18 @@ namespace Pucaci.Network
             {
                 nameTagObject.SetActive(false);
             }
+
+            // Daftarkan ke MinimapController jika ada
+            if (Pucaci.UI.MinimapController.Instance != null)
+            {
+                Pucaci.UI.MinimapController.Instance.SetTarget(transform);
+            }
+
+            // Daftarkan ke StaminaUI jika ada
+            if (Pucaci.UI.StaminaUI.Instance != null && characterController != null)
+            {
+                Pucaci.UI.StaminaUI.Instance.SetTarget(characterController);
+            }
         }
 
         private void OnDestroy()

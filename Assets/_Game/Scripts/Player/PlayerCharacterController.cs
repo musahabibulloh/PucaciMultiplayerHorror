@@ -21,6 +21,31 @@ namespace Pucaci.Player
         [Tooltip("Deselerasi kecepatan gerakan saat berhenti")]
         [SerializeField] private float decelerationRate = 8f;
 
+        [Header("Stamina and Exhaustion")]
+        [Tooltip("Kapasitas stamina maksimal")]
+        [SerializeField] private float maxStamina = 100f;
+
+        [Tooltip("Konsumsi stamina per detik saat sprint")]
+        [SerializeField] private float sprintStaminaDrain = 18f;
+
+        [Tooltip("Konsumsi stamina saat melompat")]
+        [SerializeField] private float jumpStaminaCost = 10f;
+
+        [Tooltip("Konsumsi stamina saat meluncur / slide")]
+        [SerializeField] private float slideStaminaCost = 15f;
+
+        [Tooltip("Kecepatan pemulihan stamina per detik")]
+        [SerializeField] private float staminaRegenRate = 16f;
+
+        [Tooltip("Jeda waktu sebelum stamina mulai pulih setelah berhenti sprint")]
+        [SerializeField] private float staminaRegenDelay = 1.0f;
+
+        [Tooltip("Ambang batas pemulihan stamina dari kondisi lelah (0.25 = 25 persen)")]
+        [SerializeField] private float exhaustionRecoveryThreshold = 0.25f;
+
+        [Tooltip("Kecepatan jalan saat lelah / capek (m/s)")]
+        [SerializeField] private float exhaustedWalkSpeed = 2.4f;
+
         [Header("Jump & Gravity")]
         [Tooltip("Tinggi lompatan (meter)")]
         [SerializeField] private float jumpHeight = 1.2f;
@@ -75,6 +100,10 @@ namespace Pucaci.Player
         public float WalkSpeed => walkSpeed;
         public float SprintSpeed => sprintSpeed;
         public float VerticalVelocity => verticalVelocity;
+        public float CurrentStamina => currentStamina;
+        public float MaxStamina => maxStamina;
+        public float StaminaNormalized => maxStamina > 0f ? Mathf.Clamp01(currentStamina / maxStamina) : 1f;
+        public bool IsExhausted => isExhausted;
         public bool IsSprinting => isGrounded && currentHorizontalSpeed > (walkSpeed + sprintSpeed) * 0.5f;
 
         [Header("Camera Perspective (TPP / FPP)")]
@@ -121,6 +150,11 @@ namespace Pucaci.Player
         private Vector3 lastMoveDirection;
         private bool isDead;
 
+        // Status Stamina
+        private float currentStamina = 100f;
+        private float staminaRegenCooldown;
+        private bool isExhausted;
+
         // Kontrol kamera
         private float cameraPitch;
         private bool isCursorLocked = true;
@@ -152,6 +186,7 @@ namespace Pucaci.Player
             controller = GetComponent<CharacterController>();
             originalControllerHeight = controller.height;
             originalControllerCenter = controller.center;
+            currentStamina = maxStamina;
 
             if (animator == null)
             {
@@ -268,6 +303,12 @@ namespace Pucaci.Player
 
         private void HandleCursorToggle()
         {
+            // Jangan ubah status kursor saat peta penuh sedang aktif
+            if (Pucaci.UI.MinimapController.Instance != null && Pucaci.UI.MinimapController.Instance.IsFullMapOpen)
+            {
+                return;
+            }
+
 #if ENABLE_INPUT_SYSTEM
             if (Keyboard.current != null && Keyboard.current.escapeKey.wasPressedThisFrame)
             {
@@ -275,7 +316,11 @@ namespace Pucaci.Player
             }
             if (Mouse.current != null && Mouse.current.leftButton.wasPressedThisFrame && !isCursorLocked)
             {
-                SetCursorLock(true);
+                // Jangan kunci kursor jika klik mouse berada di atas elemen UI (UGUI / IMGUI)
+                if (!IsPointerOverUI())
+                {
+                    SetCursorLock(true);
+                }
             }
 #else
             if (Input.GetKeyDown(KeyCode.Escape))
@@ -284,9 +329,55 @@ namespace Pucaci.Player
             }
             if (Input.GetMouseButtonDown(0) && !isCursorLocked)
             {
-                SetCursorLock(true);
+                if (!IsPointerOverUI())
+                {
+                    SetCursorLock(true);
+                }
             }
 #endif
+        }
+
+        private bool IsPointerOverUI()
+        {
+            // 1. Cek UGUI (Canvas UI seperti Button, Slider, Panel)
+            if (UnityEngine.EventSystems.EventSystem.current != null &&
+                UnityEngine.EventSystems.EventSystem.current.IsPointerOverGameObject())
+            {
+                return true;
+            }
+
+            // 2. Cek IMGUI OnGUI (seperti NetworkManagerHUD dan GameplayExitMenu)
+            Vector2 mousePos = Vector2.zero;
+#if ENABLE_INPUT_SYSTEM
+            if (Mouse.current != null)
+            {
+                mousePos = Mouse.current.position.ReadValue();
+            }
+            else
+            {
+                mousePos = Input.mousePosition;
+            }
+#else
+            mousePos = Input.mousePosition;
+#endif
+
+            // Koordinat GUI OnGUI memiliki Y = 0 di atas layar
+            float guiY = Screen.height - mousePos.y;
+            float guiX = mousePos.x;
+
+            // Area NetworkManagerHUD (kiri atas: x 0..260, y 0..500)
+            if (guiX >= 0f && guiX <= 260f && guiY >= 0f && guiY <= 500f)
+            {
+                return true;
+            }
+
+            // Area GameplayExitMenu (kanan atas: x (Screen.width - 340)..Screen.width, y 0..70)
+            if (guiX >= (Screen.width - 340f) && guiX <= Screen.width && guiY >= 0f && guiY <= 70f)
+            {
+                return true;
+            }
+
+            return false;
         }
 
         private void SetCursorLock(bool locked)
@@ -335,6 +426,7 @@ namespace Pucaci.Player
         private void HandleLook()
         {
             if (!isCursorLocked) return;
+            if (Pucaci.UI.MinimapController.Instance != null && Pucaci.UI.MinimapController.Instance.IsFullMapOpen) return;
 
             Vector2 lookInput = Vector2.zero;
 
@@ -367,7 +459,45 @@ namespace Pucaci.Player
         private void HandleMovement()
         {
             Vector2 moveInput = GetMoveInput();
-            bool isSprint = GetSprintInput();
+            if (Pucaci.UI.MinimapController.Instance != null && Pucaci.UI.MinimapController.Instance.IsFullMapOpen)
+            {
+                moveInput = Vector2.zero;
+            }
+            bool hasMoveInput = moveInput.sqrMagnitude > 0.01f;
+            bool isSprintInput = GetSprintInput() && hasMoveInput && isGrounded;
+
+            // Pemrosesan Stamina & Kondisi Capek (Exhausted)
+            bool isSprint = false;
+            if (isSprintInput && !isExhausted && currentStamina > 0f)
+            {
+                isSprint = true;
+                currentStamina = Mathf.Max(0f, currentStamina - sprintStaminaDrain * Time.deltaTime);
+                staminaRegenCooldown = staminaRegenDelay;
+
+                // Jika stamina habis, masuk ke status lelah (cukup jalan kaki biasa, tanpa tersengkal-sengkal)
+                if (currentStamina <= 0f)
+                {
+                    isExhausted = true;
+                    isSprint = false;
+                }
+            }
+            else
+            {
+                // Pemulihan stamina saat tidak sprint
+                if (staminaRegenCooldown > 0f)
+                {
+                    staminaRegenCooldown -= Time.deltaTime;
+                }
+                else
+                {
+                    currentStamina = Mathf.Min(maxStamina, currentStamina + staminaRegenRate * Time.deltaTime);
+                    // Pulih dari status lelah jika sudah mencapai ambang batas
+                    if (isExhausted && currentStamina >= (maxStamina * exhaustionRecoveryThreshold))
+                    {
+                        isExhausted = false;
+                    }
+                }
+            }
 
             // Tangani state sliding
             if (isSliding)
@@ -386,8 +516,6 @@ namespace Pucaci.Player
                     return;
                 }
             }
-
-            bool hasMoveInput = moveInput.sqrMagnitude > 0.01f;
 
             if (hasMoveInput)
             {
@@ -431,6 +559,8 @@ namespace Pucaci.Player
                 verticalVelocity = Mathf.Sqrt(jumpHeight * -2f * gravity);
                 jumpCooldownTimer = 0.2f; // Cegah deteksi tanah sesaat setelah melompat
                 isGrounded = false;
+                currentStamina = Mathf.Max(0f, currentStamina - jumpStaminaCost);
+                staminaRegenCooldown = staminaRegenDelay;
 
                 if (animator != null)
                 {
@@ -451,6 +581,8 @@ namespace Pucaci.Player
         {
             isSliding = true;
             slideTimer = slideDuration;
+            currentStamina = Mathf.Max(0f, currentStamina - slideStaminaCost);
+            staminaRegenCooldown = staminaRegenDelay;
 
             Vector2 moveInput = GetMoveInput();
             if (moveInput.sqrMagnitude > 0.1f)

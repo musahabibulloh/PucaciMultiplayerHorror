@@ -24,6 +24,16 @@ namespace Pucaci.UI
             QualitySettings.SetQualityLevel(pcHighIndex, true);
         }
 
+        private void Start()
+        {
+            // Pastikan kursor bebas saat belum terhubung ke sesi permainan
+            if (!NetworkClient.isConnected && !NetworkServer.active)
+            {
+                Cursor.lockState = CursorLockMode.None;
+                Cursor.visible = true;
+            }
+        }
+
         private void OnGUI()
         {
             if (!showExitButton) return;
