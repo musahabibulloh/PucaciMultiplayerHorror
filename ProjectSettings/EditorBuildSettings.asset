@@ -9,11 +9,11 @@ EditorBuildSettings:
     path: Assets/_Game/Scenes/MainMenu.unity
     guid: 7956efdf7b62faf4f8f71bbd740037ee
   - enabled: 1
-    path: Assets/_Game/Scenes/Gameplay.unity
-    guid: 475a84a6190c1284aa2c6c1e27f3515e
-  - enabled: 1
     path: Assets/Scenes/Prototype/PrototypeScene.unity
     guid: ee7b408c7fa8d5f44b72cd9cb76190b1
+  - enabled: 1
+    path: Assets/_Game/Scenes/Gameplay.unity
+    guid: 475a84a6190c1284aa2c6c1e27f3515e
   - enabled: 1
     path: Assets/SharedAssets/Benchmark/BenchmarkScene.unity
     guid: d1335b3b949d2e646b481776723757a2

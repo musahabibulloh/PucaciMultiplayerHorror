@@ -240,6 +240,51 @@ namespace Pucaci.Player
             SetFlashlightState(startsOn, playSound: false);
         }
 
+        public void SetupFlashlightModel(Transform newModelTransform)
+        {
+            if (newModelTransform == null) return;
+            rightShoulderBone = newModelTransform.Find("mixamorig:Hips/mixamorig:Spine/mixamorig:Spine1/mixamorig:Spine2/mixamorig:RightShoulder");
+            if (rightShoulderBone != null)
+                rightArmBone = rightShoulderBone.Find("mixamorig:RightArm");
+            if (rightArmBone != null)
+                rightForeArmBone = rightArmBone.Find("mixamorig:RightForeArm");
+            if (rightForeArmBone != null)
+                rightHandBone = rightForeArmBone.Find("mixamorig:RightHand");
+
+            if (rightHandBone != null)
+            {
+                rightFingersBone = rightHandBone.Find("mixamorig:RightHandIndex1");
+                flashlightTransform = rightHandBone.Find("Flashlight_Item");
+            }
+            if (rightFingersBone != null)
+                rightFinger2Bone = rightFingersBone.Find("mixamorig:RightHandIndex2");
+            if (rightFinger2Bone != null)
+                rightFinger3Bone = rightFinger2Bone.Find("mixamorig:RightHandIndex3");
+
+            if (flashlightTransform != null)
+            {
+                spotLight = flashlightTransform.GetComponentInChildren<Light>();
+                flashlightRenderer = flashlightTransform.GetComponent<MeshRenderer>();
+                if (flashlightRenderer != null)
+                {
+                    dynamicMaterial = Application.isPlaying ? flashlightRenderer.material : flashlightRenderer.sharedMaterial;
+                }
+                if (spotLight != null)
+                {
+                    spotLight.type = LightType.Spot;
+                    spotLight.range = lightRange;
+                    spotLight.spotAngle = spotAngle;
+                    spotLight.innerSpotAngle = innerSpotAngle;
+                    spotLight.intensity = lightIntensity;
+                    spotLight.color = new Color(1.0f, 0.98f, 0.94f, 1.0f);
+                    spotLight.shadows = LightShadows.None;
+                    spotLight.enabled = isFlashlightOn;
+                }
+            }
+
+            SetFlashlightState(isFlashlightOn, playSound: false);
+        }
+
         private void Update()
         {
             // Input toggle F key jika berjalan tanpa PlayerCharacterController

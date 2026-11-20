@@ -167,6 +167,8 @@ namespace Pucaci.Player
         private static readonly int SpeedHash = Animator.StringToHash("Speed");
         private static readonly int MoveXHash = Animator.StringToHash("MoveX");
         private static readonly int MoveZHash = Animator.StringToHash("MoveZ");
+        private static readonly int MoveXSpaceHash = Animator.StringToHash("Move X");
+        private static readonly int MoveZSpaceHash = Animator.StringToHash("Move Z");
         private static readonly int IsMovingHash = Animator.StringToHash("IsMoving");
         private static readonly int IsGroundedHash = Animator.StringToHash("IsGrounded");
         private static readonly int IsSlidingHash = Animator.StringToHash("IsSliding");
@@ -176,6 +178,8 @@ namespace Pucaci.Player
         private static readonly int StumbleHash = Animator.StringToHash("Stumble");
         private static readonly int DeathHash = Animator.StringToHash("Death");
         private static readonly int GetUpHash = Animator.StringToHash("GetUp");
+
+        private System.Collections.Generic.HashSet<int> animatorParamHashes;
 
         // Parameter penghalusan gerakan animasi
         private float currentMoveX;
@@ -212,6 +216,7 @@ namespace Pucaci.Player
 
             if (animator != null)
             {
+                animator.applyRootMotion = false;
                 hipsTransform = animator.transform.Find("mixamorig:Hips");
             }
             if (hipsTransform == null)
@@ -237,11 +242,88 @@ namespace Pucaci.Player
                         : modelTransform.Find("mixamorig:Hips/mixamorig:Spine/mixamorig:Spine1/mixamorig:Spine2/mixamorig:Neck/mixamorig:Head");
                 }
             }
+
+            RefreshAnimatorParams();
+        }
+
+        public void SetupCharacterModel(Transform newModelTransform, Animator newAnimator, SkinnedMeshRenderer newRenderer, Mesh customFppMesh = null)
+        {
+            modelTransform = newModelTransform;
+            animator = newAnimator;
+            characterRenderer = newRenderer;
+            fppCustomMesh = customFppMesh;
+
+            if (characterRenderer != null)
+            {
+                fullBodyMesh = characterRenderer.sharedMesh;
+            }
+
+            if (animator != null)
+            {
+                animator.applyRootMotion = false;
+            }
+
+            if (modelTransform != null)
+            {
+                modelTransform.localPosition = modelOffset;
+                hipsTransform = modelTransform.Find("mixamorig:Hips");
+                neckBone = modelTransform.Find("mixamorig:Hips/mixamorig:Spine/mixamorig:Spine1/mixamorig:Spine2/mixamorig:Neck");
+                if (neckBone != null)
+                {
+                    headBone = neckBone.Find("mixamorig:Head");
+                }
+                else
+                {
+                    headBone = modelTransform.Find("mixamorig:Hips/mixamorig:Spine/mixamorig:Spine1/mixamorig:Spine2/mixamorig:Neck/mixamorig:Head");
+                }
+            }
+
+            if (hipsTransform != null)
+            {
+                initialHipsLocalX = Mathf.Abs(hipsTransform.localPosition.x) > 0.2f ? 0f : hipsTransform.localPosition.x;
+                initialHipsLocalZ = Mathf.Abs(hipsTransform.localPosition.z) > 0.2f ? 0f : hipsTransform.localPosition.z;
+            }
+
+            RefreshAnimatorParams();
+            ApplyCameraPerspective();
+        }
+
+        public void RefreshAnimatorParams()
+        {
+            animatorParamHashes = new System.Collections.Generic.HashSet<int>();
+            if (animator != null && animator.runtimeAnimatorController != null)
+            {
+                foreach (var param in animator.parameters)
+                {
+                    animatorParamHashes.Add(param.nameHash);
+                }
+            }
+        }
+
+        private void SetSafeFloat(int hash, float val)
+        {
+            if (animator != null && animatorParamHashes != null && animatorParamHashes.Contains(hash))
+                animator.SetFloat(hash, val);
+        }
+
+        private void SetSafeBool(int hash, bool val)
+        {
+            if (animator != null && animatorParamHashes != null && animatorParamHashes.Contains(hash))
+                animator.SetBool(hash, val);
+        }
+
+        private void SetSafeTrigger(int hash)
+        {
+            if (animator != null && animatorParamHashes != null && animatorParamHashes.Contains(hash))
+                animator.SetTrigger(hash);
         }
 
         private Transform hipsTransform;
         private float initialHipsLocalX;
         private float initialHipsLocalZ;
+
+        private Mesh fullBodyMesh;
+        private Mesh fppCustomMesh;
 
         private void Start()
         {
@@ -254,6 +336,10 @@ namespace Pucaci.Player
             if (characterRenderer == null)
             {
                 characterRenderer = GetComponentInChildren<SkinnedMeshRenderer>();
+            }
+            if (characterRenderer != null && fullBodyMesh == null)
+            {
+                fullBodyMesh = characterRenderer.sharedMesh;
             }
 
             ApplyCameraPerspective();
@@ -280,6 +366,12 @@ namespace Pucaci.Player
 
         private void LateUpdate()
         {
+            // Kunci posisi model agar tidak bergeser dari pivot controller
+            if (modelTransform != null)
+            {
+                modelTransform.localPosition = modelOffset;
+            }
+
             // Kunci posisi X dan Z lokal Hips agar animasi Mixamo yang memiliki perpindahan translasi (seperti Running Jump dan Slide)
             // tidak membuat model tubuh bergeser atau melesat jauh keluar dari collider CharacterController
             if (hipsTransform != null)
@@ -562,10 +654,7 @@ namespace Pucaci.Player
                 currentStamina = Mathf.Max(0f, currentStamina - jumpStaminaCost);
                 staminaRegenCooldown = staminaRegenDelay;
 
-                if (animator != null)
-                {
-                    animator.SetTrigger(JumpHash);
-                }
+                SetSafeTrigger(JumpHash);
             }
         }
 
@@ -602,10 +691,7 @@ namespace Pucaci.Player
             controller.height = slideControllerHeight;
             controller.center = new Vector3(originalControllerCenter.x, slideControllerHeight * 0.5f, originalControllerCenter.z);
 
-            if (animator != null)
-            {
-                animator.SetTrigger(SlideHash);
-            }
+            SetSafeTrigger(SlideHash);
         }
 
         private void StopSlide()
@@ -619,10 +705,7 @@ namespace Pucaci.Player
         {
             // Look Back (tahan Q atau E untuk melihat ke belakang saat berlari)
             bool lookBack = GetLookBackInput();
-            if (animator != null)
-            {
-                animator.SetBool(LookBackHash, lookBack);
-            }
+            SetSafeBool(LookBackHash, lookBack);
 
             // Toggle Sudut Pandang Kamera (V)
 #if ENABLE_INPUT_SYSTEM
@@ -698,9 +781,19 @@ namespace Pucaci.Player
                 actualCameraTransform.localPosition = firstPersonOffset;
             }
 
-            // Selalu aktifkan ShadowCastingMode.On agar lengan, tangan, dan tubuh tetap terlihat di layar
+            // Perbarui mesh sesuai sudut pandang kamera (misal: Pak Mamat hanya menampilkan tangan di FPP)
             if (characterRenderer != null)
             {
+                if (cameraPerspective == CameraPerspective.FirstPerson && fppCustomMesh != null)
+                {
+                    characterRenderer.sharedMesh = fppCustomMesh;
+                }
+                else if (fullBodyMesh != null)
+                {
+                    characterRenderer.sharedMesh = fullBodyMesh;
+                }
+
+                // Selalu aktifkan ShadowCastingMode.On agar lengan, tangan, dan tubuh tetap terlihat di layar
                 characterRenderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.On;
             }
         }
@@ -751,31 +844,27 @@ namespace Pucaci.Player
             currentMoveX = Mathf.MoveTowards(currentMoveX, targetMoveX, Time.deltaTime * smoothRate);
             currentMoveZ = Mathf.MoveTowards(currentMoveZ, targetMoveZ, Time.deltaTime * smoothRate);
 
-            animator.SetFloat(SpeedHash, normalizedSpeed);
-            animator.SetFloat(MoveXHash, currentMoveX);
-            animator.SetFloat(MoveZHash, currentMoveZ);
-            animator.SetBool(IsMovingHash, isMoving);
-            animator.SetBool(IsGroundedHash, isGrounded);
-            animator.SetBool(IsSlidingHash, isSliding);
+            SetSafeFloat(SpeedHash, normalizedSpeed);
+            SetSafeFloat(MoveXHash, currentMoveX);
+            SetSafeFloat(MoveZHash, currentMoveZ);
+            SetSafeFloat(MoveXSpaceHash, currentMoveX);
+            SetSafeFloat(MoveZSpaceHash, currentMoveZ);
+            SetSafeBool(IsMovingHash, isMoving);
+            SetSafeBool(IsGroundedHash, isGrounded);
+            SetSafeBool(IsSlidingHash, isSliding);
         }
 
         #region Public Action Triggers
         public void TriggerStumble()
         {
-            if (animator != null)
-            {
-                animator.SetTrigger(StumbleHash);
-            }
+            SetSafeTrigger(StumbleHash);
             currentHorizontalSpeed *= 0.3f;
         }
 
         public void TriggerDeath()
         {
             isDead = true;
-            if (animator != null)
-            {
-                animator.SetTrigger(DeathHash);
-            }
+            SetSafeTrigger(DeathHash);
         }
 
         public void TriggerGetUp()
@@ -783,10 +872,7 @@ namespace Pucaci.Player
             if (isDead)
             {
                 isDead = false;
-                if (animator != null)
-                {
-                    animator.SetTrigger(GetUpHash);
-                }
+                SetSafeTrigger(GetUpHash);
             }
         }
         #endregion

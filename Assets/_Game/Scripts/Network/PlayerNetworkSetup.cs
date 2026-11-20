@@ -209,5 +209,27 @@ namespace Pucaci.Network
                 }
             }
         }
+
+        public void SetupRenderer(SkinnedMeshRenderer newRenderer)
+        {
+            characterRenderer = newRenderer;
+            if (characterRenderer != null)
+            {
+                bool isLocal = false;
+                try
+                {
+                    isLocal = isLocalPlayer;
+                }
+                catch
+                {
+                    isLocal = true;
+                }
+
+                if (!isLocal)
+                {
+                    characterRenderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.On;
+                }
+            }
+        }
     }
 }

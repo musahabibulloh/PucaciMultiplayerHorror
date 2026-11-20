@@ -82,6 +82,7 @@ namespace Pucaci.Editor
 
             // 7. Build Panels
             MenuPanel mainPanel = BuildMainPanel(canvasObj.transform, controller);
+            MenuPanel charSelectPanel = BuildCharacterSelectPanel(canvasObj.transform, controller);
             MenuPanel mabarPanel = BuildMabarPanel(canvasObj.transform, controller);
             MenuPanel caraBermainPanel = BuildCaraBermainPanel(canvasObj.transform, controller);
             MenuPanel settingsPanel = BuildSettingsPanel(canvasObj.transform, controller);
@@ -103,12 +104,13 @@ namespace Pucaci.Editor
             // Connect Controller Serialized Fields
             SerializedObject so = new SerializedObject(controller);
             so.FindProperty("mainPanel").objectReferenceValue = mainPanel;
+            so.FindProperty("characterSelectPanel").objectReferenceValue = charSelectPanel;
             so.FindProperty("mabarPanel").objectReferenceValue = mabarPanel;
             so.FindProperty("caraBermainPanel").objectReferenceValue = caraBermainPanel;
             so.FindProperty("settingsPanel").objectReferenceValue = settingsPanel;
             so.FindProperty("creditsPanel").objectReferenceValue = creditsPanel;
             so.FindProperty("quitConfirmDialog").objectReferenceValue = quitDialog;
-            so.FindProperty("gameSceneName").stringValue = "PrototypeScene";
+            so.FindProperty("gameSceneName").stringValue = "Gameplay";
             so.FindProperty("versionText").objectReferenceValue = verObj.GetComponent<TMP_Text>();
             so.ApplyModifiedPropertiesWithoutUndo();
 
@@ -198,16 +200,17 @@ namespace Pucaci.Editor
 
         private static MenuPanel BuildMainPanel(Transform canvas, MainMenuController controller)
         {
-            GameObject panelObj = CreatePanelContainer(canvas, "MainPanel", new Vector2(420f, 440f), new Vector2(0f, -40f));
+            GameObject panelObj = CreatePanelContainer(canvas, "MainPanel", new Vector2(420f, 490f), new Vector2(0f, -40f));
             MenuPanel panel = panelObj.AddComponent<MenuPanel>();
 
             VerticalLayoutGroup layout = panelObj.AddComponent<VerticalLayoutGroup>();
-            layout.spacing = 16f;
+            layout.spacing = 14f;
             layout.childAlignment = TextAnchor.MiddleCenter;
             layout.childControlWidth = true;
             layout.childControlHeight = false;
             layout.padding = new RectOffset(20, 20, 25, 25);
 
+            Button btnPlay = CreateButton(panelObj.transform, "BtnMulai", "Mulai Main", ColorAccent, ColorBg);
             Button btnMabar = CreateButton(panelObj.transform, "BtnMabar", "Mabar", ColorAccent, ColorBg);
             Button btnCara = CreateButton(panelObj.transform, "BtnCaraBermain", "Cara Bermain", ColorText, ColorBg);
             Button btnSettings = CreateButton(panelObj.transform, "BtnPengaturan", "Pengaturan", ColorText, ColorBg);
@@ -216,6 +219,7 @@ namespace Pucaci.Editor
 
             // Connect Serialized properties on controller
             SerializedObject so = new SerializedObject(controller);
+            so.FindProperty("playButton").objectReferenceValue = btnPlay;
             so.FindProperty("mabarButton").objectReferenceValue = btnMabar;
             so.FindProperty("caraBermainButton").objectReferenceValue = btnCara;
             so.FindProperty("settingsButton").objectReferenceValue = btnSettings;
@@ -225,7 +229,135 @@ namespace Pucaci.Editor
 
             // First selected
             SerializedObject pSo = new SerializedObject(panel);
-            pSo.FindProperty("firstSelected").objectReferenceValue = btnMabar;
+            pSo.FindProperty("firstSelected").objectReferenceValue = btnPlay;
+            pSo.ApplyModifiedPropertiesWithoutUndo();
+
+            return panel;
+        }
+
+        private static MenuPanel BuildCharacterSelectPanel(Transform canvas, MainMenuController controller)
+        {
+            GameObject panelObj = CreatePanelContainer(canvas, "CharacterSelectPanel", new Vector2(920f, 660f), new Vector2(0f, -30f));
+            MenuPanel panel = panelObj.AddComponent<MenuPanel>();
+
+            VerticalLayoutGroup layout = panelObj.AddComponent<VerticalLayoutGroup>();
+            layout.spacing = 16f;
+            layout.childAlignment = TextAnchor.UpperCenter;
+            layout.childControlWidth = true;
+            layout.childControlHeight = false;
+            layout.padding = new RectOffset(30, 30, 25, 25);
+
+            CreateTMPText(panelObj.transform, "Header", "PILIH KARAKTER", 30, TextAlignmentOptions.Center);
+            CreateTMPText(panelObj.transform, "Subtitle", "Pilih siapa yang ingin kamu mainkan dalam ronda malam ini:", 18, TextAlignmentOptions.Center);
+
+            // Cards Row
+            GameObject cardsRow = new GameObject("CardsRow", typeof(RectTransform), typeof(HorizontalLayoutGroup));
+            cardsRow.transform.SetParent(panelObj.transform, false);
+            HorizontalLayoutGroup cLayout = cardsRow.GetComponent<HorizontalLayoutGroup>();
+            cLayout.spacing = 25f;
+            cLayout.childControlWidth = true;
+            cLayout.childControlHeight = true;
+            cardsRow.GetComponent<RectTransform>().sizeDelta = new Vector2(860f, 430f);
+
+            // --- Card 1: Laras ---
+            GameObject cardLaras = new GameObject("Card_Laras", typeof(RectTransform), typeof(Image));
+            cardLaras.transform.SetParent(cardsRow.transform, false);
+            Image larasBorder = cardLaras.GetComponent<Image>();
+            larasBorder.color = ColorAccent;
+
+            GameObject larasInner = new GameObject("Inner", typeof(RectTransform), typeof(Image), typeof(VerticalLayoutGroup));
+            larasInner.transform.SetParent(cardLaras.transform, false);
+            RectTransform liRect = larasInner.GetComponent<RectTransform>();
+            liRect.anchorMin = Vector2.zero;
+            liRect.anchorMax = Vector2.one;
+            liRect.offsetMin = new Vector2(4f, 4f);
+            liRect.offsetMax = new Vector2(-4f, -4f);
+            larasInner.GetComponent<Image>().color = new Color(0.08f, 0.11f, 0.18f, 0.98f);
+
+            VerticalLayoutGroup liLayout = larasInner.GetComponent<VerticalLayoutGroup>();
+            liLayout.spacing = 10f;
+            liLayout.childAlignment = TextAnchor.UpperCenter;
+            liLayout.childControlWidth = true;
+            liLayout.childControlHeight = false;
+            liLayout.padding = new RectOffset(20, 20, 20, 20);
+
+            CreateTMPText(larasInner.transform, "Name", "LARAS", 30, TextAlignmentOptions.Center);
+            var roleLaras = CreateTMPText(larasInner.transform, "Role", "[ MAHASISWI KKN ]", 16, TextAlignmentOptions.Center);
+            roleLaras.GetComponent<TMP_Text>().color = new Color(0.5f, 0.8f, 1f, 1f);
+
+            string larasDesc = "Gadis pemberani dan lincah. Memiliki reflek gesit untuk melarikan diri dari kejaran dedemit kampung.";
+            CreateTMPText(larasInner.transform, "Desc", larasDesc, 16, TextAlignmentOptions.TopLeft);
+
+            string larasTraits = "• Langkah Lincah & Cepat\n• Reflek Gerak Responsif\n• Pengamatan Senter Tajam";
+            var traitLaras = CreateTMPText(larasInner.transform, "Traits", larasTraits, 15, TextAlignmentOptions.TopLeft);
+            traitLaras.GetComponent<TMP_Text>().color = new Color(0.7f, 0.8f, 0.9f, 0.9f);
+
+            Button btnSelectLaras = CreateButton(larasInner.transform, "BtnSelectLaras", "[V] TERPILIH", ColorAccent, ColorBg, 360f);
+            TMP_Text larasBadge = btnSelectLaras.GetComponentInChildren<TMP_Text>();
+
+            // --- Card 2: Pak Mamat ---
+            GameObject cardMamat = new GameObject("Card_PakMamat", typeof(RectTransform), typeof(Image));
+            cardMamat.transform.SetParent(cardsRow.transform, false);
+            Image mamatBorder = cardMamat.GetComponent<Image>();
+            mamatBorder.color = new Color(0.18f, 0.22f, 0.32f, 1f);
+
+            GameObject mamatInner = new GameObject("Inner", typeof(RectTransform), typeof(Image), typeof(VerticalLayoutGroup));
+            mamatInner.transform.SetParent(cardMamat.transform, false);
+            RectTransform miRect = mamatInner.GetComponent<RectTransform>();
+            miRect.anchorMin = Vector2.zero;
+            miRect.anchorMax = Vector2.one;
+            miRect.offsetMin = new Vector2(4f, 4f);
+            miRect.offsetMax = new Vector2(-4f, -4f);
+            mamatInner.GetComponent<Image>().color = new Color(0.08f, 0.11f, 0.18f, 0.98f);
+
+            VerticalLayoutGroup miLayout = mamatInner.GetComponent<VerticalLayoutGroup>();
+            miLayout.spacing = 10f;
+            miLayout.childAlignment = TextAnchor.UpperCenter;
+            miLayout.childControlWidth = true;
+            miLayout.childControlHeight = false;
+            miLayout.padding = new RectOffset(20, 20, 20, 20);
+
+            CreateTMPText(mamatInner.transform, "Name", "PAK MAMAT", 30, TextAlignmentOptions.Center);
+            var roleMamat = CreateTMPText(mamatInner.transform, "Role", "[ HANSIP KAMPUNG ]", 16, TextAlignmentOptions.Center);
+            roleMamat.GetComponent<TMP_Text>().color = new Color(1f, 0.7f, 0.4f, 1f);
+
+            string mamatDesc = "Penjaga ronda senior kampung. Kenyang pengalaman mistis dan memiliki langkah mantap penuh waspada.";
+            CreateTMPText(mamatInner.transform, "Desc", mamatDesc, 16, TextAlignmentOptions.TopLeft);
+
+            string mamatTraits = "• Langkah Mantap & Siaga\n• Pengalaman Ronda Malam\n• Gaya Gerak Pos Hansip";
+            var traitMamat = CreateTMPText(mamatInner.transform, "Traits", mamatTraits, 15, TextAlignmentOptions.TopLeft);
+            traitMamat.GetComponent<TMP_Text>().color = new Color(0.7f, 0.8f, 0.9f, 0.9f);
+
+            Button btnSelectMamat = CreateButton(mamatInner.transform, "BtnSelectMamat", "PILIH PAK MAMAT", ColorText, ColorBg, 360f);
+            TMP_Text mamatBadge = btnSelectMamat.GetComponentInChildren<TMP_Text>();
+
+            // Bottom Action Row
+            GameObject bottomRow = new GameObject("BottomRow", typeof(RectTransform), typeof(HorizontalLayoutGroup));
+            bottomRow.transform.SetParent(panelObj.transform, false);
+            HorizontalLayoutGroup bLayout = bottomRow.GetComponent<HorizontalLayoutGroup>();
+            bLayout.spacing = 20f;
+            bLayout.childControlWidth = true;
+            bLayout.childControlHeight = true;
+            bottomRow.GetComponent<RectTransform>().sizeDelta = new Vector2(860f, 50f);
+
+            Button btnStartWithChar = CreateButton(bottomRow.transform, "BtnStartPlay", "MULAI BERMAIN", ColorAccent, ColorBg, 540f);
+            Button btnCharBack = CreateButton(bottomRow.transform, "BtnBack", "Kembali", ColorText, ColorBg, 280f);
+
+            // Connect Serialized properties on controller
+            SerializedObject so = new SerializedObject(controller);
+            so.FindProperty("selectLarasCardButton").objectReferenceValue = btnSelectLaras;
+            so.FindProperty("selectMamatCardButton").objectReferenceValue = btnSelectMamat;
+            so.FindProperty("larasCardBorder").objectReferenceValue = larasBorder;
+            so.FindProperty("mamatCardBorder").objectReferenceValue = mamatBorder;
+            so.FindProperty("larasStatusBadge").objectReferenceValue = larasBadge;
+            so.FindProperty("mamatStatusBadge").objectReferenceValue = mamatBadge;
+            so.FindProperty("startPlayWithCharacterButton").objectReferenceValue = btnStartWithChar;
+            so.FindProperty("characterSelectBackButton").objectReferenceValue = btnCharBack;
+            so.ApplyModifiedPropertiesWithoutUndo();
+
+            // First selected
+            SerializedObject pSo = new SerializedObject(panel);
+            pSo.FindProperty("firstSelected").objectReferenceValue = btnStartWithChar;
             pSo.ApplyModifiedPropertiesWithoutUndo();
 
             return panel;
@@ -233,17 +365,29 @@ namespace Pucaci.Editor
 
         private static MenuPanel BuildMabarPanel(Transform canvas, MainMenuController controller)
         {
-            GameObject panelObj = CreatePanelContainer(canvas, "MabarPanel", new Vector2(500f, 480f), new Vector2(0f, -40f));
+            GameObject panelObj = CreatePanelContainer(canvas, "MabarPanel", new Vector2(520f, 540f), new Vector2(0f, -40f));
             MenuPanel panel = panelObj.AddComponent<MenuPanel>();
 
             VerticalLayoutGroup layout = panelObj.AddComponent<VerticalLayoutGroup>();
-            layout.spacing = 16f;
+            layout.spacing = 14f;
             layout.childAlignment = TextAnchor.MiddleCenter;
             layout.childControlWidth = true;
             layout.childControlHeight = false;
-            layout.padding = new RectOffset(30, 30, 25, 25);
+            layout.padding = new RectOffset(30, 30, 20, 20);
 
             CreateTMPText(panelObj.transform, "Header", "MABAR (MULTIPLAYER)", 28, TextAlignmentOptions.Center);
+
+            // Character Info Row in Mabar
+            GameObject charRow = new GameObject("CharRow", typeof(RectTransform), typeof(HorizontalLayoutGroup));
+            charRow.transform.SetParent(panelObj.transform, false);
+            HorizontalLayoutGroup chLayout = charRow.GetComponent<HorizontalLayoutGroup>();
+            chLayout.spacing = 10f;
+            chLayout.childControlWidth = true;
+            chLayout.childControlHeight = true;
+            charRow.GetComponent<RectTransform>().sizeDelta = new Vector2(460f, 40f);
+
+            GameObject charTextObj = CreateTMPText(charRow.transform, "MabarCharText", "Karakter Aktif: <b>Laras</b>", 16, TextAlignmentOptions.MidlineLeft, 300f);
+            Button btnChangeChar = CreateButton(charRow.transform, "BtnChangeChar", "Ganti", ColorAccent, ColorBg, 140f);
 
             Button btnHost = CreateButton(panelObj.transform, "BtnHost", "Buat Ruangan (Host)", ColorAccent, ColorBg);
 
@@ -254,7 +398,7 @@ namespace Pucaci.Editor
             joinLayout.spacing = 10f;
             joinLayout.childControlWidth = true;
             joinLayout.childControlHeight = true;
-            joinRow.GetComponent<RectTransform>().sizeDelta = new Vector2(440f, 50f);
+            joinRow.GetComponent<RectTransform>().sizeDelta = new Vector2(460f, 48f);
 
             TMP_InputField roomInput = CreateInputField(joinRow.transform, "RoomCodeInput", "Kode Ruangan...");
             Button btnJoin = CreateButton(joinRow.transform, "BtnJoin", "Gabung", ColorText, ColorBg, 120f);
@@ -274,6 +418,8 @@ namespace Pucaci.Editor
             so.FindProperty("soloPracticeButton").objectReferenceValue = btnSolo;
             so.FindProperty("mabarBackButton").objectReferenceValue = btnBack;
             so.FindProperty("mabarStatusText").objectReferenceValue = statusText;
+            so.FindProperty("mabarCharacterText").objectReferenceValue = charTextObj.GetComponent<TMP_Text>();
+            so.FindProperty("mabarChangeCharacterButton").objectReferenceValue = btnChangeChar;
             so.ApplyModifiedPropertiesWithoutUndo();
 
             SerializedObject pSo = new SerializedObject(panel);

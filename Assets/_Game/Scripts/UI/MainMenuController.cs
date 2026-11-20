@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using Pucaci.Core;
+using Pucaci.Player;
 using TMPro;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -21,6 +22,7 @@ namespace Pucaci.UI
 
         [Header("Panels")]
         [SerializeField] private MenuPanel mainPanel;
+        [SerializeField] private MenuPanel characterSelectPanel;
         [SerializeField] private MenuPanel mabarPanel;
         [SerializeField] private MenuPanel caraBermainPanel;
         [SerializeField] private MenuPanel settingsPanel;
@@ -35,6 +37,16 @@ namespace Pucaci.UI
         [SerializeField] private Button creditsButton;
         [SerializeField] private Button quitButton;
 
+        [Header("Character Selection Panel Elements")]
+        [SerializeField] private Button selectLarasCardButton;
+        [SerializeField] private Button selectMamatCardButton;
+        [SerializeField] private Image larasCardBorder;
+        [SerializeField] private Image mamatCardBorder;
+        [SerializeField] private TMP_Text larasStatusBadge;
+        [SerializeField] private TMP_Text mamatStatusBadge;
+        [SerializeField] private Button startPlayWithCharacterButton;
+        [SerializeField] private Button characterSelectBackButton;
+
         [Header("Mabar Panel Elements")]
         [SerializeField] private Button hostButton;
         [SerializeField] private Button joinButton;
@@ -42,6 +54,8 @@ namespace Pucaci.UI
         [SerializeField] private Button soloPracticeButton;
         [SerializeField] private Button mabarBackButton;
         [SerializeField] private TMP_Text mabarStatusText;
+        [SerializeField] private TMP_Text mabarCharacterText;
+        [SerializeField] private Button mabarChangeCharacterButton;
 
         [Header("Cara Bermain Panel")]
         [SerializeField] private Button caraBermainBackButton;
@@ -90,18 +104,25 @@ namespace Pucaci.UI
             }
 
             // Bind Main Menu Buttons
-            if (playButton != null) playButton.onClick.AddListener(OnSoloPracticeClicked);
+            if (playButton != null) playButton.onClick.AddListener(OpenCharacterSelectPanel);
             if (mabarButton != null) mabarButton.onClick.AddListener(() => OpenPanel(mabarPanel));
             if (caraBermainButton != null) caraBermainButton.onClick.AddListener(() => OpenPanel(caraBermainPanel));
             if (settingsButton != null) settingsButton.onClick.AddListener(() => OpenPanel(settingsPanel));
             if (creditsButton != null) creditsButton.onClick.AddListener(() => OpenPanel(creditsPanel));
             if (quitButton != null) quitButton.onClick.AddListener(() => OpenPanel(quitConfirmDialog));
 
+            // Bind Character Select Panel
+            if (selectLarasCardButton != null) selectLarasCardButton.onClick.AddListener(() => OnCharacterSelected(CharacterType.Laras));
+            if (selectMamatCardButton != null) selectMamatCardButton.onClick.AddListener(() => OnCharacterSelected(CharacterType.PakMamat));
+            if (startPlayWithCharacterButton != null) startPlayWithCharacterButton.onClick.AddListener(OnSoloPracticeClicked);
+            if (characterSelectBackButton != null) characterSelectBackButton.onClick.AddListener(ReturnToPreviousPanel);
+
             // Bind Mabar Panel
             if (hostButton != null) hostButton.onClick.AddListener(OnHostClicked);
             if (joinButton != null) joinButton.onClick.AddListener(OnJoinClicked);
-            if (soloPracticeButton != null) soloPracticeButton.onClick.AddListener(OnSoloPracticeClicked);
+            if (soloPracticeButton != null) soloPracticeButton.onClick.AddListener(OpenCharacterSelectPanel);
             if (mabarBackButton != null) mabarBackButton.onClick.AddListener(ReturnToPreviousPanel);
+            if (mabarChangeCharacterButton != null) mabarChangeCharacterButton.onClick.AddListener(OpenCharacterSelectPanel);
 
             // Bind Other Back Buttons
             if (caraBermainBackButton != null) caraBermainBackButton.onClick.AddListener(ReturnToPreviousPanel);
@@ -110,6 +131,8 @@ namespace Pucaci.UI
             // Bind Quit Dialog
             if (confirmQuitButton != null) confirmQuitButton.onClick.AddListener(ExecuteQuit);
             if (cancelQuitButton != null) cancelQuitButton.onClick.AddListener(ReturnToPreviousPanel);
+
+            UpdateCharacterSelectUI();
 
             // Sembunyikan semua panel sekunder dan tampilkan panel utama
             HideAllSecondaryPanels();
@@ -198,12 +221,64 @@ namespace Pucaci.UI
 
         private void HideAllSecondaryPanels()
         {
+            if (characterSelectPanel != null) characterSelectPanel.Hide();
             if (mabarPanel != null) mabarPanel.Hide();
             if (caraBermainPanel != null) caraBermainPanel.Hide();
             if (settingsPanel != null) settingsPanel.Hide();
             if (creditsPanel != null) creditsPanel.Hide();
             if (quitConfirmDialog != null) quitConfirmDialog.Hide();
         }
+
+        #region Character Selection Actions
+        public void OpenCharacterSelectPanel()
+        {
+            UpdateCharacterSelectUI();
+            OpenPanel(characterSelectPanel);
+        }
+
+        public void OnCharacterSelected(CharacterType type)
+        {
+            CharacterSelectionData.CurrentCharacter = type;
+            UpdateCharacterSelectUI();
+        }
+
+        public void UpdateCharacterSelectUI()
+        {
+            CharacterType current = CharacterSelectionData.CurrentCharacter;
+            bool isLaras = (current == CharacterType.Laras);
+
+            Color accentColor = new Color(255f / 255f, 179f / 255f, 71f / 255f, 1f); // #FFB347
+            Color normalBorderColor = new Color(0.18f, 0.22f, 0.32f, 1f);
+            Color normalTextColor = new Color(242f / 255f, 232f / 255f, 213f / 255f, 1f);
+
+            if (larasCardBorder != null)
+            {
+                larasCardBorder.color = isLaras ? accentColor : normalBorderColor;
+            }
+            if (larasStatusBadge != null)
+            {
+                larasStatusBadge.text = isLaras ? "[V] TERPILIH" : "PILIH LARAS";
+                larasStatusBadge.color = isLaras ? accentColor : normalTextColor;
+            }
+
+            if (mamatCardBorder != null)
+            {
+                mamatCardBorder.color = !isLaras ? accentColor : normalBorderColor;
+            }
+            if (mamatStatusBadge != null)
+            {
+                mamatStatusBadge.text = !isLaras ? "[V] TERPILIH" : "PILIH PAK MAMAT";
+                mamatStatusBadge.color = !isLaras ? accentColor : normalTextColor;
+            }
+
+            if (mabarCharacterText != null)
+            {
+                string charName = CharacterSelectionData.GetCharacterName(current);
+                string charRole = CharacterSelectionData.GetCharacterRole(current);
+                mabarCharacterText.text = $"Karakter Aktif: <color=#FFB347><b>{charName}</b></color> ({charRole})";
+            }
+        }
+        #endregion
 
         #region Mabar Actions
         private void OnHostClicked()

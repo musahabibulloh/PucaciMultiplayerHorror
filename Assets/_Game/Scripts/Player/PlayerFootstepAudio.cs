@@ -138,6 +138,13 @@ namespace Pucaci.Player
             wasGrounded = pcc != null ? pcc.IsGrounded : true;
         }
 
+        public void SetupFootstepBones(Transform newModelTransform)
+        {
+            if (newModelTransform == null) return;
+            leftFootBone = newModelTransform.Find("mixamorig:Hips/mixamorig:LeftUpLeg/mixamorig:LeftLeg/mixamorig:LeftFoot");
+            rightFootBone = newModelTransform.Find("mixamorig:Hips/mixamorig:RightUpLeg/mixamorig:RightLeg/mixamorig:RightFoot");
+        }
+
         private void ConfigureAudioSource(AudioSource src, string debugName)
         {
             if (src == null) return;
