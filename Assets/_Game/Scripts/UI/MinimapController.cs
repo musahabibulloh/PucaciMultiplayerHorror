@@ -21,10 +21,10 @@ namespace Pucaci.UI
         [Header("Zoom Settings")]
         [Tooltip("Ukuran ortografis saat mode follow di sudut layar (radius pandang ~20m)")]
         [SerializeField] private float followZoom = 20f;
-        [Tooltip("Ukuran ortografis saat mode peta penuh (mencakup seluruh desa ~44m)")]
-        [SerializeField] private float fullMapZoom = 44f;
+        [Tooltip("Ukuran ortografis saat mode peta penuh (mencakup seluruh desa ~48m)")]
+        [SerializeField] private float fullMapZoom = 48f;
         [Tooltip("Pusat desa untuk peta penuh")]
-        [SerializeField] private Vector3 villageCenter = new Vector3(2.7f, 0f, 0f);
+        [SerializeField] private Vector3 villageCenter = Vector3.zero;
 
         [Header("Corner Radar UI")]
         [SerializeField] private RectTransform cornerRadarContainer;
@@ -126,6 +126,11 @@ namespace Pucaci.UI
 
         private void LateUpdate()
         {
+            UpdateCameraView();
+        }
+
+        private void UpdateCameraView()
+        {
             if (minimapCamera == null) return;
 
             if (isFullMap)
@@ -144,22 +149,16 @@ namespace Pucaci.UI
                         fullMapPlayerMarker.gameObject.SetActive(true);
                         Vector3 offset = targetPlayer.position - villageCenter;
 
-                        float feedRadius = (fullMapFeed != null) ? (fullMapFeed.rect.width * 0.5f) : 270f;
+                        float feedRadius = (fullMapFeed != null) ? (fullMapFeed.rect.width * 0.5f) : 460f;
                         float uiScale = feedRadius / fullMapZoom;
 
                         fullMapPlayerMarker.anchoredPosition = new Vector2(offset.x * uiScale, offset.z * uiScale);
                         fullMapPlayerMarker.localRotation = Quaternion.Euler(0f, 0f, -targetPlayer.eulerAngles.y);
                     }
-
-                    if (playerCoordinatesText != null)
-                    {
-                        playerCoordinatesText.text = $"X: {targetPlayer.position.x:F1}  |  Z: {targetPlayer.position.z:F1}";
-                    }
                 }
                 else
                 {
                     if (fullMapPlayerMarker != null) fullMapPlayerMarker.gameObject.SetActive(false);
-                    if (playerCoordinatesText != null) playerCoordinatesText.text = "X: -  |  Z: -";
                 }
             }
             else
@@ -216,11 +215,28 @@ namespace Pucaci.UI
                 fullMapModal.SetActive(isFullMap);
             }
 
-            // Sembunyikan radar sudut saat peta penuh aktif agar UI tidak bertumpuk
+            // Sembunyikan radar sudut saat peta penuh aktif menggunakan CanvasGroup agar script MinimapController tidak ikut mati
             if (cornerRadarContainer != null)
             {
-                cornerRadarContainer.gameObject.SetActive(!isFullMap);
+                var cg = cornerRadarContainer.GetComponent<CanvasGroup>();
+                if (cg == null && cornerRadarContainer.gameObject == gameObject)
+                {
+                    cg = cornerRadarContainer.gameObject.AddComponent<CanvasGroup>();
+                }
+
+                if (cg != null)
+                {
+                    cg.alpha = isFullMap ? 0f : 1f;
+                    cg.blocksRaycasts = !isFullMap;
+                }
+                else if (cornerRadarContainer.gameObject != gameObject)
+                {
+                    cornerRadarContainer.gameObject.SetActive(!isFullMap);
+                }
             }
+
+            // Langsung perbarui posisi & zoom kamera agar transisi instan
+            UpdateCameraView();
 
             // Atur status kursor
             if (isFullMap)

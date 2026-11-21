@@ -72,6 +72,28 @@ namespace Pucaci.Player
         [Tooltip("Tinggi CharacterController saat meluncur")]
         [SerializeField] private float slideControllerHeight = 1.0f;
 
+        [Header("Flight (Kuntilanak Mode)")]
+        [Tooltip("Kecepatan melayang horizontal untuk karakter terbang (m/s)")]
+        [SerializeField] private float flightSpeed = 4.5f;
+
+        [Tooltip("Kecepatan terbang naik/turun (m/s)")]
+        [SerializeField] private float flightVerticalSpeed = 3.5f;
+
+        [Tooltip("Tingkat akselerasi penerbangan vertikal")]
+        [SerializeField] private float flightAcceleration = 12f;
+
+        [Tooltip("Kecepatan melayang saat wujud hantu Casper aktif (m/s)")]
+        [SerializeField] private float ghostFlightSpeed = 6.0f;
+
+        private bool isFlyingCharacter = false;
+        public bool IsFlyingCharacter => isFlyingCharacter;
+        private bool isGhostSpeedBoosted = false;
+
+        public void SetGhostSpeedBoost(bool boost)
+        {
+            isGhostSpeedBoosted = boost;
+        }
+
         [Header("Camera & Mouse Look")]
         [Tooltip("Transform root kamera mata (First-Person)")]
         [SerializeField] private Transform cameraRoot;
@@ -246,8 +268,16 @@ namespace Pucaci.Player
             RefreshAnimatorParams();
         }
 
-        public void SetupCharacterModel(Transform newModelTransform, Animator newAnimator, SkinnedMeshRenderer newRenderer, Mesh customFppMesh = null)
+        public void SetupCharacterModel(Transform newModelTransform, Animator newAnimator, SkinnedMeshRenderer newRenderer, Mesh customFppMesh = null, bool isFlying = false, Vector3 customModelOffset = default)
         {
+            modelOffset = customModelOffset;
+            isFlyingCharacter = isFlying;
+            if (isFlyingCharacter)
+            {
+                verticalVelocity = 0f;
+                isSliding = false;
+            }
+
             modelTransform = newModelTransform;
             animator = newAnimator;
             characterRenderer = newRenderer;
@@ -267,7 +297,29 @@ namespace Pucaci.Player
             {
                 modelTransform.localPosition = modelOffset;
                 hipsTransform = modelTransform.Find("mixamorig:Hips");
+                if (hipsTransform == null)
+                {
+                    hipsTransform = modelTransform.Find("Armature/mixamorig:Hips");
+                }
+                if (hipsTransform == null && animator != null && animator.isHuman)
+                {
+                    hipsTransform = animator.GetBoneTransform(HumanBodyBones.Hips);
+                }
+                if (hipsTransform == null)
+                {
+                    hipsTransform = modelTransform.Find("Armature.001/Bone");
+                }
+
                 neckBone = modelTransform.Find("mixamorig:Hips/mixamorig:Spine/mixamorig:Spine1/mixamorig:Spine2/mixamorig:Neck");
+                if (neckBone == null)
+                {
+                    neckBone = modelTransform.Find("Armature/mixamorig:Hips/mixamorig:Spine/mixamorig:Spine1/mixamorig:Spine2/mixamorig:Neck");
+                }
+                if (neckBone == null && animator != null && animator.isHuman)
+                {
+                    neckBone = animator.GetBoneTransform(HumanBodyBones.Neck);
+                }
+
                 if (neckBone != null)
                 {
                     headBone = neckBone.Find("mixamorig:Head");
@@ -275,13 +327,32 @@ namespace Pucaci.Player
                 else
                 {
                     headBone = modelTransform.Find("mixamorig:Hips/mixamorig:Spine/mixamorig:Spine1/mixamorig:Spine2/mixamorig:Neck/mixamorig:Head");
+                    if (headBone == null)
+                    {
+                        headBone = modelTransform.Find("Armature/mixamorig:Hips/mixamorig:Spine/mixamorig:Spine1/mixamorig:Spine2/mixamorig:Neck/mixamorig:Head");
+                    }
+                }
+
+                if (headBone == null && animator != null && animator.isHuman)
+                {
+                    headBone = animator.GetBoneTransform(HumanBodyBones.Head);
+                }
+
+                if (neckBone == null)
+                {
+                    neckBone = modelTransform.Find("Armature.001/Bone/Bone.001/Bone.002/Bone.003/Bone.004");
+                    if (neckBone != null)
+                    {
+                        headBone = neckBone.Find("Bone.005");
+                    }
                 }
             }
 
             if (hipsTransform != null)
             {
-                initialHipsLocalX = Mathf.Abs(hipsTransform.localPosition.x) > 0.2f ? 0f : hipsTransform.localPosition.x;
-                initialHipsLocalZ = Mathf.Abs(hipsTransform.localPosition.z) > 0.2f ? 0f : hipsTransform.localPosition.z;
+                bool isMixamo = hipsTransform.name.Contains("mixamorig");
+                initialHipsLocalX = (isMixamo && Mathf.Abs(hipsTransform.localPosition.x) > 0.2f) ? 0f : hipsTransform.localPosition.x;
+                initialHipsLocalZ = (isMixamo && Mathf.Abs(hipsTransform.localPosition.z) > 0.2f) ? 0f : hipsTransform.localPosition.z;
             }
 
             RefreshAnimatorParams();
@@ -556,7 +627,7 @@ namespace Pucaci.Player
                 moveInput = Vector2.zero;
             }
             bool hasMoveInput = moveInput.sqrMagnitude > 0.01f;
-            bool isSprintInput = GetSprintInput() && hasMoveInput && isGrounded;
+            bool isSprintInput = !isFlyingCharacter && GetSprintInput() && hasMoveInput && isGrounded;
 
             // Pemrosesan Stamina & Kondisi Capek (Exhausted)
             bool isSprint = false;
@@ -611,11 +682,35 @@ namespace Pucaci.Player
 
             if (hasMoveInput)
             {
-                float targetSpeed = isSprint ? sprintSpeed : walkSpeed;
+                float currentTargetFlightSpeed = isGhostSpeedBoosted ? ghostFlightSpeed : flightSpeed;
+                float targetSpeed = isFlyingCharacter ? currentTargetFlightSpeed : (isSprint ? sprintSpeed : walkSpeed);
                 currentHorizontalSpeed = Mathf.Lerp(currentHorizontalSpeed, targetSpeed, Time.deltaTime * accelerationRate);
-                Vector3 moveDirection = (transform.right * moveInput.x + transform.forward * moveInput.y).normalized;
+                
+                Vector3 moveDirection;
+                if (isFlyingCharacter)
+                {
+                    Transform aimRef = cameraRoot != null ? cameraRoot : transform;
+                    // Terbang 3D penuh mengikuti arah pandang crosshair kamera:
+                    // W = terbang ke arah crosshair (ke atas jika lihat atas, ke bawah jika lihat bawah)
+                    // S = terbang mundur menjauhi crosshair
+                    // A / D = strafe kiri / kanan relatif terhadap pandangan kamera
+                    moveDirection = (aimRef.right * moveInput.x + aimRef.forward * moveInput.y).normalized;
+                }
+                else
+                {
+                    moveDirection = (transform.right * moveInput.x + transform.forward * moveInput.y).normalized;
+                }
+
                 Vector3 finalMove = moveDirection * (currentHorizontalSpeed * Time.deltaTime);
-                finalMove.y = verticalVelocity * Time.deltaTime;
+                if (isFlyingCharacter)
+                {
+                    // Tambahkan vertical velocity tambahan jika menekan Space atau Ctrl
+                    finalMove.y += verticalVelocity * Time.deltaTime;
+                }
+                else
+                {
+                    finalMove.y = verticalVelocity * Time.deltaTime;
+                }
                 controller.Move(finalMove);
             }
             else
@@ -629,6 +724,12 @@ namespace Pucaci.Player
 
         private void HandleJumpAndGravity()
         {
+            if (isFlyingCharacter)
+            {
+                HandleFlightVerticalMovement();
+                return;
+            }
+
             // Jika di tanah dan sedang bergerak ke bawah / diam, kunci kecepatan vertikal kecil ke bawah agar menempel tanah
             if (isGrounded && verticalVelocity < 0f)
             {
@@ -658,8 +759,38 @@ namespace Pucaci.Player
             }
         }
 
+        private void HandleFlightVerticalMovement()
+        {
+            float targetVertical = 0f;
+            bool flyUp = GetFlyUpInput();
+            bool flyDown = GetFlyDownInput();
+
+            if (flyUp && !flyDown)
+            {
+                targetVertical = flightVerticalSpeed;
+            }
+            else if (flyDown && !flyUp)
+            {
+                targetVertical = -flightVerticalSpeed;
+            }
+            else
+            {
+                targetVertical = 0f;
+            }
+
+            verticalVelocity = Mathf.MoveTowards(verticalVelocity, targetVertical, Time.deltaTime * flightAcceleration);
+
+            // Jika menyentuh tanah dan sedang terbang ke bawah, tahan agar tidak menembus tanah
+            if (isGrounded && verticalVelocity < 0f)
+            {
+                verticalVelocity = 0f;
+            }
+        }
+
         private void HandleSlideInput()
         {
+            if (isFlyingCharacter) return;
+
             if (GetSlideInput() && isGrounded && !isSliding && currentHorizontalSpeed > walkSpeed * 0.8f)
             {
                 StartSlide();
@@ -792,9 +923,15 @@ namespace Pucaci.Player
                 {
                     characterRenderer.sharedMesh = fullBodyMesh;
                 }
+            }
 
-                // Selalu aktifkan ShadowCastingMode.On agar lengan, tangan, dan tubuh tetap terlihat di layar
-                characterRenderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.On;
+            if (modelTransform != null)
+            {
+                var allRenderers = modelTransform.GetComponentsInChildren<SkinnedMeshRenderer>(true);
+                foreach (var r in allRenderers)
+                {
+                    if (r != null) r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.On;
+                }
             }
         }
 
@@ -829,9 +966,11 @@ namespace Pucaci.Player
             // Langsung deteksi apakah tombol gerakan sedang ditekan
             Vector2 moveInput = GetMoveInput();
             bool hasMoveInput = moveInput.sqrMagnitude > 0.01f;
-            bool isMoving = hasMoveInput && isGrounded;
-            bool isSprint = GetSprintInput();
-            float normalizedSpeed = isMoving ? Mathf.Clamp01(currentHorizontalSpeed / sprintSpeed) : 0f;
+            bool isMoving = isFlyingCharacter 
+                ? (hasMoveInput || Mathf.Abs(verticalVelocity) > 0.15f) 
+                : (hasMoveInput && isGrounded);
+            bool isSprint = !isFlyingCharacter && GetSprintInput();
+            float normalizedSpeed = isMoving ? (isFlyingCharacter ? 1.0f : Mathf.Clamp01(currentHorizontalSpeed / sprintSpeed)) : 0f;
 
             // Skala target gerakan: Berjalan = 0.5f, Berlari/Sprint = 1.0f
             float speedScale = isSprint ? 1.0f : 0.5f;
@@ -850,8 +989,8 @@ namespace Pucaci.Player
             SetSafeFloat(MoveXSpaceHash, currentMoveX);
             SetSafeFloat(MoveZSpaceHash, currentMoveZ);
             SetSafeBool(IsMovingHash, isMoving);
-            SetSafeBool(IsGroundedHash, isGrounded);
-            SetSafeBool(IsSlidingHash, isSliding);
+            SetSafeBool(IsGroundedHash, isFlyingCharacter ? true : isGrounded);
+            SetSafeBool(IsSlidingHash, isFlyingCharacter ? false : isSliding);
         }
 
         #region Public Action Triggers
@@ -913,6 +1052,8 @@ namespace Pucaci.Player
 
         private bool GetJumpInput()
         {
+            if (isFlyingCharacter) return false;
+
 #if ENABLE_INPUT_SYSTEM
             if (Keyboard.current != null && Keyboard.current.spaceKey.wasPressedThisFrame) return true;
             if (Gamepad.current != null && Gamepad.current.buttonSouth.wasPressedThisFrame) return true;
@@ -922,8 +1063,31 @@ namespace Pucaci.Player
             return false;
         }
 
+        private bool GetFlyUpInput()
+        {
+#if ENABLE_INPUT_SYSTEM
+            if (Keyboard.current != null && Keyboard.current.spaceKey.isPressed) return true;
+            if (Gamepad.current != null && Gamepad.current.buttonSouth.isPressed) return true;
+#else
+            if (Input.GetKey(KeyCode.Space)) return true;
+#endif
+            return false;
+        }
+
+        private bool GetFlyDownInput()
+        {
+#if ENABLE_INPUT_SYSTEM
+            if (Keyboard.current != null && (Keyboard.current.leftCtrlKey.isPressed || Keyboard.current.cKey.isPressed)) return true;
+            if (Gamepad.current != null && Gamepad.current.buttonEast.isPressed) return true;
+#else
+            if (Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.C)) return true;
+#endif
+            return false;
+        }
+
         private bool GetSlideInput()
         {
+            if (isFlyingCharacter) return false;
 #if ENABLE_INPUT_SYSTEM
             if (Keyboard.current != null && (Keyboard.current.leftCtrlKey.wasPressedThisFrame || Keyboard.current.cKey.wasPressedThisFrame)) return true;
             if (Gamepad.current != null && Gamepad.current.buttonEast.wasPressedThisFrame) return true;
