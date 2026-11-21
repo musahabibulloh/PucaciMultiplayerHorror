@@ -268,8 +268,9 @@ namespace Pucaci.Player
             RefreshAnimatorParams();
         }
 
-        public void SetupCharacterModel(Transform newModelTransform, Animator newAnimator, SkinnedMeshRenderer newRenderer, Mesh customFppMesh = null, bool isFlying = false)
+        public void SetupCharacterModel(Transform newModelTransform, Animator newAnimator, SkinnedMeshRenderer newRenderer, Mesh customFppMesh = null, bool isFlying = false, Vector3 customModelOffset = default)
         {
+            modelOffset = customModelOffset;
             isFlyingCharacter = isFlying;
             if (isFlyingCharacter)
             {
@@ -298,10 +299,27 @@ namespace Pucaci.Player
                 hipsTransform = modelTransform.Find("mixamorig:Hips");
                 if (hipsTransform == null)
                 {
+                    hipsTransform = modelTransform.Find("Armature/mixamorig:Hips");
+                }
+                if (hipsTransform == null && animator != null && animator.isHuman)
+                {
+                    hipsTransform = animator.GetBoneTransform(HumanBodyBones.Hips);
+                }
+                if (hipsTransform == null)
+                {
                     hipsTransform = modelTransform.Find("Armature.001/Bone");
                 }
 
                 neckBone = modelTransform.Find("mixamorig:Hips/mixamorig:Spine/mixamorig:Spine1/mixamorig:Spine2/mixamorig:Neck");
+                if (neckBone == null)
+                {
+                    neckBone = modelTransform.Find("Armature/mixamorig:Hips/mixamorig:Spine/mixamorig:Spine1/mixamorig:Spine2/mixamorig:Neck");
+                }
+                if (neckBone == null && animator != null && animator.isHuman)
+                {
+                    neckBone = animator.GetBoneTransform(HumanBodyBones.Neck);
+                }
+
                 if (neckBone != null)
                 {
                     headBone = neckBone.Find("mixamorig:Head");
@@ -309,6 +327,15 @@ namespace Pucaci.Player
                 else
                 {
                     headBone = modelTransform.Find("mixamorig:Hips/mixamorig:Spine/mixamorig:Spine1/mixamorig:Spine2/mixamorig:Neck/mixamorig:Head");
+                    if (headBone == null)
+                    {
+                        headBone = modelTransform.Find("Armature/mixamorig:Hips/mixamorig:Spine/mixamorig:Spine1/mixamorig:Spine2/mixamorig:Neck/mixamorig:Head");
+                    }
+                }
+
+                if (headBone == null && animator != null && animator.isHuman)
+                {
+                    headBone = animator.GetBoneTransform(HumanBodyBones.Head);
                 }
 
                 if (neckBone == null)

@@ -17,6 +17,9 @@ namespace Pucaci.Player
         [Tooltip("Root GameObject model Kuntilanak")]
         [SerializeField] private GameObject modelKuntilanak;
 
+        [Tooltip("Root GameObject model Pak Vincent")]
+        [SerializeField] private GameObject modelPakVincent;
+
         [Header("First-Person Custom Meshes")]
         [Tooltip("Mesh khusus tangan saja untuk Pak Mamat di tampilan FPP")]
         [SerializeField] private Mesh pakMamatArmsMesh;
@@ -32,7 +35,7 @@ namespace Pucaci.Player
         private int characterIndex = -1;
 
         public CharacterType ActiveCharacterType => (CharacterType)Mathf.Max(0, characterIndex);
-        public GameObject ActiveModel => (characterIndex == 2) ? modelKuntilanak : ((characterIndex == 1) ? modelPakMamat : modelLaras);
+        public GameObject ActiveModel => (characterIndex == 3) ? modelPakVincent : ((characterIndex == 2) ? modelKuntilanak : ((characterIndex == 1) ? modelPakMamat : modelLaras));
 
         private void Awake()
         {
@@ -109,6 +112,12 @@ namespace Pucaci.Player
                 if (t != null) modelKuntilanak = t.gameObject;
             }
 
+            if (modelPakVincent == null)
+            {
+                var t = transform.Find("Model_PakVincent") ?? transform.Find("Model_Vincent");
+                if (t != null) modelPakVincent = t.gameObject;
+            }
+
             if (pakMamatArmsMesh == null)
             {
 #if UNITY_EDITOR
@@ -131,22 +140,28 @@ namespace Pucaci.Player
 
         public void ApplyCharacter(int index)
         {
-            characterIndex = Mathf.Clamp(index, 0, 2);
+            characterIndex = Mathf.Clamp(index, 0, 3);
             AutoResolveModels();
 
             bool isLaras = (characterIndex == 0);
             bool isMamat = (characterIndex == 1);
             bool isKunti = (characterIndex == 2);
+            bool isVincent = (characterIndex == 3);
 
             if (modelLaras != null) modelLaras.SetActive(isLaras);
             if (modelPakMamat != null) modelPakMamat.SetActive(isMamat);
             if (modelKuntilanak != null) modelKuntilanak.SetActive(isKunti);
+            if (modelPakVincent != null) modelPakVincent.SetActive(isVincent);
 
-            GameObject targetModelObj = isKunti ? modelKuntilanak : (isMamat ? modelPakMamat : modelLaras);
+            GameObject targetModelObj = isVincent ? modelPakVincent : (isKunti ? modelKuntilanak : (isMamat ? modelPakMamat : modelLaras));
             if (targetModelObj == null) return;
 
+            // Armature & Mesh FBX Pak Vincent memiliki offset X = +0.716134f bawaan export Blender.
+            // Berikan kompensasi offset X negatif agar seluruh tubuh dan tulangnya tepat di tengah (center)
+            Vector3 modelOffset = isVincent ? new Vector3(-0.716134f, 0f, 0f) : Vector3.zero;
+
             Transform targetTransform = targetModelObj.transform;
-            targetTransform.localPosition = Vector3.zero;
+            targetTransform.localPosition = modelOffset;
 
             Animator targetAnim = targetModelObj.GetComponent<Animator>() ?? targetModelObj.GetComponentInChildren<Animator>();
             if (targetAnim != null)
@@ -162,7 +177,7 @@ namespace Pucaci.Player
             if (characterController != null)
             {
                 Mesh customFppMesh = (isMamat && isLocal) ? pakMamatArmsMesh : null;
-                characterController.SetupCharacterModel(targetTransform, targetAnim, targetRenderer, customFppMesh, isKunti);
+                characterController.SetupCharacterModel(targetTransform, targetAnim, targetRenderer, customFppMesh, isKunti, modelOffset);
             }
 
             if (flashlightController != null)

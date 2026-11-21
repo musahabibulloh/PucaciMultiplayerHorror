@@ -13,22 +13,22 @@ namespace Pucaci.Player
     /// </summary>
     public class KuntilanakGhostVanish : NetworkBehaviour
     {
-        [Header("Casper Ghost Visuals (Wujud Biru Transparan)")]
-        [Tooltip("Warna badan arwah biru transparan (Casper Ghost Body)")]
+        [Header("Ghost Transparency Visuals (Wujud Gaib Tembus Pandang)")]
+        [Tooltip("Warna tint dan transparansi tubuh saat menghilang (Alpha menentukan tembus pandang)")]
         [ColorUsage(true, true)]
-        [SerializeField] private Color ghostBodyColor = new Color(0.08f, 0.45f, 0.95f, 0.32f);
+        [SerializeField] private Color ghostBodyColor = new Color(1.0f, 1.0f, 1.0f, 0.28f);
 
-        [Tooltip("Warna kontur siluet menyala gaib cyan (Casper Rim Glow)")]
+        [Tooltip("Warna kontur siluet menyala gaib di tepi tubuh (Ghost Rim Glow)")]
         [ColorUsage(true, true)]
-        [SerializeField] private Color ghostRimColor = new Color(0.30f, 0.90f, 1.0f, 1.0f);
+        [SerializeField] private Color ghostRimColor = new Color(0.90f, 0.95f, 1.0f, 0.8f);
 
         [Tooltip("Eksponen ketajaman rim glow di tepi badan")]
-        [SerializeField] private float rimPower = 2.2f;
+        [SerializeField] private float rimPower = 2.0f;
 
         [Tooltip("Intensitas pendaran rim glow di tepi badan")]
-        [SerializeField] private float rimIntensity = 2.8f;
+        [SerializeField] private float rimIntensity = 2.2f;
 
-        [Tooltip("Durasi transisi memudar menjadi arwah biru (detik)")]
+        [Tooltip("Durasi transisi memudar menjadi arwah tembus pandang (detik)")]
         [SerializeField] private float fadeDuration = 0.5f;
 
         [Header("Casper Flight Boost")]
@@ -57,6 +57,8 @@ namespace Pucaci.Player
         private static readonly int RimPowerProp = Shader.PropertyToID("_RimPower");
         private static readonly int RimIntensityProp = Shader.PropertyToID("_RimIntensity");
         private static readonly int ZWriteProp = Shader.PropertyToID("_ZWrite");
+        private static readonly int SrcBlendProp = Shader.PropertyToID("_SrcBlend");
+        private static readonly int DstBlendProp = Shader.PropertyToID("_DstBlend");
         private static readonly int BaseColorProp = Shader.PropertyToID("_BaseColor");
         private static readonly int EmissionColorProp = Shader.PropertyToID("_EmissionColor");
 
@@ -88,6 +90,14 @@ namespace Pucaci.Player
 
             if (active && kuntiModelTransform != null)
             {
+                // Kondisi awal selalu full bentuk (padat / solid 100%, bukan transparan / menghilang)
+                isGhostForm = false;
+                currentGhostBlend = 0.0f;
+                if (pcc != null)
+                {
+                    pcc.SetGhostSpeedBoost(false);
+                }
+
                 kuntiRenderers = kuntiModelTransform.GetComponentsInChildren<SkinnedMeshRenderer>(true);
                 if (kuntiRenderers != null && kuntiRenderers.Length > 0)
                 {
@@ -103,6 +113,9 @@ namespace Pucaci.Player
                         }
                     }
                 }
+
+                // Langsung inisialisasi material ke status padat (full bentuk) di awal
+                ApplyMaterialPropertiesImmediate(0.0f, false);
             }
             else
             {
@@ -198,58 +211,73 @@ namespace Pucaci.Player
 
             for (int i = 0; i < instanceMaterials.Length; i++)
             {
-                var mat = instanceMaterials[i];
-                if (mat == null) continue;
+                ApplyMaterialState(instanceMaterials[i], currentGhostBlend, isGhostActive);
+            }
+        }
 
-                if (mat.HasProperty(GhostBlendProp))
+        private void ApplyMaterialPropertiesImmediate(float blend, bool isGhostActive)
+        {
+            if (instanceMaterials == null) return;
+            for (int i = 0; i < instanceMaterials.Length; i++)
+            {
+                ApplyMaterialState(instanceMaterials[i], blend, isGhostActive);
+            }
+        }
+
+        private void ApplyMaterialState(Material mat, float blend, bool isGhostActive)
+        {
+            if (mat == null) return;
+
+            if (mat.HasProperty(GhostBlendProp))
+            {
+                // Shader Custom/CasperGhost: Mengatur wujud arwah tembus pandang (transparan)
+                mat.SetFloat(GhostBlendProp, blend);
+                mat.SetColor(GhostColorProp, ghostBodyColor);
+                mat.SetColor(RimColorProp, ghostRimColor);
+                mat.SetFloat(RimPowerProp, rimPower);
+                mat.SetFloat(RimIntensityProp, rimIntensity);
+
+                mat.SetFloat(ZWriteProp, isGhostActive ? 0.0f : 1.0f);
+                mat.SetInt(SrcBlendProp, isGhostActive ? (int)UnityEngine.Rendering.BlendMode.SrcAlpha : (int)UnityEngine.Rendering.BlendMode.One);
+                mat.SetInt(DstBlendProp, isGhostActive ? (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha : (int)UnityEngine.Rendering.BlendMode.Zero);
+                mat.renderQueue = isGhostActive 
+                    ? (int)UnityEngine.Rendering.RenderQueue.Transparent 
+                    : (int)UnityEngine.Rendering.RenderQueue.Geometry;
+            }
+            else
+            {
+                // Fallback untuk shader standar URP Lit
+                float alpha = Mathf.Lerp(1.0f, ghostBodyColor.a, blend);
+                Color c = Color.Lerp(Color.white, ghostBodyColor, blend);
+                c.a = alpha;
+                mat.SetColor(BaseColorProp, c);
+
+                if (isGhostActive)
                 {
-                    // Shader Custom/CasperGhost: Mengatur transisi badan biru transparan + rim glow
-                    mat.SetFloat(GhostBlendProp, currentGhostBlend);
-                    mat.SetColor(GhostColorProp, ghostBodyColor);
-                    mat.SetColor(RimColorProp, ghostRimColor);
-                    mat.SetFloat(RimPowerProp, rimPower);
-                    mat.SetFloat(RimIntensityProp, rimIntensity);
+                    mat.EnableKeyword("_EMISSION");
+                    mat.SetColor(EmissionColorProp, ghostRimColor * blend * 1.5f);
 
-                    mat.SetFloat(ZWriteProp, isGhostActive ? 0.0f : 1.0f);
-                    mat.renderQueue = isGhostActive 
-                        ? (int)UnityEngine.Rendering.RenderQueue.Transparent 
-                        : (int)UnityEngine.Rendering.RenderQueue.Geometry;
+                    mat.SetFloat("_Surface", 1);
+                    mat.SetFloat("_Blend", 0);
+                    mat.SetOverrideTag("RenderType", "Transparent");
+                    mat.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
+                    mat.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+                    mat.SetInt("_ZWrite", 0);
+                    mat.renderQueue = (int)UnityEngine.Rendering.RenderQueue.Transparent;
+                    mat.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
                 }
                 else
                 {
-                    // Fallback untuk shader standar URP Lit
-                    float alpha = Mathf.Lerp(1.0f, ghostBodyColor.a, currentGhostBlend);
-                    Color c = Color.Lerp(Color.white, ghostBodyColor, currentGhostBlend);
-                    c.a = alpha;
-                    mat.SetColor(BaseColorProp, c);
+                    mat.DisableKeyword("_EMISSION");
+                    mat.SetColor(EmissionColorProp, Color.black);
 
-                    if (isGhostActive)
-                    {
-                        mat.EnableKeyword("_EMISSION");
-                        mat.SetColor(EmissionColorProp, ghostRimColor * currentGhostBlend * 1.5f);
-
-                        mat.SetFloat("_Surface", 1);
-                        mat.SetFloat("_Blend", 0);
-                        mat.SetOverrideTag("RenderType", "Transparent");
-                        mat.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
-                        mat.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
-                        mat.SetInt("_ZWrite", 0);
-                        mat.renderQueue = (int)UnityEngine.Rendering.RenderQueue.Transparent;
-                        mat.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
-                    }
-                    else
-                    {
-                        mat.DisableKeyword("_EMISSION");
-                        mat.SetColor(EmissionColorProp, Color.black);
-
-                        mat.SetFloat("_Surface", 0);
-                        mat.SetOverrideTag("RenderType", "Opaque");
-                        mat.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.One);
-                        mat.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.Zero);
-                        mat.SetInt("_ZWrite", 1);
-                        mat.renderQueue = (int)UnityEngine.Rendering.RenderQueue.Geometry;
-                        mat.DisableKeyword("_SURFACE_TYPE_TRANSPARENT");
-                    }
+                    mat.SetFloat("_Surface", 0);
+                    mat.SetOverrideTag("RenderType", "Opaque");
+                    mat.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.One);
+                    mat.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.Zero);
+                    mat.SetInt("_ZWrite", 1);
+                    mat.renderQueue = (int)UnityEngine.Rendering.RenderQueue.Geometry;
+                    mat.DisableKeyword("_SURFACE_TYPE_TRANSPARENT");
                 }
             }
         }

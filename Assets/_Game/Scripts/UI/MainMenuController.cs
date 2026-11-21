@@ -41,12 +41,15 @@ namespace Pucaci.UI
         [SerializeField] private Button selectLarasCardButton;
         [SerializeField] private Button selectMamatCardButton;
         [SerializeField] private Button selectKuntiCardButton;
+        [SerializeField] private Button selectVincentCardButton;
         [SerializeField] private Image larasCardBorder;
         [SerializeField] private Image mamatCardBorder;
         [SerializeField] private Image kuntiCardBorder;
+        [SerializeField] private Image vincentCardBorder;
         [SerializeField] private TMP_Text larasStatusBadge;
         [SerializeField] private TMP_Text mamatStatusBadge;
         [SerializeField] private TMP_Text kuntiStatusBadge;
+        [SerializeField] private TMP_Text vincentStatusBadge;
         [SerializeField] private Button startPlayWithCharacterButton;
         [SerializeField] private Button characterSelectBackButton;
 
@@ -118,6 +121,7 @@ namespace Pucaci.UI
             if (selectLarasCardButton != null) selectLarasCardButton.onClick.AddListener(() => OnCharacterSelected(CharacterType.Laras));
             if (selectMamatCardButton != null) selectMamatCardButton.onClick.AddListener(() => OnCharacterSelected(CharacterType.PakMamat));
             if (selectKuntiCardButton != null) selectKuntiCardButton.onClick.AddListener(() => OnCharacterSelected(CharacterType.Kuntilanak));
+            if (selectVincentCardButton != null) selectVincentCardButton.onClick.AddListener(() => OnCharacterSelected(CharacterType.PakVincent));
             if (startPlayWithCharacterButton != null) startPlayWithCharacterButton.onClick.AddListener(OnSoloPracticeClicked);
             if (characterSelectBackButton != null) characterSelectBackButton.onClick.AddListener(ReturnToPreviousPanel);
 
@@ -252,6 +256,7 @@ namespace Pucaci.UI
             bool isLaras = (current == CharacterType.Laras);
             bool isMamat = (current == CharacterType.PakMamat);
             bool isKunti = (current == CharacterType.Kuntilanak);
+            bool isVincent = (current == CharacterType.PakVincent);
 
             Color accentColor = new Color(255f / 255f, 179f / 255f, 71f / 255f, 1f); // #FFB347
             Color normalBorderColor = new Color(0.18f, 0.22f, 0.32f, 1f);
@@ -285,6 +290,16 @@ namespace Pucaci.UI
             {
                 kuntiStatusBadge.text = isKunti ? "[V] TERPILIH" : "PILIH KUNTILANAK";
                 kuntiStatusBadge.color = isKunti ? accentColor : normalTextColor;
+            }
+
+            if (vincentCardBorder != null)
+            {
+                vincentCardBorder.color = isVincent ? accentColor : normalBorderColor;
+            }
+            if (vincentStatusBadge != null)
+            {
+                vincentStatusBadge.text = isVincent ? "[V] TERPILIH" : "PILIH PAK VINCENT";
+                vincentStatusBadge.color = isVincent ? accentColor : normalTextColor;
             }
 
             if (mabarCharacterText != null)

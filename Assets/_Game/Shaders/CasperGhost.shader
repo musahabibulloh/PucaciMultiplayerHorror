@@ -5,14 +5,14 @@ Shader "Custom/CasperGhost"
         _BaseMap ("Texture", 2D) = "white" {}
         _BaseColor ("Base Color", Color) = (1, 1, 1, 1)
 
-        [Header(Casper Ghost Settings)]
+        [Header(Ghost Transparency Settings)]
         [ColorUsage(true, true)]
-        _GhostColor ("Ghost Body Color (Blue Translucent)", Color) = (0.08, 0.45, 0.95, 0.35)
+        _GhostColor ("Ghost Tint & Transparency", Color) = (1.0, 1.0, 1.0, 0.28)
         [ColorUsage(true, true)]
-        _RimColor ("Ghost Rim Glow (Cyan)", Color) = (0.25, 0.85, 1.0, 1.0)
-        _RimPower ("Rim Power", Range(0.5, 6.0)) = 2.2
-        _RimIntensity ("Rim Intensity", Range(0.0, 5.0)) = 2.6
-        _GhostBlend ("Ghost Blend (0=Solid, 1=Casper)", Range(0.0, 1.0)) = 0.0
+        _RimColor ("Ghost Silhouette Rim Glow", Color) = (0.90, 0.95, 1.0, 0.8)
+        _RimPower ("Rim Power", Range(0.5, 6.0)) = 2.0
+        _RimIntensity ("Rim Intensity", Range(0.0, 5.0)) = 2.2
+        _GhostBlend ("Ghost Blend (0=Solid, 1=Transparent)", Range(0.0, 1.0)) = 0.0
 
         [Header(Render State)]
         [Enum(UnityEngine.Rendering.BlendMode)] _SrcBlend ("Src Blend", Float) = 5 // SrcAlpha
@@ -99,26 +99,29 @@ Shader "Custom/CasperGhost"
 
                 half4 baseTex = SAMPLE_TEXTURE2D(_BaseMap, sampler_BaseMap, input.uv) * _BaseColor;
 
-                // Hitung Fresnel / Rim Lighting untuk wujud hantu Casper
+                // Hitung Fresnel / Rim Lighting untuk siluet kontur gaib tembus pandang
                 half3 viewDir = normalize(GetCameraPositionWS() - input.positionWS);
                 half3 normalWS = normalize(input.normalWS);
                 half NdotV = saturate(dot(normalWS, viewDir));
 
                 // Denyut halus aura gaib (subtle ghostly breathing pulse)
-                float pulse = 0.92 + 0.08 * sin(_Time.y * 3.5);
+                float pulse = 0.94 + 0.06 * sin(_Time.y * 3.0);
                 half rim = pow(1.0 - NdotV, _RimPower) * (_RimIntensity * pulse);
 
-                // Warna wujud Casper: Badan biru transparan bercahaya + kontur rim cyan menyala
-                half4 ghostResult;
-                ghostResult.rgb = _GhostColor.rgb + (_RimColor.rgb * rim);
-                ghostResult.a = saturate(_GhostColor.a + (rim * 0.40));
+                // RGB: Tekstur asli karakter (baju putih, rambut hitam, wajah) tetap utuh
+                // Ditambahkan pendaran lembut siluet putih keperakan di tepi tubuh agar lekuk bentuk karakternya tetap tegas terlihat
+                half3 ghostRgb = (baseTex.rgb * _GhostColor.rgb) + (_RimColor.rgb * rim * 0.6);
 
-                // Transisi halus dari wujud asli ke wujud Casper Ghost
-                half4 finalColor = lerp(baseTex, ghostResult, _GhostBlend);
+                // Alpha:
+                // Saat normal (blend == 0): alpha = 1.0 (padat, full bentuk)
+                // Saat ghost (blend == 1): alpha = _GhostColor.a (tembus pandang di badan) + (rim * 0.45 di tepi/siluet)
+                // Bentuk karakternya tetap tampak jelas tapi tembus pandang (bukan hilang total dan bukan biru padat)
+                half ghostAlpha = saturate(_GhostColor.a + (rim * 0.45));
 
-                // Saat normal (blend == 0), alpha = 1.0 (padat)
-                // Saat ghost (blend == 1), alpha = ghostResult.a (transparan biru)
-                finalColor.a = lerp(baseTex.a, ghostResult.a, _GhostBlend);
+                // Transisi halus dari wujud asli padat ke wujud arwah tembus pandang
+                half4 finalColor;
+                finalColor.rgb = lerp(baseTex.rgb, ghostRgb, _GhostBlend);
+                finalColor.a = lerp(1.0, ghostAlpha, _GhostBlend);
 
                 return finalColor;
             }

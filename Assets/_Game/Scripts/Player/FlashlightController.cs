@@ -125,6 +125,11 @@ namespace Pucaci.Player
         private Vector3 smoothedAimPoint;
         private bool aimPointInitialized;
 
+        private Vector3 initialFlashlightLocalPos;
+        private Quaternion initialFlashlightLocalRot;
+        private Vector3 initialFlashlightLocalScale = Vector3.one;
+        private bool hasInitialFlashlightTransform = false;
+
         public bool IsOn => isFlashlightOn;
         public Light SpotLightComponent => spotLight;
 
@@ -251,12 +256,26 @@ namespace Pucaci.Player
             dynamicMaterial = null;
 
             rightShoulderBone = newModelTransform.Find("mixamorig:Hips/mixamorig:Spine/mixamorig:Spine1/mixamorig:Spine2/mixamorig:RightShoulder");
-            if (rightShoulderBone != null)
-                rightArmBone = rightShoulderBone.Find("mixamorig:RightArm");
-            if (rightArmBone != null)
-                rightForeArmBone = rightArmBone.Find("mixamorig:RightForeArm");
-            if (rightForeArmBone != null)
-                rightHandBone = rightForeArmBone.Find("mixamorig:RightHand");
+            if (rightShoulderBone == null)
+                rightShoulderBone = newModelTransform.Find("Armature/mixamorig:Hips/mixamorig:Spine/mixamorig:Spine1/mixamorig:Spine2/mixamorig:RightShoulder");
+
+            var anim = newModelTransform.GetComponent<Animator>() ?? newModelTransform.GetComponentInChildren<Animator>();
+            if (rightShoulderBone == null && anim != null && anim.isHuman)
+            {
+                rightShoulderBone = anim.GetBoneTransform(HumanBodyBones.RightShoulder);
+                rightArmBone = anim.GetBoneTransform(HumanBodyBones.RightUpperArm);
+                rightForeArmBone = anim.GetBoneTransform(HumanBodyBones.RightLowerArm);
+                rightHandBone = anim.GetBoneTransform(HumanBodyBones.RightHand);
+            }
+            else
+            {
+                if (rightShoulderBone != null)
+                    rightArmBone = rightShoulderBone.Find("mixamorig:RightArm");
+                if (rightArmBone != null)
+                    rightForeArmBone = rightArmBone.Find("mixamorig:RightForeArm");
+                if (rightForeArmBone != null)
+                    rightHandBone = rightForeArmBone.Find("mixamorig:RightHand");
+            }
 
             if (rightHandBone != null)
             {
@@ -278,6 +297,11 @@ namespace Pucaci.Player
 
             if (flashlightTransform != null)
             {
+                initialFlashlightLocalPos = flashlightTransform.localPosition;
+                initialFlashlightLocalRot = flashlightTransform.localRotation;
+                initialFlashlightLocalScale = flashlightTransform.localScale;
+                hasInitialFlashlightTransform = true;
+
                 spotLight = flashlightTransform.GetComponentInChildren<Light>();
                 flashlightRenderer = flashlightTransform.GetComponent<MeshRenderer>();
                 if (flashlightRenderer != null)
@@ -446,8 +470,17 @@ namespace Pucaci.Player
                 // Posisikan senter terkunci rapat di dalam genggaman tangan
                 if (flashlightTransform != null)
                 {
-                    flashlightTransform.localPosition = fpFlashlightLocalPos;
-                    flashlightTransform.localRotation = Quaternion.Euler(fpFlashlightLocalRot);
+                    if (hasInitialFlashlightTransform)
+                    {
+                        flashlightTransform.localPosition = initialFlashlightLocalPos;
+                        flashlightTransform.localRotation = initialFlashlightLocalRot;
+                        flashlightTransform.localScale = initialFlashlightLocalScale;
+                    }
+                    else
+                    {
+                        flashlightTransform.localPosition = fpFlashlightLocalPos;
+                        flashlightTransform.localRotation = Quaternion.Euler(fpFlashlightLocalRot);
+                    }
                 }
 
                 // Arahkan genggaman pergelangan tangan kanan secara presisi ke arah pandangan kamera (stabil 100%)
@@ -538,6 +571,11 @@ namespace Pucaci.Player
                         currentWeight
                     );
                 }
+            }
+
+            if (flashlightTransform != null && hasInitialFlashlightTransform)
+            {
+                flashlightTransform.localScale = initialFlashlightLocalScale;
             }
 
             // 3. Pastikan sorot Spot Light SELALU mengarah mulus dan stabil ke titik target

@@ -237,7 +237,7 @@ namespace Pucaci.Editor
 
         private static MenuPanel BuildCharacterSelectPanel(Transform canvas, MainMenuController controller)
         {
-            GameObject panelObj = CreatePanelContainer(canvas, "CharacterSelectPanel", new Vector2(1180f, 660f), new Vector2(0f, -30f));
+            GameObject panelObj = CreatePanelContainer(canvas, "CharacterSelectPanel", new Vector2(1440f, 660f), new Vector2(0f, -30f));
             MenuPanel panel = panelObj.AddComponent<MenuPanel>();
 
             VerticalLayoutGroup layout = panelObj.AddComponent<VerticalLayoutGroup>();
@@ -254,10 +254,10 @@ namespace Pucaci.Editor
             GameObject cardsRow = new GameObject("CardsRow", typeof(RectTransform), typeof(HorizontalLayoutGroup));
             cardsRow.transform.SetParent(panelObj.transform, false);
             HorizontalLayoutGroup cLayout = cardsRow.GetComponent<HorizontalLayoutGroup>();
-            cLayout.spacing = 20f;
+            cLayout.spacing = 16f;
             cLayout.childControlWidth = true;
             cLayout.childControlHeight = true;
-            cardsRow.GetComponent<RectTransform>().sizeDelta = new Vector2(1120f, 430f);
+            cardsRow.GetComponent<RectTransform>().sizeDelta = new Vector2(1380f, 430f);
 
             // --- Card 1: Laras ---
             GameObject cardLaras = new GameObject("Card_Laras", typeof(RectTransform), typeof(Image));
@@ -367,6 +367,42 @@ namespace Pucaci.Editor
             Button btnSelectKunti = CreateButton(kuntiInner.transform, "BtnSelectKunti", "PILIH KUNTILANAK", ColorText, ColorBg, 340f);
             TMP_Text kuntiBadge = btnSelectKunti.GetComponentInChildren<TMP_Text>();
 
+            // --- Card 4: Pak Vincent ---
+            GameObject cardVincent = new GameObject("Card_PakVincent", typeof(RectTransform), typeof(Image));
+            cardVincent.transform.SetParent(cardsRow.transform, false);
+            Image vincentBorder = cardVincent.GetComponent<Image>();
+            vincentBorder.color = new Color(0.18f, 0.22f, 0.32f, 1f);
+
+            GameObject vincentInner = new GameObject("Inner", typeof(RectTransform), typeof(Image), typeof(VerticalLayoutGroup));
+            vincentInner.transform.SetParent(cardVincent.transform, false);
+            RectTransform viRect = vincentInner.GetComponent<RectTransform>();
+            viRect.anchorMin = Vector2.zero;
+            viRect.anchorMax = Vector2.one;
+            viRect.offsetMin = new Vector2(4f, 4f);
+            viRect.offsetMax = new Vector2(-4f, -4f);
+            vincentInner.GetComponent<Image>().color = new Color(0.08f, 0.11f, 0.18f, 0.98f);
+
+            VerticalLayoutGroup viLayout = vincentInner.GetComponent<VerticalLayoutGroup>();
+            viLayout.spacing = 10f;
+            viLayout.childAlignment = TextAnchor.UpperCenter;
+            viLayout.childControlWidth = true;
+            viLayout.childControlHeight = false;
+            viLayout.padding = new RectOffset(20, 20, 20, 20);
+
+            CreateTMPText(vincentInner.transform, "Name", "PAK VINCENT", 28, TextAlignmentOptions.Center);
+            var roleVincent = CreateTMPText(vincentInner.transform, "Role", "[ PENYELIDIK DESA ]", 16, TextAlignmentOptions.Center);
+            roleVincent.GetComponent<TMP_Text>().color = new Color(0.4f, 0.9f, 0.6f, 1f);
+
+            string vincentDesc = "Pria tenang dan penuh perhitungan. Memiliki langkah terukur untuk menyelidiki misteri dan bertahan dari teror malam desa.";
+            CreateTMPText(vincentInner.transform, "Desc", vincentDesc, 16, TextAlignmentOptions.TopLeft);
+
+            string vincentTraits = "• Gerakan Taktis & Lincah\n• Pengamatan Waspada\n• Senter Taktis Handal";
+            var traitVincent = CreateTMPText(vincentInner.transform, "Traits", vincentTraits, 15, TextAlignmentOptions.TopLeft);
+            traitVincent.GetComponent<TMP_Text>().color = new Color(0.7f, 0.8f, 0.9f, 0.9f);
+
+            Button btnSelectVincent = CreateButton(vincentInner.transform, "BtnSelectVincent", "PILIH PAK VINCENT", ColorText, ColorBg, 340f);
+            TMP_Text vincentBadge = btnSelectVincent.GetComponentInChildren<TMP_Text>();
+
             // Bottom Action Row
             GameObject bottomRow = new GameObject("BottomRow", typeof(RectTransform), typeof(HorizontalLayoutGroup));
             bottomRow.transform.SetParent(panelObj.transform, false);
@@ -374,22 +410,25 @@ namespace Pucaci.Editor
             bLayout.spacing = 20f;
             bLayout.childControlWidth = true;
             bLayout.childControlHeight = true;
-            bottomRow.GetComponent<RectTransform>().sizeDelta = new Vector2(1120f, 50f);
+            bottomRow.GetComponent<RectTransform>().sizeDelta = new Vector2(1380f, 50f);
 
-            Button btnStartWithChar = CreateButton(bottomRow.transform, "BtnStartPlay", "MULAI BERMAIN", ColorAccent, ColorBg, 700f);
-            Button btnCharBack = CreateButton(bottomRow.transform, "BtnBack", "Kembali", ColorText, ColorBg, 400f);
+            Button btnStartWithChar = CreateButton(bottomRow.transform, "BtnStartPlay", "MULAI BERMAIN", ColorAccent, ColorBg, 850f);
+            Button btnCharBack = CreateButton(bottomRow.transform, "BtnBack", "Kembali", ColorText, ColorBg, 450f);
 
             // Connect Serialized properties on controller
             SerializedObject so = new SerializedObject(controller);
             so.FindProperty("selectLarasCardButton").objectReferenceValue = btnSelectLaras;
             so.FindProperty("selectMamatCardButton").objectReferenceValue = btnSelectMamat;
             so.FindProperty("selectKuntiCardButton").objectReferenceValue = btnSelectKunti;
+            so.FindProperty("selectVincentCardButton").objectReferenceValue = btnSelectVincent;
             so.FindProperty("larasCardBorder").objectReferenceValue = larasBorder;
             so.FindProperty("mamatCardBorder").objectReferenceValue = mamatBorder;
             so.FindProperty("kuntiCardBorder").objectReferenceValue = kuntiBorder;
+            so.FindProperty("vincentCardBorder").objectReferenceValue = vincentBorder;
             so.FindProperty("larasStatusBadge").objectReferenceValue = larasBadge;
             so.FindProperty("mamatStatusBadge").objectReferenceValue = mamatBadge;
             so.FindProperty("kuntiStatusBadge").objectReferenceValue = kuntiBadge;
+            so.FindProperty("vincentStatusBadge").objectReferenceValue = vincentBadge;
             so.FindProperty("startPlayWithCharacterButton").objectReferenceValue = btnStartWithChar;
             so.FindProperty("characterSelectBackButton").objectReferenceValue = btnCharBack;
             so.ApplyModifiedPropertiesWithoutUndo();
