@@ -138,8 +138,11 @@ namespace Pucaci.Player
             wasGrounded = pcc != null ? pcc.IsGrounded : true;
         }
 
-        public void SetupFootstepBones(Transform newModelTransform)
+        [SerializeField] private bool isSilent = false;
+
+        public void SetupFootstepBones(Transform newModelTransform, bool silent = false)
         {
+            isSilent = silent;
             if (newModelTransform == null) return;
             leftFootBone = newModelTransform.Find("mixamorig:Hips/mixamorig:LeftUpLeg/mixamorig:LeftLeg/mixamorig:LeftFoot");
             rightFootBone = newModelTransform.Find("mixamorig:Hips/mixamorig:RightUpLeg/mixamorig:RightLeg/mixamorig:RightFoot");
@@ -173,6 +176,12 @@ namespace Pucaci.Player
 
         private void Update()
         {
+            if (isSilent)
+            {
+                if (slideSource != null && slideSource.isPlaying) slideSource.Stop();
+                return;
+            }
+
             Vector3 currentPos = transform.position;
             Vector3 delta = currentPos - lastPosition;
             delta.y = 0f;

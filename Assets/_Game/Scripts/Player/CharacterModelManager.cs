@@ -14,6 +14,9 @@ namespace Pucaci.Player
         [Tooltip("Root GameObject model Pak Mamat")]
         [SerializeField] private GameObject modelPakMamat;
 
+        [Tooltip("Root GameObject model Kuntilanak")]
+        [SerializeField] private GameObject modelKuntilanak;
+
         [Header("First-Person Custom Meshes")]
         [Tooltip("Mesh khusus tangan saja untuk Pak Mamat di tampilan FPP")]
         [SerializeField] private Mesh pakMamatArmsMesh;
@@ -23,12 +26,13 @@ namespace Pucaci.Player
         [SerializeField] private FlashlightController flashlightController;
         [SerializeField] private PlayerFootstepAudio footstepAudio;
         [SerializeField] private PlayerNetworkSetup networkSetup;
+        [SerializeField] private KuntilanakGhostVanish ghostVanish;
 
         [SyncVar(hook = nameof(OnCharacterIndexChanged))]
         private int characterIndex = -1;
 
         public CharacterType ActiveCharacterType => (CharacterType)Mathf.Max(0, characterIndex);
-        public GameObject ActiveModel => (characterIndex == 1) ? modelPakMamat : modelLaras;
+        public GameObject ActiveModel => (characterIndex == 2) ? modelKuntilanak : ((characterIndex == 1) ? modelPakMamat : modelLaras);
 
         private void Awake()
         {
@@ -36,6 +40,7 @@ namespace Pucaci.Player
             if (flashlightController == null) flashlightController = GetComponent<FlashlightController>();
             if (footstepAudio == null) footstepAudio = GetComponent<PlayerFootstepAudio>();
             if (networkSetup == null) networkSetup = GetComponent<PlayerNetworkSetup>();
+            if (ghostVanish == null) ghostVanish = GetComponent<KuntilanakGhostVanish>();
 
             AutoResolveModels();
         }
@@ -98,6 +103,12 @@ namespace Pucaci.Player
                 if (t != null) modelPakMamat = t.gameObject;
             }
 
+            if (modelKuntilanak == null)
+            {
+                var t = transform.Find("Model_Kuntilanak") ?? transform.Find("Model_Kunti");
+                if (t != null) modelKuntilanak = t.gameObject;
+            }
+
             if (pakMamatArmsMesh == null)
             {
 #if UNITY_EDITOR
@@ -120,15 +131,18 @@ namespace Pucaci.Player
 
         public void ApplyCharacter(int index)
         {
-            characterIndex = Mathf.Clamp(index, 0, 1);
+            characterIndex = Mathf.Clamp(index, 0, 2);
             AutoResolveModels();
 
+            bool isLaras = (characterIndex == 0);
             bool isMamat = (characterIndex == 1);
+            bool isKunti = (characterIndex == 2);
 
-            if (modelLaras != null) modelLaras.SetActive(!isMamat);
+            if (modelLaras != null) modelLaras.SetActive(isLaras);
             if (modelPakMamat != null) modelPakMamat.SetActive(isMamat);
+            if (modelKuntilanak != null) modelKuntilanak.SetActive(isKunti);
 
-            GameObject targetModelObj = isMamat ? modelPakMamat : modelLaras;
+            GameObject targetModelObj = isKunti ? modelKuntilanak : (isMamat ? modelPakMamat : modelLaras);
             if (targetModelObj == null) return;
 
             Transform targetTransform = targetModelObj.transform;
@@ -148,7 +162,7 @@ namespace Pucaci.Player
             if (characterController != null)
             {
                 Mesh customFppMesh = (isMamat && isLocal) ? pakMamatArmsMesh : null;
-                characterController.SetupCharacterModel(targetTransform, targetAnim, targetRenderer, customFppMesh);
+                characterController.SetupCharacterModel(targetTransform, targetAnim, targetRenderer, customFppMesh, isKunti);
             }
 
             if (flashlightController != null)
@@ -158,7 +172,12 @@ namespace Pucaci.Player
 
             if (footstepAudio != null)
             {
-                footstepAudio.SetupFootstepBones(targetTransform);
+                footstepAudio.SetupFootstepBones(targetTransform, isKunti);
+            }
+
+            if (ghostVanish != null)
+            {
+                ghostVanish.SetKuntilanakActive(isKunti, targetTransform);
             }
 
             if (networkSetup != null && targetRenderer != null)

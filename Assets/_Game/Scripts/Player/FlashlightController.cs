@@ -243,6 +243,13 @@ namespace Pucaci.Player
         public void SetupFlashlightModel(Transform newModelTransform)
         {
             if (newModelTransform == null) return;
+
+            // Reset referensi senter terdahulu agar tidak tertinggal saat ganti karakter
+            flashlightTransform = null;
+            spotLight = null;
+            flashlightRenderer = null;
+            dynamicMaterial = null;
+
             rightShoulderBone = newModelTransform.Find("mixamorig:Hips/mixamorig:Spine/mixamorig:Spine1/mixamorig:Spine2/mixamorig:RightShoulder");
             if (rightShoulderBone != null)
                 rightArmBone = rightShoulderBone.Find("mixamorig:RightArm");
@@ -255,6 +262,14 @@ namespace Pucaci.Player
             {
                 rightFingersBone = rightHandBone.Find("mixamorig:RightHandIndex1");
                 flashlightTransform = rightHandBone.Find("Flashlight_Item");
+            }
+            else
+            {
+                // Karakter non-humanoid (seperti Kuntilanak): tidak memegang senter dan bebas dari procedural IK
+                rightHandBone = null;
+                rightFingersBone = null;
+                rightFinger2Bone = null;
+                rightFinger3Bone = null;
             }
             if (rightFingersBone != null)
                 rightFinger2Bone = rightFingersBone.Find("mixamorig:RightHandIndex2");
@@ -315,7 +330,7 @@ namespace Pucaci.Player
 
         private void LateUpdate()
         {
-            if (enableProceduralAim && currentWeight > 0.001f && rightHandBone != null)
+            if (enableProceduralAim && currentWeight > 0.001f)
             {
                 ApplyArmAiming();
             }
@@ -384,6 +399,22 @@ namespace Pucaci.Player
                 swayTimer += Time.deltaTime * swaySpeed;
                 swayX = Mathf.Sin(swayTimer) * swayAmount;
                 swayY = Mathf.Cos(swayTimer * 2f) * swayAmount * 0.6f;
+            }
+
+            if (rightArmBone == null || rightForeArmBone == null || rightHandBone == null)
+            {
+                // Karakter non-humanoid (seperti Kuntilanak): biarkan tangan bergerak alami tanpa distorsi IK.
+                // Arahkan sorotan Spot Light langsung ke titik target crosshair pemain.
+                if (spotLight != null)
+                {
+                    Vector3 beamDir = smoothedAimPoint - spotLight.transform.position;
+                    if (Vector3.Dot(camTr.forward, beamDir) < 0.1f)
+                    {
+                        beamDir = camTr.forward;
+                    }
+                    spotLight.transform.rotation = Quaternion.LookRotation(beamDir.normalized);
+                }
+                return;
             }
 
             if (isFirstPerson)
@@ -592,7 +623,7 @@ namespace Pucaci.Player
                 }
             }
 
-            if (playSound && audioSource != null && toggleSound != null)
+            if (playSound && spotLight != null && audioSource != null && toggleSound != null)
             {
                 audioSource.pitch = isFlashlightOn ? 1.05f : 0.95f;
                 audioSource.PlayOneShot(toggleSound, 0.8f);

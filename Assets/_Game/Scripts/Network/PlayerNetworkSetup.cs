@@ -227,7 +227,11 @@ namespace Pucaci.Network
 
                 if (!isLocal)
                 {
-                    characterRenderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.On;
+                    var allRenderers = GetComponentsInChildren<SkinnedMeshRenderer>(true);
+                    foreach (var r in allRenderers)
+                    {
+                        if (r != null) r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.On;
+                    }
                 }
             }
         }
