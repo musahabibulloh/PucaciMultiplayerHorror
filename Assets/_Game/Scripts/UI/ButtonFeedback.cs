@@ -13,6 +13,12 @@ namespace Pucaci.UI
         [SerializeField] private float clickScale = 0.95f;
         [SerializeField] private float scaleDuration = 0.1f;
 
+        [Header("Slide Animation")]
+        [SerializeField] private float hoverSlideX = 14f;
+        [SerializeField] private Image borderImage;
+        [SerializeField] private Color normalBorderColor = new Color(0.2f, 0.25f, 0.35f, 0.6f);
+        [SerializeField] private Color highlightBorderColor = new Color(1f, 0.75f, 0.3f, 1f);
+
         [Header("Colors")]
         [SerializeField] private bool changeTextColor = true;
         [SerializeField] private Color normalTextColor = new Color(0.95f, 0.91f, 0.84f, 1f); // #F2E8D5
@@ -25,15 +31,31 @@ namespace Pucaci.UI
         [SerializeField] private AudioSource audioSource;
 
         private Vector3 initialScale;
+        private Vector2 initialAnchoredPos;
+        private RectTransform rectTransform;
         private Coroutine scaleCoroutine;
+        private Coroutine slideCoroutine;
         private bool isSelectedOrHovered;
+        private bool canSlide = true;
 
         private void Awake()
         {
+            rectTransform = GetComponent<RectTransform>();
             initialScale = transform.localScale;
+            if (rectTransform != null) initialAnchoredPos = rectTransform.anchoredPosition;
+
+            // Jangan animasi slide jika posisi dikontrol LayoutGroup (bisa merusak layout)
+            canSlide = GetComponentInParent<LayoutGroup>() == null;
+
             if (targetText == null)
             {
                 targetText = GetComponentInChildren<TMP_Text>();
+            }
+
+            if (targetText != null && changeTextColor)
+            {
+                // Ambil warna awal teks yang telah diset di editor/builder
+                normalTextColor = targetText.color;
             }
 
             if (audioSource == null)
@@ -41,18 +63,23 @@ namespace Pucaci.UI
                 audioSource = GetComponentInParent<AudioSource>();
             }
 
-            if (targetText != null && changeTextColor)
+            if (borderImage != null)
             {
-                targetText.color = normalTextColor;
+                borderImage.color = normalBorderColor;
             }
         }
 
         private void OnDisable()
         {
             transform.localScale = initialScale;
+            if (rectTransform != null && canSlide) rectTransform.anchoredPosition = initialAnchoredPos;
             if (targetText != null && changeTextColor)
             {
                 targetText.color = normalTextColor;
+            }
+            if (borderImage != null)
+            {
+                borderImage.color = normalBorderColor;
             }
             isSelectedOrHovered = false;
         }
@@ -80,7 +107,7 @@ namespace Pucaci.UI
         public void OnPointerDown(PointerEventData eventData)
         {
             AnimateScale(initialScale * clickScale);
-            PlaySound(clickSound);
+            PlaySound(clickSound, true);
         }
 
         public void OnPointerUp(PointerEventData eventData)
@@ -99,20 +126,35 @@ namespace Pucaci.UI
         {
             isSelectedOrHovered = true;
             AnimateScale(initialScale * hoverScale);
+            AnimateSlide(initialAnchoredPos + new Vector2(hoverSlideX, 0f));
+
             if (targetText != null && changeTextColor)
             {
                 targetText.color = highlightTextColor;
             }
-            PlaySound(hoverSound);
+
+            if (borderImage != null)
+            {
+                borderImage.color = highlightBorderColor;
+            }
+
+            PlaySound(hoverSound, false);
         }
 
         private void TriggerExit()
         {
             isSelectedOrHovered = false;
             AnimateScale(initialScale);
+            AnimateSlide(initialAnchoredPos);
+
             if (targetText != null && changeTextColor)
             {
                 targetText.color = normalTextColor;
+            }
+
+            if (borderImage != null)
+            {
+                borderImage.color = normalBorderColor;
             }
         }
 
@@ -129,6 +171,20 @@ namespace Pucaci.UI
             }
         }
 
+        private void AnimateSlide(Vector2 targetPos)
+        {
+            if (rectTransform == null || !canSlide) return;
+            if (gameObject.activeInHierarchy)
+            {
+                if (slideCoroutine != null) StopCoroutine(slideCoroutine);
+                slideCoroutine = StartCoroutine(SlideRoutine(targetPos));
+            }
+            else
+            {
+                rectTransform.anchoredPosition = targetPos;
+            }
+        }
+
         private IEnumerator ScaleRoutine(Vector3 target)
         {
             Vector3 start = transform.localScale;
@@ -142,11 +198,29 @@ namespace Pucaci.UI
             transform.localScale = target;
         }
 
-        private void PlaySound(AudioClip clip)
+        private IEnumerator SlideRoutine(Vector2 target)
+        {
+            Vector2 start = rectTransform.anchoredPosition;
+            float elapsed = 0f;
+            while (elapsed < scaleDuration)
+            {
+                elapsed += Time.unscaledDeltaTime;
+                rectTransform.anchoredPosition = Vector2.Lerp(start, target, elapsed / scaleDuration);
+                yield return null;
+            }
+            rectTransform.anchoredPosition = target;
+        }
+
+        private void PlaySound(AudioClip clip, bool isClick)
         {
             if (clip != null && audioSource != null)
             {
                 audioSource.PlayOneShot(clip);
+            }
+            else if (MenuAtmosphereAudio.Instance != null)
+            {
+                if (isClick) MenuAtmosphereAudio.Instance.PlayClickSound();
+                else MenuAtmosphereAudio.Instance.PlayHoverSound();
             }
         }
     }

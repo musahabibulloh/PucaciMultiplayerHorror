@@ -31,23 +31,30 @@ namespace Pucaci.Editor
             GameObject camObj = new GameObject("Main Camera");
             Camera cam = camObj.AddComponent<Camera>();
             cam.clearFlags = CameraClearFlags.SolidColor;
-            cam.backgroundColor = new Color(11f / 255f, 15f / 255f, 26f / 255f, 1f);
+            cam.backgroundColor = new Color(6f / 255f, 9f / 255f, 16f / 255f, 1f);
+            cam.fieldOfView = 52f;
+            camObj.tag = "MainCamera";
             camObj.AddComponent<AudioListener>();
-            camObj.transform.position = new Vector3(0f, 1.6f, -6f);
-            camObj.transform.rotation = Quaternion.Euler(5f, 0f, 0f);
+            camObj.transform.position = new Vector3(0f, 1.65f, -6.5f);
+            camObj.transform.rotation = Quaternion.Euler(6f, 0f, 0f);
+            camObj.AddComponent<Pucaci.UI.MenuCameraDrift>();
 
-            AudioSource ambienceSource = camObj.AddComponent<AudioSource>();
-            ambienceSource.playOnAwake = false;
-            ambienceSource.loop = true;
+            // Atmosphere audio (procedural night ambience + UI sfx)
+            var atmosphere = camObj.AddComponent<Pucaci.UI.MenuAtmosphereAudio>();
 
             // Fog settings
             RenderSettings.fog = true;
-            RenderSettings.fogColor = new Color(11f / 255f, 15f / 255f, 26f / 255f, 1f);
+            RenderSettings.fogColor = new Color(6f / 255f, 9f / 255f, 16f / 255f, 1f);
             RenderSettings.fogMode = FogMode.ExponentialSquared;
-            RenderSettings.fogDensity = 0.04f;
+            RenderSettings.fogDensity = 0.055f;
+            RenderSettings.ambientMode = UnityEngine.Rendering.AmbientMode.Flat;
+            RenderSettings.ambientLight = new Color(0.09f, 0.11f, 0.17f, 1f);
 
-            // 2. Setup 3D Silhouettes (Pos Ronda, Lampu Jalan, Pagar)
+            // 2. Setup 3D Horror Diorama (Pos Ronda, Lampu Jalan, Sesajen, Kuntilanak)
             Build3DBackground();
+
+            // 2b. Post-processing volume
+            BuildPostProcessing();
 
             // 3. Setup SettingsManager
             GameObject settingsMgrObj = new GameObject("SettingsManager");
@@ -77,7 +84,10 @@ namespace Pucaci.Editor
             MainMenuController controller = canvasObj.AddComponent<MainMenuController>();
             canvasObj.AddComponent<StubMultiplayerLauncher>();
 
-            // 6. Build Title & Header
+            // 6. UI readability gradient (behind panels)
+            BuildLeftVignette(canvasObj.transform);
+
+            // 7. Build Title & Header
             BuildTitleAndHeader(canvasObj.transform);
 
             // 7. Build Panels
@@ -129,38 +139,527 @@ namespace Pucaci.Editor
         {
             GameObject bgParent = new GameObject("Environment_Background");
 
-            // Material gelap untuk siluet
-            Material darkMat = new Material(Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard"));
-            darkMat.color = ColorDarkProp;
+            // --- Materials ---
+            Material groundMat = CreateOrUpdateLitMaterial(
+                "Assets/_Game/Materials/M_MainMenu_Ground.mat",
+                new Color(0.10f, 0.09f, 0.075f, 1f),
+                "Assets/_Game/Models/Environment/Textures/ground.png",
+                new Vector2(8f, 8f));
 
-            // Ground
+            Material silhouetteMat = CreateOrUpdateLitMaterial(
+                "Assets/_Game/Materials/M_MainMenu_Silhouette.mat",
+                new Color(0.035f, 0.04f, 0.055f, 1f),
+                null, Vector2.one);
+
+            // --- Ground ---
             GameObject ground = GameObject.CreatePrimitive(PrimitiveType.Plane);
             ground.name = "Ground";
             ground.transform.SetParent(bgParent.transform);
-            ground.transform.position = Vector3.zero;
-            ground.transform.localScale = new Vector3(3f, 1f, 3f);
-            ground.GetComponent<MeshRenderer>().sharedMaterial = darkMat;
+            ground.transform.position = new Vector3(0f, 0f, 6f);
+            ground.transform.localScale = new Vector3(4f, 1f, 4f);
+            ground.GetComponent<MeshRenderer>().sharedMaterial = groundMat;
+            Object.DestroyImmediate(ground.GetComponent<Collider>());
 
-            // Tiang Lampu Jalan
-            GameObject pole = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-            pole.name = "TiangLampu";
-            pole.transform.SetParent(bgParent.transform);
-            pole.transform.position = new Vector3(2.5f, 2.5f, 0f);
-            pole.transform.localScale = new Vector3(0.12f, 2.5f, 0.12f);
-            pole.GetComponent<MeshRenderer>().sharedMaterial = darkMat;
+            // --- Pos Ronda (kanan) ---
+            GameObject posPrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/_Game/Models/Object/POS RONDA.fbx");
+            if (posPrefab != null)
+            {
+                var pos = (GameObject)PrefabUtility.InstantiatePrefab(posPrefab);
+                pos.name = "PosRonda";
+                pos.transform.SetParent(bgParent.transform, false);
+                pos.transform.position = new Vector3(5.2f, 0f, 9.5f);
+                pos.transform.rotation = Quaternion.Euler(0f, 205f, 0f);
+                pos.transform.localScale = Vector3.one * 1.1f;
+                StripColliders(pos);
+            }
 
-            // Lampu Jalan Hangat (#FFB347)
-            GameObject lightObj = new GameObject("LampuJalan");
-            lightObj.transform.SetParent(pole.transform);
-            lightObj.transform.position = new Vector3(2.5f, 4.8f, 0f);
-            Light streetLight = lightObj.AddComponent<Light>();
-            streetLight.type = LightType.Point;
-            streetLight.color = ColorAccent;
-            streetLight.range = 14f;
-            streetLight.intensity = 2.8f;
-            lightObj.AddComponent<LampFlicker>();
+            // --- Lampu Jalan (kiri-tengah) ---
+            GameObject lampPrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/_Game/Prefabs/Props/LampuJalan.prefab");
+            if (lampPrefab != null)
+            {
+                var lamp = (GameObject)PrefabUtility.InstantiatePrefab(lampPrefab);
+                lamp.name = "LampuJalan_Menu";
+                lamp.transform.SetParent(bgParent.transform, false);
+                lamp.transform.position = new Vector3(-3.4f, 0f, 5.5f);
+                lamp.transform.rotation = Quaternion.Euler(0f, 25f, 0f);
+                StripNetworkAndColliders(lamp);
+            }
+            else
+            {
+                // Fallback: tiang sederhana
+                GameObject pole = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+                pole.name = "TiangLampu";
+                pole.transform.SetParent(bgParent.transform);
+                pole.transform.position = new Vector3(-3.4f, 2.6f, 5.5f);
+                pole.transform.localScale = new Vector3(0.1f, 2.6f, 0.1f);
+                pole.GetComponent<MeshRenderer>().sharedMaterial = silhouetteMat;
+                Object.DestroyImmediate(pole.GetComponent<Collider>());
 
-            // Catatan: Pos Ronda dan Pagar telah dihapus karena akan diimpor dari aset sendiri oleh user.
+                GameObject lightObj = new GameObject("LampuJalan");
+                lightObj.transform.SetParent(bgParent.transform);
+                lightObj.transform.position = new Vector3(-3.4f, 5.1f, 5.5f);
+                Light streetLight = lightObj.AddComponent<Light>();
+                streetLight.type = LightType.Point;
+                streetLight.color = ColorAccent;
+                streetLight.range = 16f;
+                streetLight.intensity = 3.2f;
+                lightObj.AddComponent<LampFlicker>();
+            }
+
+            // --- Sesajen di depan (focal point) ---
+            GameObject sesajenPrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/_Game/Prefabs/Props/Sesajen.prefab");
+            if (sesajenPrefab != null)
+            {
+                var sesajen = (GameObject)PrefabUtility.InstantiatePrefab(sesajenPrefab);
+                sesajen.name = "Sesajen_Menu";
+                sesajen.transform.SetParent(bgParent.transform, false);
+                sesajen.transform.position = new Vector3(1.35f, 0f, 1.8f);
+                sesajen.transform.rotation = Quaternion.Euler(0f, -20f, 0f);
+                sesajen.transform.localScale = Vector3.one * 1.15f;
+                StripNetworkAndColliders(sesajen);
+
+                // Pastikan efek lilin/dupa menyala & material partikel tidak pink
+                var softMat = CreateParticleMaterial("Assets/_Game/Materials/M_MainMenu_Particle.mat", new Color(1f, 0.9f, 0.75f, 0.55f));
+                foreach (var psr in sesajen.GetComponentsInChildren<ParticleSystemRenderer>(true))
+                {
+                    psr.material = softMat;
+                }
+                foreach (var ps in sesajen.GetComponentsInChildren<ParticleSystem>(true))
+                {
+                    ps.gameObject.SetActive(true);
+                    ps.Play(true);
+                }
+                foreach (var l in sesajen.GetComponentsInChildren<Light>(true))
+                {
+                    l.enabled = true;
+                }
+            }
+
+            // --- Kuntilanak di kejauhan (siluet menyeramkan) ---
+            GameObject kuntiPrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/_Game/Models/Hantu/Kuntilanak/kunti.fbx");
+            if (kuntiPrefab != null)
+            {
+                var kunti = (GameObject)PrefabUtility.InstantiatePrefab(kuntiPrefab);
+                kunti.name = "Kuntilanak_Silhouette";
+                kunti.transform.SetParent(bgParent.transform, false);
+                kunti.transform.position = new Vector3(0.75f, 0f, 13.5f);
+                kunti.transform.rotation = Quaternion.Euler(0f, 180f, 0f);
+                kunti.transform.localScale = Vector3.one * 1.18f;
+                StripColliders(kunti);
+                DarkenRenderers(kunti, new Color(0.34f, 0.35f, 0.42f, 1f));
+                kunti.AddComponent<Pucaci.UI.MenuGhostFloating>();
+
+                // Rim light dingin agar siluet kuntilanak terbaca dari kegelapan
+                GameObject rimObj = new GameObject("KuntiRimLight");
+                rimObj.transform.SetParent(kunti.transform, false);
+                rimObj.transform.localPosition = new Vector3(0f, 1.6f, -0.9f);
+                var rim = rimObj.AddComponent<Light>();
+                rim.type = LightType.Point;
+                rim.color = new Color(0.45f, 0.62f, 0.95f);
+                rim.range = 5.5f;
+                rim.intensity = 1.5f;
+                rim.shadows = LightShadows.None;
+            }
+
+            // --- Pohon siluet kiri & kanan ---
+            BuildSilhouetteTree(bgParent.transform, new Vector3(-7.5f, 0f, 12f), 1.35f, silhouetteMat);
+            BuildSilhouetteTree(bgParent.transform, new Vector3(-5.2f, 0f, 19f), 1.7f, silhouetteMat);
+            BuildSilhouetteTree(bgParent.transform, new Vector3(7.8f, 0f, 14.5f), 1.5f, silhouetteMat);
+            BuildSilhouetteTree(bgParent.transform, new Vector3(3.2f, 0f, 22f), 1.9f, silhouetteMat);
+
+            // --- Pagar bambu tipis di kanan-kiri jalan ---
+            BuildBambooFence(bgParent.transform, new Vector3(-2.2f, 0f, 3.2f), 3.2f, silhouetteMat);
+            BuildBambooFence(bgParent.transform, new Vector3(3.6f, 0f, 4.0f), 3.6f, silhouetteMat);
+
+            // --- Kabut tanah & kunang-kunang ---
+            BuildGroundMist(bgParent.transform);
+            BuildFireflies(bgParent.transform);
+        }
+
+        private static void StripColliders(GameObject root)
+        {
+            foreach (var c in root.GetComponentsInChildren<Collider>(true))
+            {
+                Object.DestroyImmediate(c);
+            }
+        }
+
+        private static void StripNetworkAndColliders(GameObject root)
+        {
+            foreach (var mb in root.GetComponentsInChildren<MonoBehaviour>(true))
+            {
+                if (mb == null) continue;
+                if (mb is Mirror.NetworkBehaviour || mb is Mirror.NetworkIdentity)
+                {
+                    Object.DestroyImmediate(mb);
+                }
+            }
+            StripColliders(root);
+        }
+
+        private static void DarkenRenderers(GameObject root, Color color)
+        {
+            foreach (var r in root.GetComponentsInChildren<Renderer>(true))
+            {
+                var mats = new Material[r.sharedMaterials.Length];
+                for (int i = 0; i < mats.Length; i++)
+                {
+                    var src = r.sharedMaterials[i];
+                    if (src == null) continue;
+                    var clone = new Material(src);
+                    if (clone.HasProperty("_BaseColor")) clone.SetColor("_BaseColor", color);
+                    if (clone.HasProperty("_Color")) clone.SetColor("_Color", color);
+                    clone.color = color;
+                    mats[i] = clone;
+                }
+                r.sharedMaterials = mats;
+            }
+        }
+
+        private static Material CreateOrUpdateLitMaterial(string path, Color baseColor, string texturePath, Vector2 tiling)
+        {
+            var shader = Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard");
+            Material mat = AssetDatabase.LoadAssetAtPath<Material>(path);
+            if (mat == null)
+            {
+                mat = new Material(shader);
+                AssetDatabase.CreateAsset(mat, path);
+            }
+            mat.shader = shader;
+            mat.SetColor("_BaseColor", baseColor);
+            mat.color = baseColor;
+            if (!string.IsNullOrEmpty(texturePath))
+            {
+                var tex = AssetDatabase.LoadAssetAtPath<Texture2D>(texturePath);
+                if (tex != null)
+                {
+                    mat.SetTexture("_BaseMap", tex);
+                    mat.SetTexture("_MainTex", tex);
+                    mat.SetTextureScale("_BaseMap", tiling);
+                    mat.SetTextureScale("_MainTex", tiling);
+                }
+            }
+            mat.SetFloat("_Smoothness", 0.15f);
+            EditorUtility.SetDirty(mat);
+            return mat;
+        }
+
+        private static void BuildSilhouetteTree(Transform parent, Vector3 pos, float scale, Material mat)
+        {
+            GameObject tree = new GameObject("Tree_Silhouette");
+            tree.transform.SetParent(parent, false);
+            tree.transform.position = pos;
+            tree.transform.localScale = Vector3.one * scale;
+
+            GameObject trunk = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+            trunk.name = "Trunk";
+            trunk.transform.SetParent(tree.transform, false);
+            trunk.transform.localPosition = new Vector3(0f, 2.2f, 0f);
+            trunk.transform.localScale = new Vector3(0.22f, 2.2f, 0.22f);
+            trunk.GetComponent<MeshRenderer>().sharedMaterial = mat;
+            Object.DestroyImmediate(trunk.GetComponent<Collider>());
+
+            GameObject crown = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+            crown.name = "Crown";
+            crown.transform.SetParent(tree.transform, false);
+            crown.transform.localPosition = new Vector3(0f, 5.0f, 0f);
+            crown.transform.localScale = new Vector3(3.2f, 3.4f, 3.2f);
+            crown.GetComponent<MeshRenderer>().sharedMaterial = mat;
+            Object.DestroyImmediate(crown.GetComponent<Collider>());
+
+            GameObject crown2 = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+            crown2.name = "Crown2";
+            crown2.transform.SetParent(tree.transform, false);
+            crown2.transform.localPosition = new Vector3(1.1f, 4.2f, 0.4f);
+            crown2.transform.localScale = new Vector3(2.0f, 2.2f, 2.0f);
+            crown2.GetComponent<MeshRenderer>().sharedMaterial = mat;
+            Object.DestroyImmediate(crown2.GetComponent<Collider>());
+        }
+
+        private static void BuildBambooFence(Transform parent, Vector3 pos, float length, Material mat)
+        {
+            GameObject fence = new GameObject("PagarBambu");
+            fence.transform.SetParent(parent, false);
+            fence.transform.position = pos;
+
+            int segments = Mathf.CeilToInt(length / 0.45f);
+            for (int i = 0; i < segments; i++)
+            {
+                var slat = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+                slat.name = $"Bambu_{i}";
+                slat.transform.SetParent(fence.transform, false);
+                slat.transform.localPosition = new Vector3(i * 0.45f, 0.7f, 0f);
+                slat.transform.localScale = new Vector3(0.045f, 0.7f, 0.045f);
+                slat.transform.localRotation = Quaternion.Euler(0f, 0f, Random.Range(-4f, 4f));
+                slat.GetComponent<MeshRenderer>().sharedMaterial = mat;
+                Object.DestroyImmediate(slat.GetComponent<Collider>());
+            }
+
+            // Palang horizontal
+            var rail = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+            rail.name = "Palang";
+            rail.transform.SetParent(fence.transform, false);
+            rail.transform.localPosition = new Vector3(length * 0.5f, 1.15f, 0f);
+            rail.transform.localRotation = Quaternion.Euler(0f, 0f, 90f);
+            rail.transform.localScale = new Vector3(0.04f, length * 0.5f, 0.04f);
+            rail.GetComponent<MeshRenderer>().sharedMaterial = mat;
+            Object.DestroyImmediate(rail.GetComponent<Collider>());
+        }
+
+        private static void BuildGroundMist(Transform parent)
+        {
+            GameObject mistObj = new GameObject("GroundMist");
+            mistObj.transform.SetParent(parent, false);
+            mistObj.transform.position = new Vector3(0f, 0.35f, 10f);
+
+            var ps = mistObj.AddComponent<ParticleSystem>();
+            ps.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+            var main = ps.main;
+            main.duration = 8f;
+            main.loop = true;
+            main.startLifetime = 14f;
+            main.startSpeed = 0.35f;
+            main.startSize = new ParticleSystem.MinMaxCurve(4f, 8f);
+            main.startColor = new ParticleSystem.MinMaxGradient(
+                new Color(0.55f, 0.62f, 0.75f, 0.10f),
+                new Color(0.45f, 0.52f, 0.65f, 0.05f));
+            main.maxParticles = 40;
+            main.simulationSpace = ParticleSystemSimulationSpace.World;
+
+            var emission = ps.emission;
+            emission.rateOverTime = 2.2f;
+
+            var shape = ps.shape;
+            shape.shapeType = ParticleSystemShapeType.Box;
+            shape.scale = new Vector3(26f, 0.5f, 22f);
+
+            var vel = ps.velocityOverLifetime;
+            vel.enabled = true;
+            vel.space = ParticleSystemSimulationSpace.World;
+            vel.x = new ParticleSystem.MinMaxCurve(-0.25f, 0.25f);
+            vel.z = new ParticleSystem.MinMaxCurve(0.05f, 0.35f);
+
+            var colorOverLifetime = ps.colorOverLifetime;
+            colorOverLifetime.enabled = true;
+            Gradient grad = new Gradient();
+            grad.SetKeys(
+                new GradientColorKey[] { new GradientColorKey(Color.white, 0f), new GradientColorKey(Color.white, 1f) },
+                new GradientAlphaKey[] { new GradientAlphaKey(0f, 0f), new GradientAlphaKey(1f, 0.3f), new GradientAlphaKey(1f, 0.7f), new GradientAlphaKey(0f, 1f) });
+            colorOverLifetime.color = grad;
+
+            var renderer = mistObj.GetComponent<ParticleSystemRenderer>();
+            renderer.renderMode = ParticleSystemRenderMode.Billboard;
+            renderer.material = CreateParticleMaterial("Assets/_Game/Materials/M_MainMenu_Mist.mat", new Color(1f, 1f, 1f, 0.45f));
+            ps.Play();
+        }
+
+        private static void BuildFireflies(Transform parent)
+        {
+            GameObject ffObj = new GameObject("Fireflies_Embers");
+            ffObj.transform.SetParent(parent, false);
+            ffObj.transform.position = new Vector3(0f, 1.6f, 8f);
+
+            var ps = ffObj.AddComponent<ParticleSystem>();
+            ps.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+            var main = ps.main;
+            main.duration = 6f;
+            main.loop = true;
+            main.startLifetime = new ParticleSystem.MinMaxCurve(4f, 9f);
+            main.startSpeed = 0.25f;
+            main.startSize = new ParticleSystem.MinMaxCurve(0.035f, 0.09f);
+            main.startColor = new ParticleSystem.MinMaxGradient(
+                new Color(1f, 0.72f, 0.28f, 0.9f),
+                new Color(1f, 0.9f, 0.55f, 0.75f));
+            main.maxParticles = 70;
+            main.simulationSpace = ParticleSystemSimulationSpace.World;
+
+            var emission = ps.emission;
+            emission.rateOverTime = 7f;
+
+            var shape = ps.shape;
+            shape.shapeType = ParticleSystemShapeType.Box;
+            shape.scale = new Vector3(22f, 4.5f, 16f);
+
+            var noise = ps.noise;
+            noise.enabled = true;
+            noise.strength = 0.45f;
+            noise.frequency = 0.25f;
+            noise.scrollSpeed = 0.12f;
+
+            var colorOverLifetime = ps.colorOverLifetime;
+            colorOverLifetime.enabled = true;
+            Gradient grad = new Gradient();
+            grad.SetKeys(
+                new GradientColorKey[] { new GradientColorKey(Color.white, 0f), new GradientColorKey(Color.white, 1f) },
+                new GradientAlphaKey[] { new GradientAlphaKey(0f, 0f), new GradientAlphaKey(1f, 0.25f), new GradientAlphaKey(1f, 0.75f), new GradientAlphaKey(0f, 1f) });
+            colorOverLifetime.color = grad;
+
+            var renderer = ffObj.GetComponent<ParticleSystemRenderer>();
+            renderer.material = CreateParticleMaterial("Assets/_Game/Materials/M_MainMenu_Firefly.mat", Color.white);
+            ps.Play();
+        }
+
+        private static Material CreateParticleMaterial(string path, Color color)
+        {
+            Material mat = AssetDatabase.LoadAssetAtPath<Material>(path);
+            var shader = Shader.Find("Sprites/Default") ?? Shader.Find("Legacy Shaders/Particles/Alpha Blended");
+            if (mat == null)
+            {
+                mat = new Material(shader);
+                AssetDatabase.CreateAsset(mat, path);
+            }
+            // Paksa shader alpha-blended (material lama mungkin memakai shader opaque)
+            if (shader != null && mat.shader != shader)
+            {
+                mat.shader = shader;
+            }
+
+            var softTex = GetOrCreateSoftCircleTexture();
+            if (softTex != null)
+            {
+                mat.mainTexture = softTex;
+                mat.SetTexture("_MainTex", softTex);
+            }
+            mat.SetColor("_Color", color);
+            mat.color = color;
+            mat.renderQueue = 3000;
+            EditorUtility.SetDirty(mat);
+            return mat;
+        }
+
+        private static Texture2D GetOrCreateSoftCircleTexture()
+        {
+            string path = "Assets/_Game/Textures/UI/UI_SoftCircle.png";
+            var existing = AssetDatabase.LoadAssetAtPath<Texture2D>(path);
+            if (existing != null) return existing;
+
+            const int size = 128;
+            var tex = new Texture2D(size, size, TextureFormat.RGBA32, false);
+            tex.wrapMode = TextureWrapMode.Clamp;
+            tex.filterMode = FilterMode.Bilinear;
+
+            Vector2 center = new Vector2((size - 1) * 0.5f, (size - 1) * 0.5f);
+            float radius = size * 0.5f;
+
+            for (int y = 0; y < size; y++)
+            {
+                for (int x = 0; x < size; x++)
+                {
+                    float dist = Vector2.Distance(new Vector2(x, y), center) / radius;
+                    float alpha = Mathf.Clamp01(1f - dist);
+                    alpha = alpha * alpha * (3f - 2f * alpha); // smoothstep
+                    tex.SetPixel(x, y, new Color(1f, 1f, 1f, alpha));
+                }
+            }
+            tex.Apply();
+
+            System.IO.File.WriteAllBytes(path, tex.EncodeToPNG());
+            AssetDatabase.ImportAsset(path, ImportAssetOptions.ForceUpdate);
+
+            var importer = (TextureImporter)AssetImporter.GetAtPath(path);
+            if (importer != null)
+            {
+                importer.textureType = TextureImporterType.Default;
+                importer.alphaIsTransparency = true;
+                importer.mipmapEnabled = true;
+                importer.wrapMode = TextureWrapMode.Clamp;
+                importer.SaveAndReimport();
+            }
+
+            return AssetDatabase.LoadAssetAtPath<Texture2D>(path);
+        }
+
+        private static void BuildPostProcessing()
+        {
+            GameObject volObj = new GameObject("GlobalVolume_MainMenu");
+            var volume = volObj.AddComponent<UnityEngine.Rendering.Volume>();
+            volume.isGlobal = true;
+            volume.priority = 1f;
+
+            var profile = ScriptableObject.CreateInstance<UnityEngine.Rendering.VolumeProfile>();
+            AssetDatabase.CreateAsset(profile, "Assets/_Game/Materials/MainMenuPostProcessProfile.asset");
+
+            var bloom = profile.Add<UnityEngine.Rendering.Universal.Bloom>(true);
+            bloom.intensity.Override(1.35f);
+            bloom.threshold.Override(0.85f);
+            bloom.scatter.Override(0.72f);
+            bloom.tint.Override(new Color(1f, 0.86f, 0.68f));
+
+            var vignette = profile.Add<UnityEngine.Rendering.Universal.Vignette>(true);
+            vignette.intensity.Override(0.42f);
+            vignette.smoothness.Override(0.55f);
+            vignette.color.Override(new Color(0.02f, 0.03f, 0.06f));
+
+            var grain = profile.Add<UnityEngine.Rendering.Universal.FilmGrain>(true);
+            grain.type.Override(UnityEngine.Rendering.Universal.FilmGrainLookup.Medium2);
+            grain.intensity.Override(0.32f);
+            grain.response.Override(0.8f);
+
+            var colorAdj = profile.Add<UnityEngine.Rendering.Universal.ColorAdjustments>(true);
+            colorAdj.postExposure.Override(-0.15f);
+            colorAdj.contrast.Override(18f);
+            colorAdj.saturation.Override(-12f);
+            colorAdj.colorFilter.Override(new Color(0.92f, 0.96f, 1.05f));
+
+            AssetDatabase.SaveAssets();
+            volume.sharedProfile = profile;
+        }
+
+        private static void BuildLeftVignette(Transform canvas)
+        {
+            GameObject gradObj = new GameObject("UI_LeftReadabilityGradient", typeof(RectTransform), typeof(Image));
+            gradObj.transform.SetParent(canvas, false);
+            gradObj.transform.SetAsFirstSibling();
+
+            RectTransform rt = gradObj.GetComponent<RectTransform>();
+            rt.anchorMin = new Vector2(0f, 0f);
+            rt.anchorMax = new Vector2(0.52f, 1f);
+            rt.offsetMin = Vector2.zero;
+            rt.offsetMax = Vector2.zero;
+
+            var img = gradObj.GetComponent<Image>();
+            img.raycastTarget = false;
+            img.sprite = CreateHorizontalFadeSprite();
+            img.type = Image.Type.Simple;
+            img.color = new Color(0.01f, 0.015f, 0.03f, 0.93f);
+        }
+
+        private static Sprite CreateHorizontalFadeSprite()
+        {
+            const int width = 256;
+            const int height = 4;
+            var tex = new Texture2D(width, height, TextureFormat.RGBA32, false);
+            tex.wrapMode = TextureWrapMode.Clamp;
+            tex.filterMode = FilterMode.Bilinear;
+
+            for (int x = 0; x < width; x++)
+            {
+                float t = (float)x / (width - 1);
+                // Gelap penuh di kiri, memudar halus ke kanan
+                float alpha = Mathf.Clamp01(1f - Mathf.Pow(t, 0.75f));
+                for (int y = 0; y < height; y++)
+                {
+                    tex.SetPixel(x, y, new Color(1f, 1f, 1f, alpha));
+                }
+            }
+            tex.Apply();
+
+            string path = "Assets/_Game/Textures/UI/UI_HorizontalFade.png";
+            System.IO.File.WriteAllBytes(path, tex.EncodeToPNG());
+            AssetDatabase.ImportAsset(path, ImportAssetOptions.ForceUpdate);
+
+            var importer = (TextureImporter)AssetImporter.GetAtPath(path);
+            if (importer != null)
+            {
+                importer.textureType = TextureImporterType.Sprite;
+                importer.spriteImportMode = SpriteImportMode.Single;
+                importer.alphaIsTransparency = true;
+                importer.mipmapEnabled = false;
+                importer.wrapMode = TextureWrapMode.Clamp;
+                importer.SaveAndReimport();
+            }
+
+            return AssetDatabase.LoadAssetAtPath<Sprite>(path);
         }
 
         private static void BuildTitleAndHeader(Transform canvas)
@@ -168,54 +667,110 @@ namespace Pucaci.Editor
             GameObject headerObj = new GameObject("TitleHeader", typeof(RectTransform));
             headerObj.transform.SetParent(canvas, false);
             RectTransform headerRect = headerObj.GetComponent<RectTransform>();
-            headerRect.anchorMin = new Vector2(0.5f, 1f);
-            headerRect.anchorMax = new Vector2(0.5f, 1f);
-            headerRect.pivot = new Vector2(0.5f, 1f);
-            headerRect.anchoredPosition = new Vector2(0f, -60f);
-            headerRect.sizeDelta = new Vector2(800f, 180f);
+            headerRect.anchorMin = new Vector2(0f, 1f);
+            headerRect.anchorMax = new Vector2(0f, 1f);
+            headerRect.pivot = new Vector2(0f, 1f);
+            headerRect.anchoredPosition = new Vector2(96f, -96f);
+            headerRect.sizeDelta = new Vector2(760f, 210f);
+
+            // Eyebrow / kicker
+            GameObject kickerObj = CreateTMPText(headerObj.transform, "Kicker", "HOROR KAMPUNG  •  1—4 PEMAIN", 16, TextAlignmentOptions.Left);
+            var kicker = kickerObj.GetComponent<TMP_Text>();
+            kicker.color = new Color(0.62f, 0.68f, 0.78f, 0.85f);
+            kicker.characterSpacing = 12f;
+            kicker.fontStyle = FontStyles.Bold;
+            RectTransform kickerRect = kickerObj.GetComponent<RectTransform>();
+            kickerRect.anchorMin = new Vector2(0f, 1f);
+            kickerRect.anchorMax = new Vector2(1f, 1f);
+            kickerRect.pivot = new Vector2(0f, 1f);
+            kickerRect.anchoredPosition = new Vector2(0f, 0f);
+            kickerRect.sizeDelta = new Vector2(0f, 24f);
 
             // Title: PUCACI
-            GameObject titleObj = CreateTMPText(headerObj.transform, "TitleText", "PUCACI", 78, TextAlignmentOptions.Center);
+            GameObject titleObj = CreateTMPText(headerObj.transform, "TitleText", "PUCACI", 104, TextAlignmentOptions.Left);
             TMP_Text titleTMP = titleObj.GetComponent<TMP_Text>();
             titleTMP.fontStyle = FontStyles.Bold;
             titleTMP.color = ColorAccent;
+            titleTMP.characterSpacing = 6f;
             titleObj.AddComponent<TitleFlicker>();
 
+            var shadow = titleObj.AddComponent<Shadow>();
+            shadow.effectColor = new Color(0f, 0f, 0f, 0.65f);
+            shadow.effectDistance = new Vector2(4f, -4f);
+
             RectTransform titleRect = titleObj.GetComponent<RectTransform>();
-            titleRect.anchorMin = new Vector2(0f, 0.35f);
+            titleRect.anchorMin = new Vector2(0f, 1f);
             titleRect.anchorMax = new Vector2(1f, 1f);
-            titleRect.offsetMin = Vector2.zero;
-            titleRect.offsetMax = Vector2.zero;
+            titleRect.pivot = new Vector2(0f, 1f);
+            titleRect.anchoredPosition = new Vector2(0f, -26f);
+            titleRect.sizeDelta = new Vector2(0f, 120f);
+
+            // Divider accent line
+            GameObject lineObj = new GameObject("AccentLine", typeof(RectTransform), typeof(Image));
+            lineObj.transform.SetParent(headerObj.transform, false);
+            var lineImg = lineObj.GetComponent<Image>();
+            lineImg.color = new Color(1f, 0.7f, 0.29f, 0.85f);
+            lineImg.raycastTarget = false;
+            RectTransform lineRect = lineObj.GetComponent<RectTransform>();
+            lineRect.anchorMin = new Vector2(0f, 1f);
+            lineRect.anchorMax = new Vector2(0f, 1f);
+            lineRect.pivot = new Vector2(0f, 1f);
+            lineRect.anchoredPosition = new Vector2(0f, -150f);
+            lineRect.sizeDelta = new Vector2(92f, 3f);
 
             // Subtitle
-            GameObject subObj = CreateTMPText(headerObj.transform, "SubtitleText", "Ronda malam, jangan berisik.", 24, TextAlignmentOptions.Center);
+            GameObject subObj = CreateTMPText(headerObj.transform, "SubtitleText", "Ronda malam, jangan berisik.\nSesuatu ikut berjalan di belakangmu.", 20, TextAlignmentOptions.TopLeft);
             TMP_Text subTMP = subObj.GetComponent<TMP_Text>();
-            subTMP.color = ColorText;
+            subTMP.color = new Color(0.82f, 0.84f, 0.88f, 0.9f);
+            subTMP.lineSpacing = 12f;
             RectTransform subRect = subObj.GetComponent<RectTransform>();
-            subRect.anchorMin = new Vector2(0f, 0f);
-            subRect.anchorMax = new Vector2(1f, 0.35f);
-            subRect.offsetMin = Vector2.zero;
-            subRect.offsetMax = Vector2.zero;
+            subRect.anchorMin = new Vector2(0f, 1f);
+            subRect.anchorMax = new Vector2(1f, 1f);
+            subRect.pivot = new Vector2(0f, 1f);
+            subRect.anchoredPosition = new Vector2(0f, -168f);
+            subRect.sizeDelta = new Vector2(0f, 60f);
         }
 
         private static MenuPanel BuildMainPanel(Transform canvas, MainMenuController controller)
         {
-            GameObject panelObj = CreatePanelContainer(canvas, "MainPanel", new Vector2(420f, 490f), new Vector2(0f, -40f));
+            GameObject panelObj = new GameObject("MainPanel", typeof(RectTransform), typeof(CanvasGroup));
+            panelObj.transform.SetParent(canvas, false);
+            RectTransform panelRect = panelObj.GetComponent<RectTransform>();
+            panelRect.anchorMin = new Vector2(0f, 0f);
+            panelRect.anchorMax = new Vector2(0f, 0f);
+            panelRect.pivot = new Vector2(0f, 0f);
+            panelRect.anchoredPosition = new Vector2(96f, 86f);
+            panelRect.sizeDelta = new Vector2(520f, 402f);
+
             MenuPanel panel = panelObj.AddComponent<MenuPanel>();
 
             VerticalLayoutGroup layout = panelObj.AddComponent<VerticalLayoutGroup>();
-            layout.spacing = 14f;
-            layout.childAlignment = TextAnchor.MiddleCenter;
-            layout.childControlWidth = true;
+            layout.spacing = 10f;
+            layout.childAlignment = TextAnchor.LowerLeft;
+            layout.childControlWidth = false;
             layout.childControlHeight = false;
-            layout.padding = new RectOffset(20, 20, 25, 25);
+            layout.childForceExpandWidth = false;
+            layout.childForceExpandHeight = false;
+            layout.padding = new RectOffset(0, 0, 0, 0);
 
-            Button btnPlay = CreateButton(panelObj.transform, "BtnMulai", "Mulai Main", ColorAccent, ColorBg);
-            Button btnMabar = CreateButton(panelObj.transform, "BtnMabar", "Mabar", ColorAccent, ColorBg);
-            Button btnCara = CreateButton(panelObj.transform, "BtnCaraBermain", "Cara Bermain", ColorText, ColorBg);
-            Button btnSettings = CreateButton(panelObj.transform, "BtnPengaturan", "Pengaturan", ColorText, ColorBg);
-            Button btnCredits = CreateButton(panelObj.transform, "BtnKredit", "Kredit", ColorText, ColorBg);
-            Button btnQuit = CreateButton(panelObj.transform, "BtnKeluar", "Keluar", ColorDanger, ColorBg);
+            Button btnPlay = CreateMenuActionButton(panelObj.transform, "BtnMulai", "Mulai Main", "MULAI RONDA", ColorAccent);
+            Button btnMabar = CreateMenuActionButton(panelObj.transform, "BtnMabar", "Mabar", "MABAR ONLINE", new Color(0.55f, 0.8f, 1f));
+            Button btnCara = CreateMenuActionButton(panelObj.transform, "BtnCaraBermain", "Cara Bermain", "CARA BERMAIN", new Color(0.78f, 0.82f, 0.9f));
+            Button btnSettings = CreateMenuActionButton(panelObj.transform, "BtnPengaturan", "Pengaturan", "PENGATURAN", new Color(0.78f, 0.82f, 0.9f));
+            Button btnCredits = CreateMenuActionButton(panelObj.transform, "BtnKredit", "Kredit", "KREDIT", new Color(0.78f, 0.82f, 0.9f));
+            Button btnQuit = CreateMenuActionButton(panelObj.transform, "BtnKeluar", "Keluar", "KELUAR", ColorDanger);
+
+            // Footer hint
+            GameObject hintObj = CreateTMPText(canvas, "MainMenuHint", "↑ ↓  Navigasi     ENTER  Pilih     ESC  Kembali", 14, TextAlignmentOptions.BottomLeft);
+            var hint = hintObj.GetComponent<TMP_Text>();
+            hint.color = new Color(0.55f, 0.6f, 0.68f, 0.6f);
+            hint.characterSpacing = 4f;
+            RectTransform hintRect = hintObj.GetComponent<RectTransform>();
+            hintRect.anchorMin = new Vector2(0f, 0f);
+            hintRect.anchorMax = new Vector2(0f, 0f);
+            hintRect.pivot = new Vector2(0f, 0f);
+            hintRect.anchoredPosition = new Vector2(98f, 52f);
+            hintRect.sizeDelta = new Vector2(560f, 24f);
 
             // Connect Serialized properties on controller
             SerializedObject so = new SerializedObject(controller);
@@ -237,7 +792,7 @@ namespace Pucaci.Editor
 
         private static MenuPanel BuildCharacterSelectPanel(Transform canvas, MainMenuController controller)
         {
-            GameObject panelObj = CreatePanelContainer(canvas, "CharacterSelectPanel", new Vector2(1440f, 660f), new Vector2(0f, -30f));
+            GameObject panelObj = CreatePanelContainer(canvas, "CharacterSelectPanel", new Vector2(1300f, 640f), new Vector2(300f, -10f));
             MenuPanel panel = panelObj.AddComponent<MenuPanel>();
 
             VerticalLayoutGroup layout = panelObj.AddComponent<VerticalLayoutGroup>();
@@ -257,7 +812,7 @@ namespace Pucaci.Editor
             cLayout.spacing = 16f;
             cLayout.childControlWidth = true;
             cLayout.childControlHeight = true;
-            cardsRow.GetComponent<RectTransform>().sizeDelta = new Vector2(1380f, 430f);
+            cardsRow.GetComponent<RectTransform>().sizeDelta = new Vector2(1240f, 384f);
 
             // --- Card 1: Laras ---
             GameObject cardLaras = new GameObject("Card_Laras", typeof(RectTransform), typeof(Image));
@@ -292,7 +847,7 @@ namespace Pucaci.Editor
             var traitLaras = CreateTMPText(larasInner.transform, "Traits", larasTraits, 15, TextAlignmentOptions.TopLeft);
             traitLaras.GetComponent<TMP_Text>().color = new Color(0.7f, 0.8f, 0.9f, 0.9f);
 
-            Button btnSelectLaras = CreateButton(larasInner.transform, "BtnSelectLaras", "[V] TERPILIH", ColorAccent, ColorBg, 340f);
+            Button btnSelectLaras = CreateButton(larasInner.transform, "BtnSelectLaras", "[V] TERPILIH", ColorAccent, ColorBg, 280f);
             TMP_Text larasBadge = btnSelectLaras.GetComponentInChildren<TMP_Text>();
 
             // --- Card 2: Pak Mamat ---
@@ -328,7 +883,7 @@ namespace Pucaci.Editor
             var traitMamat = CreateTMPText(mamatInner.transform, "Traits", mamatTraits, 15, TextAlignmentOptions.TopLeft);
             traitMamat.GetComponent<TMP_Text>().color = new Color(0.7f, 0.8f, 0.9f, 0.9f);
 
-            Button btnSelectMamat = CreateButton(mamatInner.transform, "BtnSelectMamat", "PILIH PAK MAMAT", ColorText, ColorBg, 340f);
+            Button btnSelectMamat = CreateButton(mamatInner.transform, "BtnSelectMamat", "PILIH PAK MAMAT", ColorText, ColorBg, 280f);
             TMP_Text mamatBadge = btnSelectMamat.GetComponentInChildren<TMP_Text>();
 
             // --- Card 3: Kuntilanak ---
@@ -364,7 +919,7 @@ namespace Pucaci.Editor
             var traitKunti = CreateTMPText(kuntiInner.transform, "Traits", kuntiTraits, 15, TextAlignmentOptions.TopLeft);
             traitKunti.GetComponent<TMP_Text>().color = new Color(0.7f, 0.8f, 0.9f, 0.9f);
 
-            Button btnSelectKunti = CreateButton(kuntiInner.transform, "BtnSelectKunti", "PILIH KUNTILANAK", ColorText, ColorBg, 340f);
+            Button btnSelectKunti = CreateButton(kuntiInner.transform, "BtnSelectKunti", "PILIH KUNTILANAK", ColorText, ColorBg, 280f);
             TMP_Text kuntiBadge = btnSelectKunti.GetComponentInChildren<TMP_Text>();
 
             // --- Card 4: Pak Vincent ---
@@ -400,7 +955,7 @@ namespace Pucaci.Editor
             var traitVincent = CreateTMPText(vincentInner.transform, "Traits", vincentTraits, 15, TextAlignmentOptions.TopLeft);
             traitVincent.GetComponent<TMP_Text>().color = new Color(0.7f, 0.8f, 0.9f, 0.9f);
 
-            Button btnSelectVincent = CreateButton(vincentInner.transform, "BtnSelectVincent", "PILIH PAK VINCENT", ColorText, ColorBg, 340f);
+            Button btnSelectVincent = CreateButton(vincentInner.transform, "BtnSelectVincent", "PILIH PAK VINCENT", ColorText, ColorBg, 280f);
             TMP_Text vincentBadge = btnSelectVincent.GetComponentInChildren<TMP_Text>();
 
             // Bottom Action Row
@@ -410,10 +965,10 @@ namespace Pucaci.Editor
             bLayout.spacing = 20f;
             bLayout.childControlWidth = true;
             bLayout.childControlHeight = true;
-            bottomRow.GetComponent<RectTransform>().sizeDelta = new Vector2(1380f, 50f);
+            bottomRow.GetComponent<RectTransform>().sizeDelta = new Vector2(1240f, 50f);
 
-            Button btnStartWithChar = CreateButton(bottomRow.transform, "BtnStartPlay", "MULAI BERMAIN", ColorAccent, ColorBg, 850f);
-            Button btnCharBack = CreateButton(bottomRow.transform, "BtnBack", "Kembali", ColorText, ColorBg, 450f);
+            Button btnStartWithChar = CreateButton(bottomRow.transform, "BtnStartPlay", "MULAI BERMAIN", ColorAccent, ColorBg, 800f);
+            Button btnCharBack = CreateButton(bottomRow.transform, "BtnBack", "Kembali", ColorText, ColorBg, 400f);
 
             // Connect Serialized properties on controller
             SerializedObject so = new SerializedObject(controller);
@@ -443,7 +998,7 @@ namespace Pucaci.Editor
 
         private static MenuPanel BuildMabarPanel(Transform canvas, MainMenuController controller)
         {
-            GameObject panelObj = CreatePanelContainer(canvas, "MabarPanel", new Vector2(520f, 540f), new Vector2(0f, -40f));
+            GameObject panelObj = CreatePanelContainer(canvas, "MabarPanel", new Vector2(520f, 540f), new Vector2(330f, -20f));
             MenuPanel panel = panelObj.AddComponent<MenuPanel>();
 
             VerticalLayoutGroup layout = panelObj.AddComponent<VerticalLayoutGroup>();
@@ -460,12 +1015,13 @@ namespace Pucaci.Editor
             charRow.transform.SetParent(panelObj.transform, false);
             HorizontalLayoutGroup chLayout = charRow.GetComponent<HorizontalLayoutGroup>();
             chLayout.spacing = 10f;
-            chLayout.childControlWidth = true;
+            chLayout.childControlWidth = false;
             chLayout.childControlHeight = true;
+            chLayout.childForceExpandWidth = false;
             charRow.GetComponent<RectTransform>().sizeDelta = new Vector2(460f, 40f);
 
-            GameObject charTextObj = CreateTMPText(charRow.transform, "MabarCharText", "Karakter Aktif: <b>Laras</b>", 16, TextAlignmentOptions.MidlineLeft, 300f);
-            Button btnChangeChar = CreateButton(charRow.transform, "BtnChangeChar", "Ganti", ColorAccent, ColorBg, 140f);
+            GameObject charTextObj = CreateTMPText(charRow.transform, "MabarCharText", "Karakter Aktif: <b>Laras</b>", 15, TextAlignmentOptions.MidlineLeft, 340f);
+            Button btnChangeChar = CreateButton(charRow.transform, "BtnChangeChar", "Ganti", ColorAccent, ColorBg, 110f);
 
             Button btnHost = CreateButton(panelObj.transform, "BtnHost", "Buat Ruangan (Host)", ColorAccent, ColorBg);
 
@@ -509,7 +1065,7 @@ namespace Pucaci.Editor
 
         private static MenuPanel BuildCaraBermainPanel(Transform canvas, MainMenuController controller)
         {
-            GameObject panelObj = CreatePanelContainer(canvas, "CaraBermainPanel", new Vector2(650f, 520f), new Vector2(0f, -40f));
+            GameObject panelObj = CreatePanelContainer(canvas, "CaraBermainPanel", new Vector2(650f, 600f), new Vector2(330f, -10f));
             MenuPanel panel = panelObj.AddComponent<MenuPanel>();
 
             VerticalLayoutGroup layout = panelObj.AddComponent<VerticalLayoutGroup>();
@@ -521,13 +1077,24 @@ namespace Pucaci.Editor
 
             CreateTMPText(panelObj.transform, "Header", "CARA BERMAIN", 28, TextAlignmentOptions.Center);
 
-            string guideText = "1. Tugasmu: keliling kampung dan isi buku absen ronda sampai fajar.\n\n" +
-                               "2. Hantu mendengar suaramu. Semakin keras bicara, semakin dekat mereka datang.\n\n" +
-                               "3. Pakai kentongan untuk kode senyap ke teman satu tim.\n\n" +
-                               "4. Pos ronda adalah tempat aman, tapi jangan terlalu ribut di sana.";
+            string guideText =
+                "<color=#FFB347><b>SURVIVOR</b></color>\n" +
+                "• Hancurkan 5 sesajen di kampung sebelum waktu habis.\n" +
+                "• Tahan <b>[E]</b> di depan sesajen untuk merusaknya.\n" +
+                "• Jangan sendirian — hantu bisa menyerupai rekanmu.\n\n" +
+                "<color=#FF6B5B><b>KUNTILANAK (IMPOSTOR)</b></color>\n" +
+                "• Bunuh semua survivor tanpa ketahuan.\n" +
+                "• <b>[1/2/3/T]</b> menyamar jadi manusia, <b>[F]</b> wujud gaib.\n" +
+                "• <b>[M1/E]</b> cekik korban, <b>[Q]</b> sabotase lampu jalan.\n" +
+                "• Dalam wujud manusia, kau bisa merusak / memperbaiki sesajen untuk mengelabui tim.\n\n" +
+                "<color=#8FB3FF><b>TIPS</b></color>\n" +
+                "• Lampu mati = hantu sedang dekat. Nyalakan kembali untuk bertahan.\n" +
+                "• Suara keras menarik perhatian. Berbisiklah saat bersembunyi.";
 
-            GameObject descObj = CreateTMPText(panelObj.transform, "DescText", guideText, 19, TextAlignmentOptions.TopLeft);
-            descObj.GetComponent<RectTransform>().sizeDelta = new Vector2(580f, 280f);
+            GameObject descObj = CreateTMPText(panelObj.transform, "DescText", guideText, 17, TextAlignmentOptions.TopLeft);
+            descObj.GetComponent<RectTransform>().sizeDelta = new Vector2(580f, 400f);
+            var descTmp = descObj.GetComponent<TMP_Text>();
+            descTmp.lineSpacing = 6f;
 
             Button btnBack = CreateButton(panelObj.transform, "BtnBack", "Kembali", ColorText, ColorBg);
 
@@ -544,7 +1111,7 @@ namespace Pucaci.Editor
 
         private static MenuPanel BuildSettingsPanel(Transform canvas, MainMenuController controller)
         {
-            GameObject panelObj = CreatePanelContainer(canvas, "SettingsPanel", new Vector2(740f, 620f), new Vector2(0f, -30f));
+            GameObject panelObj = CreatePanelContainer(canvas, "SettingsPanel", new Vector2(740f, 620f), new Vector2(330f, -10f));
             SettingsPanel panel = panelObj.AddComponent<SettingsPanel>();
 
             VerticalLayoutGroup layout = panelObj.AddComponent<VerticalLayoutGroup>();
@@ -643,7 +1210,7 @@ namespace Pucaci.Editor
 
         private static MenuPanel BuildCreditsPanel(Transform canvas, MainMenuController controller)
         {
-            GameObject panelObj = CreatePanelContainer(canvas, "CreditsPanel", new Vector2(550f, 420f), new Vector2(0f, -40f));
+            GameObject panelObj = CreatePanelContainer(canvas, "CreditsPanel", new Vector2(550f, 420f), new Vector2(330f, -20f));
             MenuPanel panel = panelObj.AddComponent<MenuPanel>();
 
             VerticalLayoutGroup layout = panelObj.AddComponent<VerticalLayoutGroup>();
@@ -738,7 +1305,28 @@ namespace Pucaci.Editor
             rt.anchoredPosition = anchoredPos;
 
             Image img = panel.GetComponent<Image>();
-            img.color = ColorBg;
+            img.color = new Color(0.024f, 0.033f, 0.055f, 0.965f);
+
+            var outline = panel.AddComponent<Outline>();
+            outline.effectColor = new Color(0.35f, 0.42f, 0.55f, 0.22f);
+            outline.effectDistance = new Vector2(1f, -1f);
+
+            var shadow = panel.AddComponent<Shadow>();
+            shadow.effectColor = new Color(0f, 0f, 0f, 0.55f);
+            shadow.effectDistance = new Vector2(0f, -8f);
+
+            // Garis aksen tipis di bagian atas panel
+            GameObject topLine = new GameObject("TopAccent", typeof(RectTransform), typeof(Image));
+            topLine.transform.SetParent(panel.transform, false);
+            var lineImg = topLine.GetComponent<Image>();
+            lineImg.color = new Color(1f, 0.7f, 0.29f, 0.55f);
+            lineImg.raycastTarget = false;
+            RectTransform lineRt = topLine.GetComponent<RectTransform>();
+            lineRt.anchorMin = new Vector2(0f, 1f);
+            lineRt.anchorMax = new Vector2(1f, 1f);
+            lineRt.pivot = new Vector2(0.5f, 1f);
+            lineRt.offsetMin = new Vector2(0f, -2f);
+            lineRt.offsetMax = new Vector2(0f, 0f);
 
             return panel;
         }
@@ -752,26 +1340,128 @@ namespace Pucaci.Editor
             rt.sizeDelta = new Vector2(width > 0 ? width : 360f, 48f);
 
             Image img = btnObj.GetComponent<Image>();
-            img.color = new Color(0.12f, 0.16f, 0.24f, 0.95f);
+            img.color = new Color(0.055f, 0.075f, 0.115f, 0.94f);
 
             Button btn = btnObj.GetComponent<Button>();
             ColorBlock cb = btn.colors;
-            cb.normalColor = new Color(0.12f, 0.16f, 0.24f, 0.95f);
-            cb.highlightedColor = new Color(0.2f, 0.25f, 0.35f, 1f);
-            cb.pressedColor = new Color(0.08f, 0.10f, 0.15f, 1f);
+            cb.normalColor = new Color(1f, 1f, 1f, 1f);
+            cb.highlightedColor = new Color(1.18f, 1.18f, 1.18f, 1f);
+            cb.pressedColor = new Color(0.72f, 0.72f, 0.72f, 1f);
             cb.disabledColor = ColorDisabled;
+            cb.fadeDuration = 0.08f;
             btn.colors = cb;
 
-            GameObject textObj = CreateTMPText(btnObj.transform, "Text", text, 20, TextAlignmentOptions.Center);
+            var outline = btnObj.AddComponent<Outline>();
+            outline.effectColor = new Color(0.35f, 0.42f, 0.55f, 0.28f);
+            outline.effectDistance = new Vector2(1f, -1f);
+
+            GameObject textObj = CreateTMPText(btnObj.transform, "Text", text, 19, TextAlignmentOptions.Center);
             TMP_Text tmp = textObj.GetComponent<TMP_Text>();
             tmp.color = textColor;
+            tmp.fontStyle = FontStyles.Bold;
+            tmp.characterSpacing = 2f;
+            tmp.enableWordWrapping = false;
             RectTransform textRt = textObj.GetComponent<RectTransform>();
             textRt.anchorMin = Vector2.zero;
             textRt.anchorMax = Vector2.one;
-            textRt.offsetMin = Vector2.zero;
-            textRt.offsetMax = Vector2.zero;
+            textRt.offsetMin = new Vector2(12f, 0f);
+            textRt.offsetMax = new Vector2(-12f, 0f);
 
             btnObj.AddComponent<ButtonFeedback>();
+            return btn;
+        }
+
+        private static Button CreateMenuActionButton(Transform parent, string name, string label, string text, Color accentColor)
+        {
+            GameObject btnObj = new GameObject(name, typeof(RectTransform), typeof(Image), typeof(Button));
+            btnObj.transform.SetParent(parent, false);
+
+            RectTransform rt = btnObj.GetComponent<RectTransform>();
+            rt.sizeDelta = new Vector2(500f, 54f);
+
+            Image bg = btnObj.GetComponent<Image>();
+            bg.color = new Color(0.045f, 0.06f, 0.095f, 0.9f);
+
+            Button btn = btnObj.GetComponent<Button>();
+            ColorBlock cb = btn.colors;
+            cb.normalColor = new Color(1f, 1f, 1f, 1f);
+            cb.highlightedColor = new Color(1.35f, 1.35f, 1.35f, 1f);
+            cb.pressedColor = new Color(0.7f, 0.7f, 0.7f, 1f);
+            cb.selectedColor = new Color(1.25f, 1.25f, 1.25f, 1f);
+            cb.disabledColor = ColorDisabled;
+            cb.fadeDuration = 0.08f;
+            btn.colors = cb;
+            btn.transition = Selectable.Transition.ColorTint;
+
+            // Accent bar kiri
+            GameObject barObj = new GameObject("AccentBar", typeof(RectTransform), typeof(Image));
+            barObj.transform.SetParent(btnObj.transform, false);
+            var barImg = barObj.GetComponent<Image>();
+            barImg.color = new Color(accentColor.r, accentColor.g, accentColor.b, 0.85f);
+            barImg.raycastTarget = false;
+            RectTransform barRt = barObj.GetComponent<RectTransform>();
+            barRt.anchorMin = new Vector2(0f, 0f);
+            barRt.anchorMax = new Vector2(0f, 1f);
+            barRt.pivot = new Vector2(0f, 0.5f);
+            barRt.anchoredPosition = Vector2.zero;
+            barRt.sizeDelta = new Vector2(4f, 0f);
+
+            // Label kecil (kategori)
+            GameObject labelObj = CreateTMPText(btnObj.transform, "Kicker", label, 11, TextAlignmentOptions.MidlineLeft);
+            var labelTmp = labelObj.GetComponent<TMP_Text>();
+            labelTmp.color = new Color(0.6f, 0.66f, 0.76f, 0.75f);
+            labelTmp.characterSpacing = 8f;
+            labelTmp.fontStyle = FontStyles.Bold;
+            RectTransform labelRt = labelObj.GetComponent<RectTransform>();
+            labelRt.anchorMin = new Vector2(0f, 0.5f);
+            labelRt.anchorMax = new Vector2(0f, 0.5f);
+            labelRt.pivot = new Vector2(0f, 0.5f);
+            labelRt.anchoredPosition = new Vector2(30f, 10f);
+            labelRt.sizeDelta = new Vector2(400f, 16f);
+
+            // Teks utama
+            GameObject textObj = CreateTMPText(btnObj.transform, "Text", text, 23, TextAlignmentOptions.MidlineLeft);
+            TMP_Text tmp = textObj.GetComponent<TMP_Text>();
+            tmp.color = accentColor;
+            tmp.fontStyle = FontStyles.Bold;
+            tmp.characterSpacing = 1.5f;
+            RectTransform textRt = textObj.GetComponent<RectTransform>();
+            textRt.anchorMin = new Vector2(0f, 0.5f);
+            textRt.anchorMax = new Vector2(0f, 0.5f);
+            textRt.pivot = new Vector2(0f, 0.5f);
+            textRt.anchoredPosition = new Vector2(30f, -11f);
+            textRt.sizeDelta = new Vector2(400f, 30f);
+
+            // Chevron kanan
+            GameObject chevObj = CreateTMPText(btnObj.transform, "Chevron", "›", 30, TextAlignmentOptions.Center);
+            var chev = chevObj.GetComponent<TMP_Text>();
+            chev.color = new Color(accentColor.r, accentColor.g, accentColor.b, 0.5f);
+            RectTransform chevRt = chevObj.GetComponent<RectTransform>();
+            chevRt.anchorMin = new Vector2(1f, 0.5f);
+            chevRt.anchorMax = new Vector2(1f, 0.5f);
+            chevRt.pivot = new Vector2(1f, 0.5f);
+            chevRt.anchoredPosition = new Vector2(-22f, 0f);
+            chevRt.sizeDelta = new Vector2(30f, 40f);
+
+            var feedback = btnObj.AddComponent<ButtonFeedback>();
+            var fbSo = new SerializedObject(feedback);
+            fbSo.FindProperty("hoverSlideX").floatValue = 16f;
+            fbSo.FindProperty("hoverScale").floatValue = 1.012f;
+            fbSo.FindProperty("clickScale").floatValue = 0.985f;
+            fbSo.FindProperty("borderImage").objectReferenceValue = barImg;
+            fbSo.FindProperty("normalBorderColor").colorValue = new Color(accentColor.r, accentColor.g, accentColor.b, 0.85f);
+            fbSo.FindProperty("highlightBorderColor").colorValue = new Color(
+                Mathf.Min(1f, accentColor.r + 0.35f),
+                Mathf.Min(1f, accentColor.g + 0.35f),
+                Mathf.Min(1f, accentColor.b + 0.35f), 1f);
+            fbSo.FindProperty("normalTextColor").colorValue = accentColor;
+            fbSo.FindProperty("highlightTextColor").colorValue = new Color(
+                Mathf.Min(1f, accentColor.r + 0.3f),
+                Mathf.Min(1f, accentColor.g + 0.3f),
+                Mathf.Min(1f, accentColor.b + 0.3f), 1f);
+            fbSo.FindProperty("targetText").objectReferenceValue = tmp;
+            fbSo.ApplyModifiedPropertiesWithoutUndo();
+
             return btn;
         }
 
