@@ -137,6 +137,7 @@ GameObject:
   m_Component:
   - component: {fileID: 3885846111043727537}
   - component: {fileID: 1290768661379678946}
+  - component: {fileID: 2873353233270387769}
   m_Layer: 0
   m_Name: LampuJalan
   m_TagString: Untagged
@@ -184,6 +185,24 @@ CapsuleCollider:
   m_Height: 6.4
   m_Direction: 2
   m_Center: {x: 0.01, y: 0, z: 3.2}
+--- !u!114 &2873353233270387769
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7239259039629327868}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 188fba5ada3d156458c3275cbc8b5e93, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  pointLight: {fileID: 0}
+  spotLight: {fileID: 0}
+  lampRenderer: {fileID: 0}
+  basePointIntensity: 25
+  baseSpotIntensity: 42
+  emissionOnColor: {r: 1, g: 0.9, b: 0.7, a: 1}
 --- !u!1 &8917354191975571761
 GameObject:
   m_ObjectHideFlags: 0

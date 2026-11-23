@@ -1554,10 +1554,10 @@ namespace Pucaci.Player
         private bool GetLookBackInput()
         {
 #if ENABLE_INPUT_SYSTEM
-            if (Keyboard.current != null && (Keyboard.current.qKey.isPressed || Keyboard.current.eKey.isPressed)) return true;
+            if (Keyboard.current != null && Keyboard.current.xKey.isPressed) return true;
             if (Mouse.current != null && Mouse.current.middleButton.isPressed) return true;
 #else
-            if (Input.GetKey(KeyCode.Q) || Input.GetKey(KeyCode.E) || Input.GetMouseButton(2)) return true;
+            if (Input.GetKey(KeyCode.X) || Input.GetMouseButton(2)) return true;
 #endif
             return false;
         }

@@ -3040,6 +3040,7 @@ GameObject:
   - component: {fileID: -4544765373460921983}
   - component: {fileID: -995737318718010449}
   - component: {fileID: 988741853184362560}
+  - component: {fileID: 4189935569837226799}
   m_Layer: 0
   m_Name: PlayerCharacter
   m_TagString: Player
@@ -3479,6 +3480,25 @@ MonoBehaviour:
   humanAmbientIntensity: 0.5
   humanFogColor: {r: 0.015, g: 0.022, b: 0.045, a: 1}
   humanFogDensity: 0.012
+--- !u!114 &4189935569837226799
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4946537967781627025}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2e7486b9c2e64a741bec8f0c085cdae8, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  syncMethod: 0
+  syncDirection: 0
+  syncMode: 0
+  syncInterval: 0
+  sabotageKey: 31
+  legacySabotageKey: 113
+  kuntiSabotageScreech: {fileID: 0}
 --- !u!1 &5032154089337949714
 GameObject:
   m_ObjectHideFlags: 0
