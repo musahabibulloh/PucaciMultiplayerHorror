@@ -378,7 +378,7 @@ namespace Pucaci.Player
             if (TryGetComponent<Pucaci.Network.PlayerNetworkSetup>(out var netSetup))
             {
                 string displayName = isKunti ? "<color=#FF0033>KUNTILANAK</color>" : CharacterSelectionData.GetCharacterName((CharacterType)targetIndex);
-                netSetup.UpdateNameTag(displayName);
+                netSetup.UpdateNameTagText(displayName);
             }
 
             if (playEffects)

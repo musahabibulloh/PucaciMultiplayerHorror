@@ -227,6 +227,8 @@ namespace Pucaci.Network
             }
         }
 
+        public void UpdateNameTag(string newText) => UpdateNameTagText(newText);
+
         public void SetupRenderer(SkinnedMeshRenderer newRenderer)
         {
             characterRenderer = newRenderer;
