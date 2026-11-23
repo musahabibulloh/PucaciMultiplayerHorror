@@ -118,6 +118,7 @@ namespace Pucaci.Player
 
         // Status internal
         private bool isFlashlightOn;
+        private bool isGhostMode = false;
         private float currentWeight;
         private float swayTimer;
         private Material dynamicMaterial;
@@ -131,6 +132,7 @@ namespace Pucaci.Player
         private bool hasInitialFlashlightTransform = false;
 
         public bool IsOn => isFlashlightOn;
+        public bool IsGhostMode => isGhostMode;
         public Light SpotLightComponent => spotLight;
 
         private void Awake()
@@ -633,13 +635,24 @@ namespace Pucaci.Player
             mid.rotation = Quaternion.Slerp(mid.rotation, midTargetRot, weight);
         }
 
+        public void SetGhostMode(bool ghost)
+        {
+            isGhostMode = ghost;
+            if (isGhostMode)
+            {
+                SetFlashlightState(false, playSound: false);
+            }
+        }
+
         public void ToggleFlashlight()
         {
+            if (isGhostMode) return; // Mode hantu tidak memerlukan senter
             SetFlashlightState(!isFlashlightOn, playSound: true);
         }
 
         public void SetFlashlightState(bool on, bool playSound = true)
         {
+            if (isGhostMode && on) return;
             isFlashlightOn = on;
 
             if (spotLight != null)
