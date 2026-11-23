@@ -201,5 +201,90 @@ namespace Pucaci.Props
             mesh.RecalculateBounds();
             return mesh;
         }
+
+        /// <summary>
+        /// Membuat mesh hamparan abu hitam arang sesajen yang hangus di tanah.
+        /// </summary>
+        public static Mesh CreateAshDecalMesh(float radius = 0.42f, int segments = 24)
+        {
+            Mesh mesh = new Mesh { name = "Sesajen_AshDecal_Mesh" };
+
+            Vector3[] vertices = new Vector3[segments + 2];
+            Vector2[] uvs = new Vector2[segments + 2];
+            Vector3[] normals = new Vector3[segments + 2];
+
+            vertices[0] = new Vector3(0f, 0.008f, 0f);
+            uvs[0] = new Vector2(0.5f, 0.5f);
+            normals[0] = Vector3.up;
+
+            float angleStep = Mathf.PI * 2f / segments;
+            for (int i = 0; i <= segments; i++)
+            {
+                float angle = i * angleStep;
+                // Bentuk tepi abu tidak beraturan (organic scorch)
+                float r = radius * (0.85f + 0.15f * Mathf.Sin(angle * 5f) + 0.08f * Mathf.Cos(angle * 3f));
+                float x = Mathf.Cos(angle) * r;
+                float z = Mathf.Sin(angle) * r;
+                vertices[i + 1] = new Vector3(x, 0.005f + 0.003f * Mathf.Sin(angle * 4f), z);
+                uvs[i + 1] = new Vector2(0.5f + Mathf.Cos(angle) * 0.5f, 0.5f + Mathf.Sin(angle) * 0.5f);
+                normals[i + 1] = Vector3.up;
+            }
+
+            System.Collections.Generic.List<int> triangles = new System.Collections.Generic.List<int>();
+            for (int i = 1; i <= segments; i++)
+            {
+                triangles.Add(0);
+                triangles.Add(i + 1);
+                triangles.Add(i);
+            }
+
+            mesh.vertices = vertices;
+            mesh.uv = uvs;
+            mesh.normals = normals;
+            mesh.triangles = triangles.ToArray();
+            mesh.RecalculateNormals();
+            mesh.RecalculateBounds();
+            return mesh;
+        }
+
+        /// <summary>
+        /// Membuat pecahan tampah bambu yang patah dan retak.
+        /// </summary>
+        public static Mesh CreateBrokenTrayPieceMesh(float radius = 0.35f, float rimHeight = 0.045f, float angleSpan = 2.4f, int segments = 14)
+        {
+            Mesh mesh = new Mesh { name = "Sesajen_BrokenTray_Mesh" };
+
+            System.Collections.Generic.List<Vector3> verts = new System.Collections.Generic.List<Vector3>();
+            System.Collections.Generic.List<Vector2> uvs = new System.Collections.Generic.List<Vector2>();
+            System.Collections.Generic.List<int> tris = new System.Collections.Generic.List<int>();
+
+            verts.Add(new Vector3(0f, 0.006f, 0f));
+            uvs.Add(new Vector2(0.5f, 0.5f));
+
+            float angleStep = angleSpan / segments;
+            for (int i = 0; i <= segments; i++)
+            {
+                float angle = i * angleStep;
+                float jagged = (i == 0 || i == segments) ? 0.8f : 1.0f;
+                float x = Mathf.Cos(angle) * radius * jagged;
+                float z = Mathf.Sin(angle) * radius * jagged;
+                verts.Add(new Vector3(x, rimHeight * jagged, z));
+                uvs.Add(new Vector2(0.5f + Mathf.Cos(angle) * 0.5f, 0.5f + Mathf.Sin(angle) * 0.5f));
+            }
+
+            for (int i = 1; i <= segments; i++)
+            {
+                tris.Add(0);
+                tris.Add(i + 1);
+                tris.Add(i);
+            }
+
+            mesh.vertices = verts.ToArray();
+            mesh.uv = uvs.ToArray();
+            mesh.triangles = tris.ToArray();
+            mesh.RecalculateNormals();
+            mesh.RecalculateBounds();
+            return mesh;
+        }
     }
 }

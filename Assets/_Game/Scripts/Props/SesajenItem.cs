@@ -30,6 +30,16 @@ namespace Pucaci.Gameplay
         [SerializeField] private Light candleLight;
         [SerializeField] private ParticleSystem incenseSmokeParticles;
 
+        [Header("Ruins / Remains Elements (Bekas Sesajen Hancur)")]
+        [Tooltip("Kontainer objek fisik pecahan dan abu sesajen yang hancur")]
+        [SerializeField] private GameObject ruinsContainer;
+
+        [Tooltip("Cahaya pendaran bara mistis / sinyal gaib pada bekas sesajen hancur")]
+        [SerializeField] private Light ruinsBeaconLight;
+
+        [Tooltip("Partikel asap bara dan abu membara pada bekas sesajen")]
+        [SerializeField] private ParticleSystem ruinsSmokeParticles;
+
         [Header("Audio Elements")]
         [SerializeField] private AudioSource ambientAudio;
         [SerializeField] private AudioSource sfxAudio;
@@ -47,7 +57,82 @@ namespace Pucaci.Gameplay
                 lightOriginalIntensity = candleLight.intensity;
             }
 
+            ResolveReferences();
             SetupAudios();
+        }
+
+        private void Start()
+        {
+            ResolveReferences();
+            ApplyInitialStateVisuals();
+        }
+
+        public void ResolveReferences()
+        {
+            if (visualContainer == null)
+            {
+                var vis = transform.Find("Visual");
+                if (vis != null) visualContainer = vis.gameObject;
+            }
+
+            if (ruinsContainer == null)
+            {
+                var r = transform.Find("Ruins");
+                if (r != null) ruinsContainer = r.gameObject;
+            }
+
+            if (candleLight == null)
+            {
+                var cl = transform.Find("Candle_Light");
+                if (cl != null) candleLight = cl.GetComponent<Light>();
+            }
+
+            if (incenseSmokeParticles == null)
+            {
+                var ism = transform.Find("Incense_Smoke");
+                if (ism != null) incenseSmokeParticles = ism.GetComponent<ParticleSystem>();
+            }
+
+            if (ruinsBeaconLight == null && ruinsContainer != null)
+            {
+                var rbl = ruinsContainer.transform.Find("Ruins_Beacon");
+                if (rbl != null) ruinsBeaconLight = rbl.GetComponent<Light>();
+            }
+
+            if (ruinsSmokeParticles == null && ruinsContainer != null)
+            {
+                var rsp = ruinsContainer.transform.Find("Ruins_Smoke");
+                if (rsp != null) ruinsSmokeParticles = rsp.GetComponent<ParticleSystem>();
+            }
+        }
+
+        private void ApplyInitialStateVisuals()
+        {
+            if (visualContainer != null)
+            {
+                visualContainer.SetActive(!isDestroyed);
+            }
+
+            if (candleLight != null)
+            {
+                candleLight.enabled = !isDestroyed;
+            }
+
+            if (ruinsContainer != null)
+            {
+                ruinsContainer.SetActive(isDestroyed);
+            }
+
+            if (ruinsBeaconLight != null)
+            {
+                ruinsBeaconLight.enabled = isDestroyed;
+            }
+
+            if (ruinsSmokeParticles != null)
+            {
+                if (isDestroyed) ruinsSmokeParticles.Play();
+                else ruinsSmokeParticles.Stop();
+            }
         }
 
         private void SetupAudios()
@@ -78,7 +163,16 @@ namespace Pucaci.Gameplay
 
         private void Update()
         {
-            if (isDestroyed) return;
+            if (isDestroyed)
+            {
+                // Pendaran bara mistis pada bekas sesajen hancur (denyut gaib)
+                if (ruinsBeaconLight != null && ruinsBeaconLight.enabled)
+                {
+                    float pulse = 0.50f + 0.25f * Mathf.Sin(Time.time * 4f);
+                    ruinsBeaconLight.intensity = pulse;
+                }
+                return;
+            }
 
             // Efek kedip lilin temaram mistis
             if (candleLight != null)
@@ -162,7 +256,7 @@ namespace Pucaci.Gameplay
 
         private void ExecuteDestructionEffects()
         {
-            // Matikan visual & efek lilin/dupa
+            // Matikan visual utuh & efek lilin/dupa
             if (visualContainer != null)
             {
                 visualContainer.SetActive(false);
@@ -181,6 +275,22 @@ namespace Pucaci.Gameplay
             if (ambientAudio != null && ambientAudio.isPlaying)
             {
                 ambientAudio.Stop();
+            }
+
+            // Tampilkan visual bekas sesajen hancur (abu, pecahan nampan, arang, bara api gaib)
+            if (ruinsContainer != null)
+            {
+                ruinsContainer.SetActive(true);
+            }
+
+            if (ruinsBeaconLight != null)
+            {
+                ruinsBeaconLight.enabled = true;
+            }
+
+            if (ruinsSmokeParticles != null)
+            {
+                ruinsSmokeParticles.Play();
             }
 
             // Mainkan efek partikel ledakan abu/bara/asap hitam
@@ -205,7 +315,23 @@ namespace Pucaci.Gameplay
 
         private void ExecuteRepairEffects()
         {
-            // Nyalakan kembali visual & efek lilin/dupa
+            // Sembunyikan bekas sesajen hancur
+            if (ruinsContainer != null)
+            {
+                ruinsContainer.SetActive(false);
+            }
+
+            if (ruinsBeaconLight != null)
+            {
+                ruinsBeaconLight.enabled = false;
+            }
+
+            if (ruinsSmokeParticles != null)
+            {
+                ruinsSmokeParticles.Stop();
+            }
+
+            // Nyalakan kembali visual & efek lilin/dupa utuh
             if (visualContainer != null)
             {
                 visualContainer.SetActive(true);
