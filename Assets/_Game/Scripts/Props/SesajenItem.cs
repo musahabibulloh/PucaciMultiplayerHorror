@@ -1,5 +1,6 @@
 using UnityEngine;
 using Mirror;
+using Pucaci.Rendering;
 
 namespace Pucaci.Gameplay
 {
@@ -95,6 +96,10 @@ namespace Pucaci.Gameplay
                 var rbl = ruinsContainer.transform.Find("Ruins_Beacon");
                 if (rbl != null) ruinsBeaconLight = rbl.GetComponent<Light>();
             }
+
+            // Outline kartunis tipis untuk objek sesajen
+            if (visualContainer != null) ToonOutlineApplier.ApplyTo(visualContainer, 1.0f);
+            if (ruinsContainer != null) ToonOutlineApplier.ApplyTo(ruinsContainer, 1.0f);
         }
 
         private void ApplyInitialStateVisuals()

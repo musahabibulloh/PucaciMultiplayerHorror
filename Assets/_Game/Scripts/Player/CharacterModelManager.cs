@@ -1,6 +1,7 @@
 using Mirror;
 using UnityEngine;
 using Pucaci.Network;
+using Pucaci.Rendering;
 
 namespace Pucaci.Player
 {
@@ -167,6 +168,13 @@ namespace Pucaci.Player
                 }
 #endif
             }
+
+            // Pasang Toon Outline tipis (Inverted Hull) ke seluruh model karakter dan senter
+            if (modelLaras != null) ToonOutlineApplier.ApplyTo(modelLaras, 1.2f);
+            if (modelPakMamat != null) ToonOutlineApplier.ApplyTo(modelPakMamat, 1.2f);
+            if (modelKuntilanak != null) ToonOutlineApplier.ApplyTo(modelKuntilanak, 1.2f);
+            if (modelPakVincent != null) ToonOutlineApplier.ApplyTo(modelPakVincent, 1.2f);
+            if (flashlightController != null) ToonOutlineApplier.ApplyTo(flashlightController.gameObject, 1.0f);
         }
 
         public Mesh GetOriginalFullBodyMesh(CharacterType type)
@@ -242,6 +250,7 @@ namespace Pucaci.Player
             }
 
             SkinnedMeshRenderer targetRenderer = targetModelObj.GetComponentInChildren<SkinnedMeshRenderer>();
+            ToonOutlineApplier.ApplyTo(targetModelObj, 1.2f);
 
             bool isLocal = true;
             try { isLocal = isLocalPlayer; } catch {}

@@ -19,7 +19,6 @@ MonoBehaviour:
   - {fileID: 8597830380581107856}
   - {fileID: 375584857543697397}
   - {fileID: 6921628297578724829}
-  - {fileID: 8912345678901234567}
   m_RendererFeatureMap: 903899892da15177f563e82070583605ddbd78a843900e60
   m_UseNativeRenderPass: 0
   postProcessData: {fileID: 11400000, guid: 41439944d30ece34e96484bdb6645b55, type: 2}
@@ -138,26 +137,3 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   m_Active: 1
   _baseProfile: {fileID: 11400000, guid: f2d4d916a6612574cad220d125febbf2, type: 2}
---- !u!114 &8912345678901234567
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 0}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 3b015a722a1c08c4a97222e60a5963e9, type: 3}
-  m_Name: CartoonOutlineFeature
-  m_EditorClassIdentifier: 
-  m_Active: 1
-  settings:
-    isEnabled: 1
-    outlineColor: {r: 0.01, g: 0.01, b: 0.01, a: 1}
-    outlineThickness: 1.25
-    depthSensitivity: 12
-    depthThreshold: 0.035
-    normalSensitivity: 1.8
-    normalThreshold: 0.22
-    renderPassEvent: 450
-  outlineShader: {fileID: 4800000, guid: 4c55a2a0badddc048a87e25b7d94d0f3, type: 3}

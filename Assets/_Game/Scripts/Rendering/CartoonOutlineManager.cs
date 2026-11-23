@@ -3,8 +3,8 @@ using UnityEngine;
 namespace Pucaci.Rendering
 {
     /// <summary>
-    /// Pengontrol runtime untuk efek Cartoon Outline (Cel-Shading).
-    /// Memungkinkan pengaturan ketebalan, warna, dan toggle on/off melalui script, UI settings, atau shortcut tombol.
+    /// Pengontrol runtime untuk efek Toon Outline (Cel-Shading) pada Karakter dan Objek 3D.
+    /// Tidak menggelapkan dunia sama sekali. Hanya memberi garis tepi hitam tipis dan halus pada model.
     /// </summary>
     public class CartoonOutlineManager : MonoBehaviour
     {
@@ -16,9 +16,10 @@ namespace Pucaci.Rendering
 
         [Header("Pengaturan Outline")]
         [SerializeField] private bool outlineEnabled = true;
-        [SerializeField] private Color outlineColor = new Color(0.01f, 0.01f, 0.01f, 1f);
+        [SerializeField] private Color outlineColor = new Color(0.05f, 0.05f, 0.05f, 1f);
         [Range(0.5f, 3.5f)]
-        [SerializeField] private float thickness = 1.25f;
+        [Tooltip("Ketebalan garis di layar (1.0 - 1.5 sangat tipis dan halus ala anime/kartun)")]
+        [SerializeField] private float thickness = 1.2f;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         private static void InitializeRuntime()
@@ -39,7 +40,6 @@ namespace Pucaci.Rendering
                 return;
             }
             Instance = this;
-            ApplySettingsToFeature();
         }
 
         private void Update()
@@ -54,35 +54,44 @@ namespace Pucaci.Rendering
         public void ToggleOutline()
         {
             outlineEnabled = !outlineEnabled;
-            ApplySettingsToFeature();
-            Debug.Log($"<color=#FFCC00>[CartoonOutline] Outline Kartunis: {(outlineEnabled ? "AKTIF" : "NONAKTIF")}</color>");
+            ApplyToAllAppliers();
+            Debug.Log($"<color=#FFCC00>[CartoonOutline] Outline Karakter & Objek: {(outlineEnabled ? "AKTIF" : "NONAKTIF")}</color>");
         }
 
         public void SetEnabled(bool isEnabled)
         {
             outlineEnabled = isEnabled;
-            ApplySettingsToFeature();
+            ApplyToAllAppliers();
         }
 
         public void SetThickness(float val)
         {
-            thickness = Mathf.Clamp(val, 0.5f, 4.0f);
-            ApplySettingsToFeature();
+            thickness = Mathf.Clamp(val, 0.2f, 4.0f);
+            ApplyToAllAppliers();
         }
 
         public void SetColor(Color col)
         {
             outlineColor = col;
-            ApplySettingsToFeature();
+            ApplyToAllAppliers();
         }
 
-        private void ApplySettingsToFeature()
+        private void ApplyToAllAppliers()
         {
-            if (CartoonOutlineFeature.Instance != null && CartoonOutlineFeature.Instance.Settings != null)
+            foreach (var applier in ToonOutlineApplier.All)
             {
-                CartoonOutlineFeature.Instance.Settings.isEnabled = outlineEnabled;
-                CartoonOutlineFeature.Instance.Settings.outlineColor = outlineColor;
-                CartoonOutlineFeature.Instance.Settings.outlineThickness = thickness;
+                if (applier == null) continue;
+
+                if (outlineEnabled)
+                {
+                    applier.SetOutlineWidth(thickness);
+                    applier.SetOutlineColor(outlineColor);
+                    applier.ApplyOutline();
+                }
+                else
+                {
+                    applier.RemoveOutline();
+                }
             }
         }
     }
