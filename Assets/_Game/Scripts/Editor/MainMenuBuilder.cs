@@ -31,12 +31,12 @@ namespace Pucaci.Editor
             GameObject camObj = new GameObject("Main Camera");
             Camera cam = camObj.AddComponent<Camera>();
             cam.clearFlags = CameraClearFlags.SolidColor;
-            cam.backgroundColor = new Color(6f / 255f, 9f / 255f, 16f / 255f, 1f);
-            cam.fieldOfView = 52f;
+            cam.backgroundColor = new Color(4f / 255f, 7f / 255f, 13f / 255f, 1f);
+            cam.fieldOfView = 40f; // Telephoto compression cinematic framing
             camObj.tag = "MainCamera";
             camObj.AddComponent<AudioListener>();
-            camObj.transform.position = new Vector3(0f, 1.65f, -6.5f);
-            camObj.transform.rotation = Quaternion.Euler(6f, 0f, 0f);
+            camObj.transform.position = new Vector3(-0.05f, 1.32f, -2.85f);
+            camObj.transform.rotation = Quaternion.Euler(1.0f, 5.5f, 0f);
             camObj.AddComponent<Pucaci.UI.MenuCameraDrift>();
 
             // Atmosphere audio (procedural night ambience + UI sfx)
@@ -44,11 +44,11 @@ namespace Pucaci.Editor
 
             // Fog settings
             RenderSettings.fog = true;
-            RenderSettings.fogColor = new Color(6f / 255f, 9f / 255f, 16f / 255f, 1f);
+            RenderSettings.fogColor = new Color(4f / 255f, 7f / 255f, 13f / 255f, 1f);
             RenderSettings.fogMode = FogMode.ExponentialSquared;
-            RenderSettings.fogDensity = 0.055f;
+            RenderSettings.fogDensity = 0.048f;
             RenderSettings.ambientMode = UnityEngine.Rendering.AmbientMode.Flat;
-            RenderSettings.ambientLight = new Color(0.09f, 0.11f, 0.17f, 1f);
+            RenderSettings.ambientLight = new Color(0.04f, 0.06f, 0.10f, 1f);
 
             // 2. Setup 3D Horror Diorama (Pos Ronda, Lampu Jalan, Sesajen, Kuntilanak)
             Build3DBackground();
@@ -99,14 +99,8 @@ namespace Pucaci.Editor
             MenuPanel creditsPanel = BuildCreditsPanel(canvasObj.transform, controller);
             MenuPanel quitDialog = BuildQuitDialog(canvasObj.transform, controller);
 
-            // 8. Setup Version Text
-            GameObject verObj = CreateTMPText(canvasObj.transform, "VersionText", "v1.0.0", 18, TextAlignmentOptions.BottomLeft);
-            RectTransform verRect = verObj.GetComponent<RectTransform>();
-            verRect.anchorMin = new Vector2(0f, 0f);
-            verRect.anchorMax = new Vector2(0f, 0f);
-            verRect.pivot = new Vector2(0f, 0f);
-            verRect.anchoredPosition = new Vector2(25f, 20f);
-            verRect.sizeDelta = new Vector2(300f, 30f);
+            // 8. Connect Version Text from Bottom HUD
+            var verTMP = canvasObj.transform.Find("VersionCenter")?.GetComponent<TMP_Text>();
 
             // 9. Setup SceneFader (Full screen overlay)
             BuildSceneFader(canvasObj.transform);
@@ -121,7 +115,7 @@ namespace Pucaci.Editor
             so.FindProperty("creditsPanel").objectReferenceValue = creditsPanel;
             so.FindProperty("quitConfirmDialog").objectReferenceValue = quitDialog;
             so.FindProperty("gameSceneName").stringValue = "Gameplay";
-            so.FindProperty("versionText").objectReferenceValue = verObj.GetComponent<TMP_Text>();
+            if (verTMP != null) so.FindProperty("versionText").objectReferenceValue = verTMP;
             so.ApplyModifiedPropertiesWithoutUndo();
 
             // 10. Update Build Settings (MainMenu at 0, PrototypeScene at 1)
@@ -155,70 +149,162 @@ namespace Pucaci.Editor
             GameObject ground = GameObject.CreatePrimitive(PrimitiveType.Plane);
             ground.name = "Ground";
             ground.transform.SetParent(bgParent.transform);
-            ground.transform.position = new Vector3(0f, 0f, 6f);
-            ground.transform.localScale = new Vector3(4f, 1f, 4f);
+            ground.transform.position = new Vector3(0f, 0f, 2f);
+            ground.transform.localScale = new Vector3(5f, 1f, 5f);
             ground.GetComponent<MeshRenderer>().sharedMaterial = groundMat;
             Object.DestroyImmediate(ground.GetComponent<Collider>());
 
-            // --- Pos Ronda (kanan) ---
+            // --- Pos Ronda (arsitektur kayu di belakang hero) ---
             GameObject posPrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/_Game/Models/Object/POS RONDA.fbx");
             if (posPrefab != null)
             {
                 var pos = (GameObject)PrefabUtility.InstantiatePrefab(posPrefab);
                 pos.name = "PosRonda";
                 pos.transform.SetParent(bgParent.transform, false);
-                pos.transform.position = new Vector3(5.2f, 0f, 9.5f);
+                pos.transform.position = new Vector3(3.3f, 0f, 2.3f);
                 pos.transform.rotation = Quaternion.Euler(0f, 205f, 0f);
-                pos.transform.localScale = Vector3.one * 1.1f;
+                pos.transform.localScale = Vector3.one * 1.15f;
                 StripColliders(pos);
+
+                // Assign authentic textured wood material
+                var posMat = AssetDatabase.LoadAssetAtPath<Material>("Assets/Materials/pos.mat");
+                if (posMat != null)
+                {
+                    foreach (var mr in pos.GetComponentsInChildren<MeshRenderer>(true))
+                    {
+                        mr.sharedMaterial = posMat;
+                    }
+                }
+
+                // Lentera minyak hangat di dalam Pos Ronda
+                GameObject lanternObj = new GameObject("PosRondaLantern");
+                lanternObj.transform.SetParent(pos.transform, false);
+                lanternObj.transform.localPosition = new Vector3(-0.1f, 1.4f, 0.2f);
+                var lanternLight = lanternObj.AddComponent<Light>();
+                lanternLight.type = LightType.Point;
+                lanternLight.color = new Color(1f, 0.55f, 0.15f);
+                lanternLight.range = 6.0f;
+                lanternLight.intensity = 2.4f;
+                lanternLight.shadows = LightShadows.Soft;
+                lanternObj.AddComponent<LampFlicker>();
             }
 
-            // --- Lampu Jalan (kiri-tengah) ---
+            // --- Hero Character: Pak Vincent (Survivor / Paranormal Investigator) ---
+            GameObject vincentPrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/_Game/Models/Character/Pak Vincent/Idle.fbx");
+            if (vincentPrefab != null)
+            {
+                var vincent = (GameObject)PrefabUtility.InstantiatePrefab(vincentPrefab);
+                vincent.name = "Hero_Vincent";
+                vincent.transform.SetParent(bgParent.transform, false);
+                vincent.transform.position = new Vector3(2.05f, -0.08f, -0.22f);
+                vincent.transform.rotation = Quaternion.Euler(0f, 196f, 0f);
+                vincent.transform.localScale = Vector3.one * 1.20f;
+                StripColliders(vincent);
+
+                // Zero out the FBX local position offsets on Armature and Plane.001
+                Transform arm = vincent.transform.Find("Armature");
+                if (arm != null) arm.localPosition = Vector3.zero;
+                Transform plane = vincent.transform.Find("Plane.001");
+                if (plane != null) plane.localPosition = Vector3.zero;
+
+                // Idle animation
+                var animator = vincent.GetComponent<Animator>() ?? vincent.AddComponent<Animator>();
+                var ctrl = AssetDatabase.LoadAssetAtPath<RuntimeAnimatorController>("Assets/_Game/Models/Character/Pak Vincent/Vincent.controller");
+                if (ctrl != null) animator.runtimeAnimatorController = ctrl;
+
+                // Attach flashlight to right hand
+                Transform rightHand = vincent.transform.Find("Armature/mixamorig:Hips/mixamorig:Spine/mixamorig:Spine1/mixamorig:Spine2/mixamorig:RightShoulder/mixamorig:RightArm/mixamorig:RightForeArm/mixamorig:RightHand");
+                if (rightHand != null)
+                {
+                    GameObject playerPrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/_Game/Prefabs/Player/PlayerCharacter.prefab");
+                    if (playerPrefab != null)
+                    {
+                        Transform pfFlashlight = playerPrefab.transform.Find("Model_PakVincent/Armature/mixamorig:Hips/mixamorig:Spine/mixamorig:Spine1/mixamorig:Spine2/mixamorig:RightShoulder/mixamorig:RightArm/mixamorig:RightForeArm/mixamorig:RightHand/Flashlight_Item");
+                        if (pfFlashlight != null)
+                        {
+                            var flashlightItem = Object.Instantiate(pfFlashlight.gameObject, rightHand);
+                            flashlightItem.name = "Flashlight_Item";
+                            flashlightItem.transform.localPosition = Vector3.zero;
+                            flashlightItem.transform.localRotation = Quaternion.Euler(315f, 130f, 15f);
+                            flashlightItem.transform.localScale = Vector3.one * 0.01f;
+
+                            // Tune the existing Flashlight_Beam spot so it aims forward-down into the ground instead of his pants
+                            Transform flBeam = flashlightItem.transform.Find("Flashlight_Beam");
+                            if (flBeam != null)
+                            {
+                                var spot = flBeam.GetComponent<Light>();
+                                if (spot != null)
+                                {
+                                    spot.intensity = 6.0f;
+                                    spot.range = 18f;
+                                    spot.spotAngle = 45f;
+                                    spot.innerSpotAngle = 20f;
+                                    spot.color = new Color(1f, 0.96f, 0.88f);
+                                    flBeam.rotation = Quaternion.Euler(45f, 180f, 0f);
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Front fill / bounce light to give subtle definition to Vincent's jacket & face
+                GameObject fillObj = new GameObject("VincentFrontFillLight");
+                fillObj.transform.SetParent(bgParent.transform, false);
+                fillObj.transform.position = new Vector3(1.0f, 1.40f, -1.9f);
+                var fillLight = fillObj.AddComponent<Light>();
+                fillLight.type = LightType.Point;
+                fillLight.color = new Color(0.35f, 0.45f, 0.60f);
+                fillLight.range = 4.5f;
+                fillLight.intensity = 0.95f;
+                fillLight.shadows = LightShadows.None;
+
+                // Rim light teal / cyan di bahu & punggung karakter (seperti di contoh UI)
+                GameObject tealRimObj = new GameObject("VincentTealRimLight");
+                tealRimObj.transform.SetParent(bgParent.transform, false);
+                tealRimObj.transform.position = new Vector3(0.65f, 1.65f, 0.25f);
+                var tealLight = tealRimObj.AddComponent<Light>();
+                tealLight.type = LightType.Point;
+                tealLight.color = new Color(0.0f, 0.95f, 1.0f); // Intense Eerie Cyan/Teal
+                tealLight.range = 3.8f;
+                tealLight.intensity = 6.2f;
+                tealLight.shadows = LightShadows.Soft;
+
+                // Rim light crimson red di sisi kanan karakter (seperti di contoh UI)
+                GameObject redRimObj = new GameObject("VincentRedRimLight");
+                redRimObj.transform.SetParent(bgParent.transform, false);
+                redRimObj.transform.position = new Vector3(1.85f, 1.45f, -0.50f);
+                var redLight = redRimObj.AddComponent<Light>();
+                redLight.type = LightType.Point;
+                redLight.color = new Color(1.0f, 0.02f, 0.08f); // Deep Saturated Crimson Red
+                redLight.range = 3.8f;
+                redLight.intensity = 6.8f;
+                redLight.shadows = LightShadows.Soft;
+            }
+
+            // --- Lampu Jalan (di latar belakang kanan) ---
             GameObject lampPrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/_Game/Prefabs/Props/LampuJalan.prefab");
             if (lampPrefab != null)
             {
                 var lamp = (GameObject)PrefabUtility.InstantiatePrefab(lampPrefab);
                 lamp.name = "LampuJalan_Menu";
                 lamp.transform.SetParent(bgParent.transform, false);
-                lamp.transform.position = new Vector3(-3.4f, 0f, 5.5f);
-                lamp.transform.rotation = Quaternion.Euler(0f, 25f, 0f);
+                lamp.transform.position = new Vector3(3.8f, 0f, 2.5f);
+                lamp.transform.rotation = Quaternion.Euler(270f, 90f, 0f); // Stand upright
                 StripNetworkAndColliders(lamp);
             }
-            else
-            {
-                // Fallback: tiang sederhana
-                GameObject pole = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-                pole.name = "TiangLampu";
-                pole.transform.SetParent(bgParent.transform);
-                pole.transform.position = new Vector3(-3.4f, 2.6f, 5.5f);
-                pole.transform.localScale = new Vector3(0.1f, 2.6f, 0.1f);
-                pole.GetComponent<MeshRenderer>().sharedMaterial = silhouetteMat;
-                Object.DestroyImmediate(pole.GetComponent<Collider>());
 
-                GameObject lightObj = new GameObject("LampuJalan");
-                lightObj.transform.SetParent(bgParent.transform);
-                lightObj.transform.position = new Vector3(-3.4f, 5.1f, 5.5f);
-                Light streetLight = lightObj.AddComponent<Light>();
-                streetLight.type = LightType.Point;
-                streetLight.color = ColorAccent;
-                streetLight.range = 16f;
-                streetLight.intensity = 3.2f;
-                lightObj.AddComponent<LampFlicker>();
-            }
-
-            // --- Sesajen di depan (focal point) ---
+            // --- Sesajen di depan (focal point dekat kaki) ---
             GameObject sesajenPrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/_Game/Prefabs/Props/Sesajen.prefab");
             if (sesajenPrefab != null)
             {
                 var sesajen = (GameObject)PrefabUtility.InstantiatePrefab(sesajenPrefab);
                 sesajen.name = "Sesajen_Menu";
                 sesajen.transform.SetParent(bgParent.transform, false);
-                sesajen.transform.position = new Vector3(1.35f, 0f, 1.8f);
+                sesajen.transform.position = new Vector3(1.55f, 0f, -0.85f);
                 sesajen.transform.rotation = Quaternion.Euler(0f, -20f, 0f);
-                sesajen.transform.localScale = Vector3.one * 1.15f;
+                sesajen.transform.localScale = Vector3.one * 1.0f;
                 StripNetworkAndColliders(sesajen);
 
-                // Pastikan efek lilin/dupa menyala & material partikel tidak pink
                 var softMat = CreateParticleMaterial("Assets/_Game/Materials/M_MainMenu_Particle.mat", new Color(1f, 0.9f, 0.75f, 0.55f));
                 foreach (var psr in sesajen.GetComponentsInChildren<ParticleSystemRenderer>(true))
                 {
@@ -235,41 +321,8 @@ namespace Pucaci.Editor
                 }
             }
 
-            // --- Kuntilanak di kejauhan (siluet menyeramkan) ---
-            GameObject kuntiPrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/_Game/Models/Hantu/Kuntilanak/kunti.fbx");
-            if (kuntiPrefab != null)
-            {
-                var kunti = (GameObject)PrefabUtility.InstantiatePrefab(kuntiPrefab);
-                kunti.name = "Kuntilanak_Silhouette";
-                kunti.transform.SetParent(bgParent.transform, false);
-                kunti.transform.position = new Vector3(0.75f, 0f, 13.5f);
-                kunti.transform.rotation = Quaternion.Euler(0f, 180f, 0f);
-                kunti.transform.localScale = Vector3.one * 1.18f;
-                StripColliders(kunti);
-                DarkenRenderers(kunti, new Color(0.34f, 0.35f, 0.42f, 1f));
-                kunti.AddComponent<Pucaci.UI.MenuGhostFloating>();
-
-                // Rim light dingin agar siluet kuntilanak terbaca dari kegelapan
-                GameObject rimObj = new GameObject("KuntiRimLight");
-                rimObj.transform.SetParent(kunti.transform, false);
-                rimObj.transform.localPosition = new Vector3(0f, 1.6f, -0.9f);
-                var rim = rimObj.AddComponent<Light>();
-                rim.type = LightType.Point;
-                rim.color = new Color(0.45f, 0.62f, 0.95f);
-                rim.range = 5.5f;
-                rim.intensity = 1.5f;
-                rim.shadows = LightShadows.None;
-            }
-
-            // --- Pohon siluet kiri & kanan ---
-            BuildSilhouetteTree(bgParent.transform, new Vector3(-7.5f, 0f, 12f), 1.35f, silhouetteMat);
-            BuildSilhouetteTree(bgParent.transform, new Vector3(-5.2f, 0f, 19f), 1.7f, silhouetteMat);
-            BuildSilhouetteTree(bgParent.transform, new Vector3(7.8f, 0f, 14.5f), 1.5f, silhouetteMat);
-            BuildSilhouetteTree(bgParent.transform, new Vector3(3.2f, 0f, 22f), 1.9f, silhouetteMat);
-
-            // --- Pagar bambu tipis di kanan-kiri jalan ---
-            BuildBambooFence(bgParent.transform, new Vector3(-2.2f, 0f, 3.2f), 3.2f, silhouetteMat);
-            BuildBambooFence(bgParent.transform, new Vector3(3.6f, 0f, 4.0f), 3.6f, silhouetteMat);
+            // --- Pagar bambu di latar belakang kiri (diturunkan agar tidak memotong teks) ---
+            BuildBambooFence(bgParent.transform, new Vector3(-7.5f, -1.2f, 8.5f), 4.5f, silhouetteMat);
 
             // --- Kabut tanah & kunang-kunang ---
             BuildGroundMist(bgParent.transform);
@@ -580,26 +633,26 @@ namespace Pucaci.Editor
             AssetDatabase.CreateAsset(profile, "Assets/_Game/Materials/MainMenuPostProcessProfile.asset");
 
             var bloom = profile.Add<UnityEngine.Rendering.Universal.Bloom>(true);
-            bloom.intensity.Override(1.35f);
-            bloom.threshold.Override(0.85f);
-            bloom.scatter.Override(0.72f);
-            bloom.tint.Override(new Color(1f, 0.86f, 0.68f));
+            bloom.intensity.Override(1.65f);
+            bloom.threshold.Override(0.80f);
+            bloom.scatter.Override(0.75f);
+            bloom.tint.Override(new Color(1f, 0.92f, 0.82f));
 
             var vignette = profile.Add<UnityEngine.Rendering.Universal.Vignette>(true);
-            vignette.intensity.Override(0.42f);
-            vignette.smoothness.Override(0.55f);
-            vignette.color.Override(new Color(0.02f, 0.03f, 0.06f));
+            vignette.intensity.Override(0.46f);
+            vignette.smoothness.Override(0.58f);
+            vignette.color.Override(new Color(0.01f, 0.015f, 0.03f));
 
             var grain = profile.Add<UnityEngine.Rendering.Universal.FilmGrain>(true);
             grain.type.Override(UnityEngine.Rendering.Universal.FilmGrainLookup.Medium2);
-            grain.intensity.Override(0.32f);
+            grain.intensity.Override(0.24f);
             grain.response.Override(0.8f);
 
             var colorAdj = profile.Add<UnityEngine.Rendering.Universal.ColorAdjustments>(true);
-            colorAdj.postExposure.Override(-0.15f);
-            colorAdj.contrast.Override(18f);
-            colorAdj.saturation.Override(-12f);
-            colorAdj.colorFilter.Override(new Color(0.92f, 0.96f, 1.05f));
+            colorAdj.postExposure.Override(0.15f);
+            colorAdj.contrast.Override(28f);
+            colorAdj.saturation.Override(8f);
+            colorAdj.colorFilter.Override(new Color(0.96f, 0.98f, 1.05f));
 
             AssetDatabase.SaveAssets();
             volume.sharedProfile = profile;
@@ -613,7 +666,7 @@ namespace Pucaci.Editor
 
             RectTransform rt = gradObj.GetComponent<RectTransform>();
             rt.anchorMin = new Vector2(0f, 0f);
-            rt.anchorMax = new Vector2(0.52f, 1f);
+            rt.anchorMax = new Vector2(0.56f, 1f);
             rt.offsetMin = Vector2.zero;
             rt.offsetMax = Vector2.zero;
 
@@ -621,7 +674,7 @@ namespace Pucaci.Editor
             img.raycastTarget = false;
             img.sprite = CreateHorizontalFadeSprite();
             img.type = Image.Type.Simple;
-            img.color = new Color(0.01f, 0.015f, 0.03f, 0.93f);
+            img.color = new Color(0.008f, 0.010f, 0.018f, 0.96f);
         }
 
         private static Sprite CreateHorizontalFadeSprite()
@@ -635,8 +688,8 @@ namespace Pucaci.Editor
             for (int x = 0; x < width; x++)
             {
                 float t = (float)x / (width - 1);
-                // Gelap penuh di kiri, memudar halus ke kanan
-                float alpha = Mathf.Clamp01(1f - Mathf.Pow(t, 0.75f));
+                // Gelap pekat di kiri tempat UI, memudar halus menuju karakter di kanan
+                float alpha = Mathf.Clamp01(1f - Mathf.Pow(t, 1.25f));
                 for (int y = 0; y < height; y++)
                 {
                     tex.SetPixel(x, y, new Color(1f, 1f, 1f, alpha));
@@ -670,64 +723,80 @@ namespace Pucaci.Editor
             headerRect.anchorMin = new Vector2(0f, 1f);
             headerRect.anchorMax = new Vector2(0f, 1f);
             headerRect.pivot = new Vector2(0f, 1f);
-            headerRect.anchoredPosition = new Vector2(96f, -96f);
-            headerRect.sizeDelta = new Vector2(760f, 210f);
+            headerRect.anchoredPosition = new Vector2(96f, -90f);
+            headerRect.sizeDelta = new Vector2(760f, 230f);
 
             // Eyebrow / kicker
-            GameObject kickerObj = CreateTMPText(headerObj.transform, "Kicker", "HOROR KAMPUNG  •  1—4 PEMAIN", 16, TextAlignmentOptions.Left);
+            GameObject kickerObj = CreateTMPText(headerObj.transform, "Kicker", "HOROR KAMPUNG  •  1—4 PEMAIN", 15, TextAlignmentOptions.Left);
             var kicker = kickerObj.GetComponent<TMP_Text>();
-            kicker.color = new Color(0.62f, 0.68f, 0.78f, 0.85f);
-            kicker.characterSpacing = 12f;
+            kicker.color = new Color(0.65f, 0.70f, 0.78f, 0.85f);
+            kicker.characterSpacing = 14f;
             kicker.fontStyle = FontStyles.Bold;
             RectTransform kickerRect = kickerObj.GetComponent<RectTransform>();
             kickerRect.anchorMin = new Vector2(0f, 1f);
             kickerRect.anchorMax = new Vector2(1f, 1f);
             kickerRect.pivot = new Vector2(0f, 1f);
             kickerRect.anchoredPosition = new Vector2(0f, 0f);
-            kickerRect.sizeDelta = new Vector2(0f, 24f);
+            kickerRect.sizeDelta = new Vector2(0f, 22f);
 
-            // Title: PUCACI
-            GameObject titleObj = CreateTMPText(headerObj.transform, "TitleText", "PUCACI", 104, TextAlignmentOptions.Left);
+            // Title: PUCACI (Bone white horror display)
+            GameObject titleObj = CreateTMPText(headerObj.transform, "TitleText", "PUCACI", 112, TextAlignmentOptions.Left);
             TMP_Text titleTMP = titleObj.GetComponent<TMP_Text>();
             titleTMP.fontStyle = FontStyles.Bold;
-            titleTMP.color = ColorAccent;
-            titleTMP.characterSpacing = 6f;
+            titleTMP.color = new Color(0.96f, 0.97f, 0.98f, 1f); // Bone White
+            titleTMP.characterSpacing = 8f;
             titleObj.AddComponent<TitleFlicker>();
 
             var shadow = titleObj.AddComponent<Shadow>();
-            shadow.effectColor = new Color(0f, 0f, 0f, 0.65f);
+            shadow.effectColor = new Color(0f, 0f, 0f, 0.75f);
             shadow.effectDistance = new Vector2(4f, -4f);
 
             RectTransform titleRect = titleObj.GetComponent<RectTransform>();
             titleRect.anchorMin = new Vector2(0f, 1f);
             titleRect.anchorMax = new Vector2(1f, 1f);
             titleRect.pivot = new Vector2(0f, 1f);
-            titleRect.anchoredPosition = new Vector2(0f, -26f);
+            titleRect.anchoredPosition = new Vector2(0f, -22f);
             titleRect.sizeDelta = new Vector2(0f, 120f);
 
-            // Divider accent line
-            GameObject lineObj = new GameObject("AccentLine", typeof(RectTransform), typeof(Image));
-            lineObj.transform.SetParent(headerObj.transform, false);
-            var lineImg = lineObj.GetComponent<Image>();
-            lineImg.color = new Color(1f, 0.7f, 0.29f, 0.85f);
-            lineImg.raycastTarget = false;
-            RectTransform lineRect = lineObj.GetComponent<RectTransform>();
-            lineRect.anchorMin = new Vector2(0f, 1f);
-            lineRect.anchorMax = new Vector2(0f, 1f);
-            lineRect.pivot = new Vector2(0f, 1f);
-            lineRect.anchoredPosition = new Vector2(0f, -150f);
-            lineRect.sizeDelta = new Vector2(92f, 3f);
+            // Underline 1: Crimson Red Dry-Brush Stroke
+            GameObject redLineObj = new GameObject("BrushLine_Red", typeof(RectTransform), typeof(Image));
+            redLineObj.transform.SetParent(headerObj.transform, false);
+            var redImg = redLineObj.GetComponent<Image>();
+            redImg.sprite = MenuHorrorArtGenerator.GetBrushUnderlineSprite();
+            redImg.color = new Color(0.85f, 0.08f, 0.14f, 0.88f); // Crimson Red
+            redImg.raycastTarget = false;
+            RectTransform redLineRect = redLineObj.GetComponent<RectTransform>();
+            redLineRect.anchorMin = new Vector2(0f, 1f);
+            redLineRect.anchorMax = new Vector2(0f, 1f);
+            redLineRect.pivot = new Vector2(0f, 1f);
+            redLineRect.anchoredPosition = new Vector2(0f, -148f);
+            redLineRect.sizeDelta = new Vector2(300f, 9f);
+
+            // Underline 2: Chalk White Offset Dry-Brush Stroke
+            GameObject whiteLineObj = new GameObject("BrushLine_White", typeof(RectTransform), typeof(Image));
+            whiteLineObj.transform.SetParent(headerObj.transform, false);
+            var whiteImg = whiteLineObj.GetComponent<Image>();
+            whiteImg.sprite = MenuHorrorArtGenerator.GetBrushUnderlineSprite();
+            whiteImg.color = new Color(0.92f, 0.94f, 0.97f, 0.55f); // Chalk White
+            whiteImg.raycastTarget = false;
+            RectTransform whiteLineRect = whiteLineObj.GetComponent<RectTransform>();
+            whiteLineRect.anchorMin = new Vector2(0f, 1f);
+            whiteLineRect.anchorMax = new Vector2(0f, 1f);
+            whiteLineRect.pivot = new Vector2(0f, 1f);
+            whiteLineRect.anchoredPosition = new Vector2(25f, -156f);
+            whiteLineRect.sizeDelta = new Vector2(220f, 6f);
 
             // Subtitle
-            GameObject subObj = CreateTMPText(headerObj.transform, "SubtitleText", "Ronda malam, jangan berisik.\nSesuatu ikut berjalan di belakangmu.", 20, TextAlignmentOptions.TopLeft);
+            GameObject subObj = CreateTMPText(headerObj.transform, "SubtitleText", "Ronda malam, jangan berisik.\nSesuatu ikut berjalan di belakangmu.", 18, TextAlignmentOptions.TopLeft);
             TMP_Text subTMP = subObj.GetComponent<TMP_Text>();
-            subTMP.color = new Color(0.82f, 0.84f, 0.88f, 0.9f);
-            subTMP.lineSpacing = 12f;
+            subTMP.color = new Color(0.72f, 0.76f, 0.84f, 0.88f);
+            subTMP.lineSpacing = 8f;
+            subTMP.characterSpacing = 2f;
             RectTransform subRect = subObj.GetComponent<RectTransform>();
             subRect.anchorMin = new Vector2(0f, 1f);
             subRect.anchorMax = new Vector2(1f, 1f);
             subRect.pivot = new Vector2(0f, 1f);
-            subRect.anchoredPosition = new Vector2(0f, -168f);
+            subRect.anchoredPosition = new Vector2(0f, -174f);
             subRect.sizeDelta = new Vector2(0f, 60f);
         }
 
@@ -739,13 +808,13 @@ namespace Pucaci.Editor
             panelRect.anchorMin = new Vector2(0f, 0f);
             panelRect.anchorMax = new Vector2(0f, 0f);
             panelRect.pivot = new Vector2(0f, 0f);
-            panelRect.anchoredPosition = new Vector2(96f, 86f);
-            panelRect.sizeDelta = new Vector2(520f, 402f);
+            panelRect.anchoredPosition = new Vector2(96f, 105f);
+            panelRect.sizeDelta = new Vector2(380f, 370f);
 
             MenuPanel panel = panelObj.AddComponent<MenuPanel>();
 
             VerticalLayoutGroup layout = panelObj.AddComponent<VerticalLayoutGroup>();
-            layout.spacing = 10f;
+            layout.spacing = 14f;
             layout.childAlignment = TextAnchor.LowerLeft;
             layout.childControlWidth = false;
             layout.childControlHeight = false;
@@ -753,24 +822,73 @@ namespace Pucaci.Editor
             layout.childForceExpandHeight = false;
             layout.padding = new RectOffset(0, 0, 0, 0);
 
-            Button btnPlay = CreateMenuActionButton(panelObj.transform, "BtnMulai", "Mulai Main", "MULAI RONDA", ColorAccent);
-            Button btnMabar = CreateMenuActionButton(panelObj.transform, "BtnMabar", "Mabar", "MABAR ONLINE", new Color(0.55f, 0.8f, 1f));
-            Button btnCara = CreateMenuActionButton(panelObj.transform, "BtnCaraBermain", "Cara Bermain", "CARA BERMAIN", new Color(0.78f, 0.82f, 0.9f));
-            Button btnSettings = CreateMenuActionButton(panelObj.transform, "BtnPengaturan", "Pengaturan", "PENGATURAN", new Color(0.78f, 0.82f, 0.9f));
-            Button btnCredits = CreateMenuActionButton(panelObj.transform, "BtnKredit", "Kredit", "KREDIT", new Color(0.78f, 0.82f, 0.9f));
-            Button btnQuit = CreateMenuActionButton(panelObj.transform, "BtnKeluar", "Keluar", "KELUAR", ColorDanger);
+            Button btnPlay = CreateMenuActionButton(panelObj.transform, "BtnMulai", "PLAY STORY", true);
+            Button btnMabar = CreateMenuActionButton(panelObj.transform, "BtnMabar", "MULTIPLAYER");
+            Button btnCara = CreateMenuActionButton(panelObj.transform, "BtnCaraBermain", "HELP & GUIDE");
+            Button btnSettings = CreateMenuActionButton(panelObj.transform, "BtnPengaturan", "SETTINGS");
+            Button btnCredits = CreateMenuActionButton(panelObj.transform, "BtnKredit", "CREDITS");
+            Button btnQuit = CreateMenuActionButton(panelObj.transform, "BtnKeluar", "EXIT");
 
-            // Footer hint
-            GameObject hintObj = CreateTMPText(canvas, "MainMenuHint", "↑ ↓  Navigasi     ENTER  Pilih     ESC  Kembali", 14, TextAlignmentOptions.BottomLeft);
-            var hint = hintObj.GetComponent<TMP_Text>();
-            hint.color = new Color(0.55f, 0.6f, 0.68f, 0.6f);
-            hint.characterSpacing = 4f;
-            RectTransform hintRect = hintObj.GetComponent<RectTransform>();
-            hintRect.anchorMin = new Vector2(0f, 0f);
-            hintRect.anchorMax = new Vector2(0f, 0f);
-            hintRect.pivot = new Vector2(0f, 0f);
-            hintRect.anchoredPosition = new Vector2(98f, 52f);
-            hintRect.sizeDelta = new Vector2(560f, 24f);
+            // --- Bottom HUD Bar (Gaya The Infected Soul) ---
+            // Studio Logo & Watermark (Kiri Bawah)
+            GameObject studioObj = new GameObject("StudioWatermark", typeof(RectTransform));
+            studioObj.transform.SetParent(canvas, false);
+            RectTransform studioRect = studioObj.GetComponent<RectTransform>();
+            studioRect.anchorMin = new Vector2(0f, 0f);
+            studioRect.anchorMax = new Vector2(0f, 0f);
+            studioRect.pivot = new Vector2(0f, 0f);
+            studioRect.anchoredPosition = new Vector2(96f, 32f);
+            studioRect.sizeDelta = new Vector2(240f, 36f);
+
+            GameObject logoObj = new GameObject("LogoIcon", typeof(RectTransform), typeof(Image));
+            logoObj.transform.SetParent(studioObj.transform, false);
+            var logoImg = logoObj.GetComponent<Image>();
+            logoImg.sprite = MenuHorrorArtGenerator.GetStudioLogoSprite();
+            logoImg.color = new Color(0.65f, 0.70f, 0.78f, 0.75f);
+            logoImg.raycastTarget = false;
+            RectTransform logoRect = logoObj.GetComponent<RectTransform>();
+            logoRect.anchorMin = new Vector2(0f, 0.5f);
+            logoRect.anchorMax = new Vector2(0f, 0.5f);
+            logoRect.pivot = new Vector2(0f, 0.5f);
+            logoRect.anchoredPosition = new Vector2(16f, 0f);
+            logoRect.sizeDelta = new Vector2(30f, 30f);
+
+            GameObject studioTextObj = CreateTMPText(studioObj.transform, "StudioName", "PUCACI INDIE GAMES", 13, TextAlignmentOptions.MidlineLeft);
+            var studioTmp = studioTextObj.GetComponent<TMP_Text>();
+            studioTmp.color = new Color(0.55f, 0.60f, 0.68f, 0.7f);
+            studioTmp.characterSpacing = 6f;
+            studioTmp.fontStyle = FontStyles.Bold;
+            RectTransform stRect = studioTextObj.GetComponent<RectTransform>();
+            stRect.anchorMin = new Vector2(0f, 0.5f);
+            stRect.anchorMax = new Vector2(1f, 0.5f);
+            stRect.pivot = new Vector2(0f, 0.5f);
+            stRect.anchoredPosition = new Vector2(48f, 0f);
+            stRect.sizeDelta = new Vector2(200f, 24f);
+
+            // Version Tag (Tengah Bawah)
+            GameObject verObj = CreateTMPText(canvas, "VersionCenter", "Pre-Alpha v1.0", 14, TextAlignmentOptions.Center);
+            var verTmp = verObj.GetComponent<TMP_Text>();
+            verTmp.color = new Color(0.48f, 0.52f, 0.60f, 0.65f);
+            verTmp.characterSpacing = 4f;
+            RectTransform verRect = verObj.GetComponent<RectTransform>();
+            verRect.anchorMin = new Vector2(0.5f, 0f);
+            verRect.anchorMax = new Vector2(0.5f, 0f);
+            verRect.pivot = new Vector2(0.5f, 0f);
+            verRect.anchoredPosition = new Vector2(0f, 36f);
+            verRect.sizeDelta = new Vector2(300f, 24f);
+
+            // Exit Hotkey Prompt (Kanan Bawah)
+            GameObject exitPromptObj = CreateTMPText(canvas, "ExitPrompt", "[ESC] EXIT", 16, TextAlignmentOptions.Right);
+            var epTmp = exitPromptObj.GetComponent<TMP_Text>();
+            epTmp.color = new Color(0.68f, 0.74f, 0.82f, 0.85f);
+            epTmp.characterSpacing = 6f;
+            epTmp.fontStyle = FontStyles.Bold;
+            RectTransform epRect = exitPromptObj.GetComponent<RectTransform>();
+            epRect.anchorMin = new Vector2(1f, 0f);
+            epRect.anchorMax = new Vector2(1f, 0f);
+            epRect.pivot = new Vector2(1f, 0f);
+            epRect.anchoredPosition = new Vector2(-96f, 36f);
+            epRect.sizeDelta = new Vector2(200f, 24f);
 
             // Connect Serialized properties on controller
             SerializedObject so = new SerializedObject(controller);
@@ -1305,27 +1423,28 @@ namespace Pucaci.Editor
             rt.anchoredPosition = anchoredPos;
 
             Image img = panel.GetComponent<Image>();
-            img.color = new Color(0.024f, 0.033f, 0.055f, 0.965f);
+            img.color = new Color(0.015f, 0.02f, 0.035f, 0.94f);
 
             var outline = panel.AddComponent<Outline>();
-            outline.effectColor = new Color(0.35f, 0.42f, 0.55f, 0.22f);
+            outline.effectColor = new Color(0.35f, 0.42f, 0.55f, 0.28f);
             outline.effectDistance = new Vector2(1f, -1f);
 
             var shadow = panel.AddComponent<Shadow>();
-            shadow.effectColor = new Color(0f, 0f, 0f, 0.55f);
+            shadow.effectColor = new Color(0f, 0f, 0f, 0.75f);
             shadow.effectDistance = new Vector2(0f, -8f);
 
-            // Garis aksen tipis di bagian atas panel
+            // Garis aksen brush darah tipis di bagian atas panel
             GameObject topLine = new GameObject("TopAccent", typeof(RectTransform), typeof(Image));
             topLine.transform.SetParent(panel.transform, false);
             var lineImg = topLine.GetComponent<Image>();
-            lineImg.color = new Color(1f, 0.7f, 0.29f, 0.55f);
+            lineImg.sprite = MenuHorrorArtGenerator.GetBrushUnderlineSprite();
+            lineImg.color = new Color(0.85f, 0.12f, 0.16f, 0.85f);
             lineImg.raycastTarget = false;
             RectTransform lineRt = topLine.GetComponent<RectTransform>();
             lineRt.anchorMin = new Vector2(0f, 1f);
             lineRt.anchorMax = new Vector2(1f, 1f);
             lineRt.pivot = new Vector2(0.5f, 1f);
-            lineRt.offsetMin = new Vector2(0f, -2f);
+            lineRt.offsetMin = new Vector2(0f, -4f);
             lineRt.offsetMax = new Vector2(0f, 0f);
 
             return panel;
@@ -1340,11 +1459,11 @@ namespace Pucaci.Editor
             rt.sizeDelta = new Vector2(width > 0 ? width : 360f, 48f);
 
             Image img = btnObj.GetComponent<Image>();
-            img.color = new Color(0.055f, 0.075f, 0.115f, 0.94f);
+            img.color = new Color(0.045f, 0.065f, 0.095f, 0.95f);
 
             Button btn = btnObj.GetComponent<Button>();
             ColorBlock cb = btn.colors;
-            cb.normalColor = new Color(1f, 1f, 1f, 1f);
+            cb.normalColor = Color.white;
             cb.highlightedColor = new Color(1.18f, 1.18f, 1.18f, 1f);
             cb.pressedColor = new Color(0.72f, 0.72f, 0.72f, 1f);
             cb.disabledColor = ColorDisabled;
@@ -1352,14 +1471,14 @@ namespace Pucaci.Editor
             btn.colors = cb;
 
             var outline = btnObj.AddComponent<Outline>();
-            outline.effectColor = new Color(0.35f, 0.42f, 0.55f, 0.28f);
+            outline.effectColor = new Color(0.38f, 0.45f, 0.58f, 0.35f);
             outline.effectDistance = new Vector2(1f, -1f);
 
             GameObject textObj = CreateTMPText(btnObj.transform, "Text", text, 19, TextAlignmentOptions.Center);
             TMP_Text tmp = textObj.GetComponent<TMP_Text>();
             tmp.color = textColor;
             tmp.fontStyle = FontStyles.Bold;
-            tmp.characterSpacing = 2f;
+            tmp.characterSpacing = 4f;
             tmp.enableWordWrapping = false;
             RectTransform textRt = textObj.GetComponent<RectTransform>();
             textRt.anchorMin = Vector2.zero;
@@ -1367,99 +1486,82 @@ namespace Pucaci.Editor
             textRt.offsetMin = new Vector2(12f, 0f);
             textRt.offsetMax = new Vector2(-12f, 0f);
 
-            btnObj.AddComponent<ButtonFeedback>();
+            var feedback = btnObj.AddComponent<ButtonFeedback>();
+            var fbSo = new SerializedObject(feedback);
+            var pBorder = fbSo.FindProperty("borderImage"); if (pBorder != null) pBorder.objectReferenceValue = img;
+            var pNorm = fbSo.FindProperty("normalTextColor"); if (pNorm != null) pNorm.colorValue = textColor;
+            var pHi = fbSo.FindProperty("highlightTextColor"); if (pHi != null) pHi.colorValue = new Color(1f, 1f, 1f, 1f);
+            var pTarget = fbSo.FindProperty("targetText"); if (pTarget != null) pTarget.objectReferenceValue = tmp;
+            fbSo.ApplyModifiedPropertiesWithoutUndo();
+
             return btn;
         }
 
-        private static Button CreateMenuActionButton(Transform parent, string name, string label, string text, Color accentColor)
+        private static Button CreateMenuActionButton(Transform parent, string name, string text, bool isDefaultSelected = false)
         {
             GameObject btnObj = new GameObject(name, typeof(RectTransform), typeof(Image), typeof(Button));
             btnObj.transform.SetParent(parent, false);
 
             RectTransform rt = btnObj.GetComponent<RectTransform>();
-            rt.sizeDelta = new Vector2(500f, 54f);
+            rt.sizeDelta = new Vector2(360f, 50f);
 
+            // Background transparan penuh (tanpa kotak / border apapun)
             Image bg = btnObj.GetComponent<Image>();
-            bg.color = new Color(0.045f, 0.06f, 0.095f, 0.9f);
+            bg.color = new Color(0f, 0f, 0f, 0f);
 
             Button btn = btnObj.GetComponent<Button>();
             ColorBlock cb = btn.colors;
-            cb.normalColor = new Color(1f, 1f, 1f, 1f);
-            cb.highlightedColor = new Color(1.35f, 1.35f, 1.35f, 1f);
-            cb.pressedColor = new Color(0.7f, 0.7f, 0.7f, 1f);
-            cb.selectedColor = new Color(1.25f, 1.25f, 1.25f, 1f);
+            cb.normalColor = Color.white;
+            cb.highlightedColor = Color.white;
+            cb.pressedColor = new Color(0.85f, 0.85f, 0.85f, 1f);
+            cb.selectedColor = Color.white;
             cb.disabledColor = ColorDisabled;
             cb.fadeDuration = 0.08f;
             btn.colors = cb;
-            btn.transition = Selectable.Transition.ColorTint;
+            btn.transition = Selectable.Transition.None;
 
-            // Accent bar kiri
-            GameObject barObj = new GameObject("AccentBar", typeof(RectTransform), typeof(Image));
-            barObj.transform.SetParent(btnObj.transform, false);
-            var barImg = barObj.GetComponent<Image>();
-            barImg.color = new Color(accentColor.r, accentColor.g, accentColor.b, 0.85f);
-            barImg.raycastTarget = false;
-            RectTransform barRt = barObj.GetComponent<RectTransform>();
-            barRt.anchorMin = new Vector2(0f, 0f);
-            barRt.anchorMax = new Vector2(0f, 1f);
-            barRt.pivot = new Vector2(0f, 0.5f);
-            barRt.anchoredPosition = Vector2.zero;
-            barRt.sizeDelta = new Vector2(4f, 0f);
+            // Brush Tag di belakang teks (gaya The Infected Soul)
+            GameObject tagObj = new GameObject("BrushTag", typeof(RectTransform), typeof(Image));
+            tagObj.transform.SetParent(btnObj.transform, false);
+            var tagImg = tagObj.GetComponent<Image>();
+            tagImg.sprite = MenuHorrorArtGenerator.GetBrushTagSprite();
+            tagImg.type = Image.Type.Simple;
+            tagImg.raycastTarget = false;
+            tagImg.color = isDefaultSelected ? new Color(0.96f, 0.96f, 0.98f, 1f) : new Color(1f, 1f, 1f, 0f);
 
-            // Label kecil (kategori)
-            GameObject labelObj = CreateTMPText(btnObj.transform, "Kicker", label, 11, TextAlignmentOptions.MidlineLeft);
-            var labelTmp = labelObj.GetComponent<TMP_Text>();
-            labelTmp.color = new Color(0.6f, 0.66f, 0.76f, 0.75f);
-            labelTmp.characterSpacing = 8f;
-            labelTmp.fontStyle = FontStyles.Bold;
-            RectTransform labelRt = labelObj.GetComponent<RectTransform>();
-            labelRt.anchorMin = new Vector2(0f, 0.5f);
-            labelRt.anchorMax = new Vector2(0f, 0.5f);
-            labelRt.pivot = new Vector2(0f, 0.5f);
-            labelRt.anchoredPosition = new Vector2(30f, 10f);
-            labelRt.sizeDelta = new Vector2(400f, 16f);
+            RectTransform tagRt = tagObj.GetComponent<RectTransform>();
+            tagRt.anchorMin = Vector2.zero;
+            tagRt.anchorMax = Vector2.one;
+            tagRt.offsetMin = new Vector2(-15f, -6f);
+            tagRt.offsetMax = new Vector2(15f, 6f);
 
-            // Teks utama
-            GameObject textObj = CreateTMPText(btnObj.transform, "Text", text, 23, TextAlignmentOptions.MidlineLeft);
+            // Teks utama (huruf kapital, spasi lebar, font horror modern)
+            GameObject textObj = CreateTMPText(btnObj.transform, "Text", text, 28, TextAlignmentOptions.MidlineLeft);
             TMP_Text tmp = textObj.GetComponent<TMP_Text>();
-            tmp.color = accentColor;
             tmp.fontStyle = FontStyles.Bold;
-            tmp.characterSpacing = 1.5f;
-            RectTransform textRt = textObj.GetComponent<RectTransform>();
-            textRt.anchorMin = new Vector2(0f, 0.5f);
-            textRt.anchorMax = new Vector2(0f, 0.5f);
-            textRt.pivot = new Vector2(0f, 0.5f);
-            textRt.anchoredPosition = new Vector2(30f, -11f);
-            textRt.sizeDelta = new Vector2(400f, 30f);
+            tmp.characterSpacing = 8f;
+            tmp.color = isDefaultSelected ? new Color(0.08f, 0.09f, 0.12f, 1f) : new Color(0.72f, 0.76f, 0.82f, 0.80f);
+            tmp.enableWordWrapping = false;
 
-            // Chevron kanan
-            GameObject chevObj = CreateTMPText(btnObj.transform, "Chevron", "›", 30, TextAlignmentOptions.Center);
-            var chev = chevObj.GetComponent<TMP_Text>();
-            chev.color = new Color(accentColor.r, accentColor.g, accentColor.b, 0.5f);
-            RectTransform chevRt = chevObj.GetComponent<RectTransform>();
-            chevRt.anchorMin = new Vector2(1f, 0.5f);
-            chevRt.anchorMax = new Vector2(1f, 0.5f);
-            chevRt.pivot = new Vector2(1f, 0.5f);
-            chevRt.anchoredPosition = new Vector2(-22f, 0f);
-            chevRt.sizeDelta = new Vector2(30f, 40f);
+            RectTransform textRt = textObj.GetComponent<RectTransform>();
+            textRt.anchorMin = Vector2.zero;
+            textRt.anchorMax = Vector2.one;
+            textRt.offsetMin = new Vector2(14f, 0f);
+            textRt.offsetMax = new Vector2(-14f, 0f);
 
             var feedback = btnObj.AddComponent<ButtonFeedback>();
             var fbSo = new SerializedObject(feedback);
-            fbSo.FindProperty("hoverSlideX").floatValue = 16f;
-            fbSo.FindProperty("hoverScale").floatValue = 1.012f;
-            fbSo.FindProperty("clickScale").floatValue = 0.985f;
-            fbSo.FindProperty("borderImage").objectReferenceValue = barImg;
-            fbSo.FindProperty("normalBorderColor").colorValue = new Color(accentColor.r, accentColor.g, accentColor.b, 0.85f);
-            fbSo.FindProperty("highlightBorderColor").colorValue = new Color(
-                Mathf.Min(1f, accentColor.r + 0.35f),
-                Mathf.Min(1f, accentColor.g + 0.35f),
-                Mathf.Min(1f, accentColor.b + 0.35f), 1f);
-            fbSo.FindProperty("normalTextColor").colorValue = accentColor;
-            fbSo.FindProperty("highlightTextColor").colorValue = new Color(
-                Mathf.Min(1f, accentColor.r + 0.3f),
-                Mathf.Min(1f, accentColor.g + 0.3f),
-                Mathf.Min(1f, accentColor.b + 0.3f), 1f);
-            fbSo.FindProperty("targetText").objectReferenceValue = tmp;
+            var pSlide = fbSo.FindProperty("hoverSlideX"); if (pSlide != null) pSlide.floatValue = 10f;
+            var pScale = fbSo.FindProperty("hoverScale"); if (pScale != null) pScale.floatValue = 1.025f;
+            var pClick = fbSo.FindProperty("clickScale"); if (pClick != null) pClick.floatValue = 0.98f;
+            var pTarget = fbSo.FindProperty("slideTarget"); if (pTarget != null) pTarget.objectReferenceValue = textRt;
+            var pSelected = fbSo.FindProperty("isSelectedOrHovered"); if (pSelected != null) pSelected.boolValue = isDefaultSelected;
+            var pBrushTag = fbSo.FindProperty("brushTagImage"); if (pBrushTag != null) pBrushTag.objectReferenceValue = tagImg;
+            var pTagNorm = fbSo.FindProperty("brushTagNormalColor"); if (pTagNorm != null) pTagNorm.colorValue = new Color(1f, 1f, 1f, 0f);
+            var pTagHi = fbSo.FindProperty("brushTagHighlightColor"); if (pTagHi != null) pTagHi.colorValue = new Color(0.96f, 0.96f, 0.98f, 1f);
+            var pNormText = fbSo.FindProperty("normalTextColor"); if (pNormText != null) pNormText.colorValue = new Color(0.72f, 0.76f, 0.82f, 0.80f);
+            var pHiText = fbSo.FindProperty("highlightTextColor"); if (pHiText != null) pHiText.colorValue = new Color(0.08f, 0.09f, 0.12f, 1f);
+            var pText = fbSo.FindProperty("targetText"); if (pText != null) pText.objectReferenceValue = tmp;
             fbSo.ApplyModifiedPropertiesWithoutUndo();
 
             return btn;
@@ -1471,6 +1573,24 @@ namespace Pucaci.Editor
             obj.transform.SetParent(parent, false);
 
             TextMeshProUGUI tmp = obj.GetComponent<TextMeshProUGUI>();
+            var font = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>("Assets/_Game/Materials/BaronNeue_TMP.asset");
+            if (font == null)
+            {
+                var fontSource = AssetDatabase.LoadAssetAtPath<Font>("Assets/Mirror/Hosting/Edgegap/Editor/Fonts/Src/BaronNeue.otf");
+                if (fontSource != null)
+                {
+                    font = TMP_FontAsset.CreateFontAsset(fontSource);
+                    font.atlasPopulationMode = AtlasPopulationMode.Dynamic;
+                    AssetDatabase.CreateAsset(font, "Assets/_Game/Materials/BaronNeue_TMP.asset");
+                    AssetDatabase.AddObjectToAsset(font.material, font);
+                    AssetDatabase.AddObjectToAsset(font.atlasTexture, font);
+                    AssetDatabase.SaveAssets();
+                }
+            }
+            if (font != null)
+            {
+                tmp.font = font;
+            }
             tmp.text = text;
             tmp.fontSize = fontSize;
             tmp.alignment = align;

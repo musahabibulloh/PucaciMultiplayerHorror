@@ -14,15 +14,21 @@ namespace Pucaci.UI
         [SerializeField] private float scaleDuration = 0.1f;
 
         [Header("Slide Animation")]
-        [SerializeField] private float hoverSlideX = 14f;
+        [SerializeField] private float hoverSlideX = 10f;
+        [SerializeField] private RectTransform slideTarget;
         [SerializeField] private Image borderImage;
         [SerializeField] private Color normalBorderColor = new Color(0.2f, 0.25f, 0.35f, 0.6f);
         [SerializeField] private Color highlightBorderColor = new Color(1f, 0.75f, 0.3f, 1f);
 
+        [Header("Horror Brush Tag (The Infected Soul Style)")]
+        [SerializeField] private Image brushTagImage;
+        [SerializeField] private Color brushTagNormalColor = new Color(1f, 1f, 1f, 0f);
+        [SerializeField] private Color brushTagHighlightColor = new Color(0.96f, 0.96f, 0.98f, 1f);
+
         [Header("Colors")]
         [SerializeField] private bool changeTextColor = true;
-        [SerializeField] private Color normalTextColor = new Color(0.95f, 0.91f, 0.84f, 1f); // #F2E8D5
-        [SerializeField] private Color highlightTextColor = new Color(1f, 0.70f, 0.28f, 1f); // #FFB347 (Aksen Hangat)
+        [SerializeField] private Color normalTextColor = new Color(0.72f, 0.76f, 0.82f, 0.82f);
+        [SerializeField] private Color highlightTextColor = new Color(0.08f, 0.09f, 0.12f, 1f);
         [SerializeField] private TMP_Text targetText;
 
         [Header("Audio (Optional)")]
@@ -35,27 +41,34 @@ namespace Pucaci.UI
         private RectTransform rectTransform;
         private Coroutine scaleCoroutine;
         private Coroutine slideCoroutine;
-        private bool isSelectedOrHovered;
+        [SerializeField] private bool isSelectedOrHovered;
         private bool canSlide = true;
 
         private void Awake()
         {
             rectTransform = GetComponent<RectTransform>();
             initialScale = transform.localScale;
-            if (rectTransform != null) initialAnchoredPos = rectTransform.anchoredPosition;
 
-            // Jangan animasi slide jika posisi dikontrol LayoutGroup (bisa merusak layout)
-            canSlide = GetComponentInParent<LayoutGroup>() == null;
+            if (slideTarget == null && targetText != null)
+            {
+                slideTarget = targetText.rectTransform;
+            }
+            if (slideTarget == null)
+            {
+                slideTarget = rectTransform;
+            }
+
+            if (slideTarget != null)
+            {
+                initialAnchoredPos = slideTarget.anchoredPosition;
+            }
+
+            // Bisa slide jika slideTarget adalah child (bukan root yang dikontrol LayoutGroup)
+            canSlide = (slideTarget != rectTransform) || (GetComponentInParent<LayoutGroup>() == null);
 
             if (targetText == null)
             {
                 targetText = GetComponentInChildren<TMP_Text>();
-            }
-
-            if (targetText != null && changeTextColor)
-            {
-                // Ambil warna awal teks yang telah diset di editor/builder
-                normalTextColor = targetText.color;
             }
 
             if (audioSource == null)
@@ -66,6 +79,16 @@ namespace Pucaci.UI
             if (borderImage != null)
             {
                 borderImage.color = normalBorderColor;
+            }
+
+            // Set state awal sesuai teks
+            if (targetText != null && changeTextColor)
+            {
+                targetText.color = isSelectedOrHovered ? highlightTextColor : normalTextColor;
+            }
+            if (brushTagImage != null)
+            {
+                brushTagImage.color = isSelectedOrHovered ? brushTagHighlightColor : brushTagNormalColor;
             }
         }
 
@@ -80,6 +103,10 @@ namespace Pucaci.UI
             if (borderImage != null)
             {
                 borderImage.color = normalBorderColor;
+            }
+            if (brushTagImage != null)
+            {
+                brushTagImage.color = brushTagNormalColor;
             }
             isSelectedOrHovered = false;
         }
@@ -138,6 +165,11 @@ namespace Pucaci.UI
                 borderImage.color = highlightBorderColor;
             }
 
+            if (brushTagImage != null)
+            {
+                brushTagImage.color = brushTagHighlightColor;
+            }
+
             PlaySound(hoverSound, false);
         }
 
@@ -156,6 +188,11 @@ namespace Pucaci.UI
             {
                 borderImage.color = normalBorderColor;
             }
+
+            if (brushTagImage != null)
+            {
+                brushTagImage.color = brushTagNormalColor;
+            }
         }
 
         private void AnimateScale(Vector3 target)
@@ -173,7 +210,7 @@ namespace Pucaci.UI
 
         private void AnimateSlide(Vector2 targetPos)
         {
-            if (rectTransform == null || !canSlide) return;
+            if (slideTarget == null || !canSlide) return;
             if (gameObject.activeInHierarchy)
             {
                 if (slideCoroutine != null) StopCoroutine(slideCoroutine);
@@ -181,7 +218,7 @@ namespace Pucaci.UI
             }
             else
             {
-                rectTransform.anchoredPosition = targetPos;
+                slideTarget.anchoredPosition = targetPos;
             }
         }
 
@@ -200,15 +237,15 @@ namespace Pucaci.UI
 
         private IEnumerator SlideRoutine(Vector2 target)
         {
-            Vector2 start = rectTransform.anchoredPosition;
+            Vector2 start = slideTarget != null ? slideTarget.anchoredPosition : Vector2.zero;
             float elapsed = 0f;
             while (elapsed < scaleDuration)
             {
                 elapsed += Time.unscaledDeltaTime;
-                rectTransform.anchoredPosition = Vector2.Lerp(start, target, elapsed / scaleDuration);
+                if (slideTarget != null) slideTarget.anchoredPosition = Vector2.Lerp(start, target, elapsed / scaleDuration);
                 yield return null;
             }
-            rectTransform.anchoredPosition = target;
+            if (slideTarget != null) slideTarget.anchoredPosition = target;
         }
 
         private void PlaySound(AudioClip clip, bool isClick)
