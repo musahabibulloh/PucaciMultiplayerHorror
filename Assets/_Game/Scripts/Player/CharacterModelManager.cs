@@ -1,7 +1,6 @@
 using Mirror;
 using UnityEngine;
 using Pucaci.Network;
-using Pucaci.Rendering;
 
 namespace Pucaci.Player
 {
@@ -168,13 +167,6 @@ namespace Pucaci.Player
                 }
 #endif
             }
-
-            // Pasang Toon Outline tegas ala Fortnite (Inverted Hull) ke seluruh model karakter dan senter
-            if (modelLaras != null) ToonOutlineApplier.ApplyTo(modelLaras, 3.5f);
-            if (modelPakMamat != null) ToonOutlineApplier.ApplyTo(modelPakMamat, 3.5f);
-            if (modelKuntilanak != null) ToonOutlineApplier.ApplyTo(modelKuntilanak, 3.5f);
-            if (modelPakVincent != null) ToonOutlineApplier.ApplyTo(modelPakVincent, 3.5f);
-            if (flashlightController != null) ToonOutlineApplier.ApplyTo(flashlightController.gameObject, 2.5f);
         }
 
         public Mesh GetOriginalFullBodyMesh(CharacterType type)
@@ -250,7 +242,7 @@ namespace Pucaci.Player
             }
 
             SkinnedMeshRenderer targetRenderer = targetModelObj.GetComponentInChildren<SkinnedMeshRenderer>();
-            ToonOutlineApplier.ApplyTo(targetModelObj, 3.5f);
+            Pucaci.Rendering.ToonOutlineApplier.ApplyTo(targetModelObj, 4.0f);
 
             bool isLocal = true;
             try { isLocal = isLocalPlayer; } catch {}

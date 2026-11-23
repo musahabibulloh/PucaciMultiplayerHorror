@@ -1,6 +1,5 @@
 using System.Collections;
 using UnityEngine;
-using Pucaci.Rendering;
 
 namespace Pucaci.Props
 {
@@ -57,9 +56,6 @@ namespace Pucaci.Props
                 // Gunakan instance material runtime agar tidak mengotori asset disk
                 lampMaterial = lampRenderer.material;
             }
-
-            // Outline pada tiang lampu
-            ToonOutlineApplier.ApplyTo(gameObject, 2.5f);
 
             if (!isInitialized)
             {

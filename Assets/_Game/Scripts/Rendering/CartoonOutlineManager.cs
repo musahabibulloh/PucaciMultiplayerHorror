@@ -45,7 +45,19 @@ namespace Pucaci.Rendering
         private void Update()
         {
             // Toggle perbandingan sebelum/sesudah dengan F6
+            bool togglePressed = false;
+#if ENABLE_INPUT_SYSTEM
+            if (UnityEngine.InputSystem.Keyboard.current != null && UnityEngine.InputSystem.Keyboard.current.f6Key.wasPressedThisFrame)
+            {
+                togglePressed = true;
+            }
+#else
             if (Input.GetKeyDown(toggleKey))
+            {
+                togglePressed = true;
+            }
+#endif
+            if (togglePressed)
             {
                 ToggleOutline();
             }

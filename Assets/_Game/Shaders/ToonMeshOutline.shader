@@ -3,8 +3,7 @@ Shader "Pucaci/ToonMeshOutline"
     Properties
     {
         _OutlineColor ("Outline Color", Color) = (0.0, 0.0, 0.0, 1.0)
-        _OutlineWidth ("Outline Width (Fortnite Style)", Range(1.0, 8.0)) = 3.5
-        _ZOffset ("Depth Offset", Range(0.0, 5.0)) = 1.0
+        _OutlineWidth ("Outline Width (Fortnite Style)", Range(1.0, 10.0)) = 4.0
     }
 
     SubShader
@@ -20,10 +19,12 @@ Shader "Pucaci/ToonMeshOutline"
         Cull Front
         ZWrite On
         ZTest LEqual
+        Offset 1, 1
 
         Pass
         {
-            Name "ToonMeshOutlinePass"
+            Name "UniversalForward"
+            Tags { "LightMode" = "UniversalForward" }
 
             HLSLPROGRAM
             #pragma vertex Vert
@@ -34,7 +35,6 @@ Shader "Pucaci/ToonMeshOutline"
             CBUFFER_START(UnityPerMaterial)
                 float4 _OutlineColor;
                 float _OutlineWidth;
-                float _ZOffset;
             CBUFFER_END
 
             struct Attributes
@@ -59,31 +59,18 @@ Shader "Pucaci/ToonMeshOutline"
                 VertexPositionInputs posInputs = GetVertexPositionInputs(input.positionOS.xyz);
                 VertexNormalInputs normInputs = GetVertexNormalInputs(input.normalOS);
 
-                // View Space (Camera Space) Normal Extrusion
-                // Standar emas industri cel-shading (Fortnite anime skins / Arc System Works / Genshin)
-                float3 posVS = TransformWorldToView(posInputs.positionWS);
+                output.positionCS = posInputs.positionCS;
+
+                // View-space normal projection for crisp uniform screen-space outline
                 float3 normVS = TransformWorldToViewDir(normInputs.normalWS);
+                float2 dir = normVS.xy;
+                float len = length(dir);
+                dir = (len > 0.0001f) ? (dir / len) : float2(0.0f, 1.0f);
 
-                float dist = max(abs(posVS.z), 0.2f);
-                float2 norm2D = normVS.xy;
-                float len = length(norm2D);
-                norm2D = (len > 0.0001f) ? (norm2D / len) : float2(0, 1);
-
-                float screenH = (_ScreenParams.y > 10.0f) ? _ScreenParams.y : 1080.0f;
-                float screenW = (_ScreenParams.x > 10.0f) ? _ScreenParams.x : 1920.0f;
-                float2 aspect = float2(screenH / screenW, 1.0f);
-
-                // Ketebalan tegas dalam satuan piksel layar (ala Fortnite / anime)
-                float pixelOffset = (_OutlineWidth / screenH) * 2.0f;
-                posVS.xy += norm2D * aspect * pixelOffset * dist;
-
-                output.positionCS = TransformViewToHClip(posVS);
-
-                #if UNITY_REVERSED_Z
-                    output.positionCS.z -= _ZOffset * 0.0005f * output.positionCS.w;
-                #else
-                    output.positionCS.z += _ZOffset * 0.0005f * output.positionCS.w;
-                #endif
+                float2 screen = (_ScreenParams.xy > 10.0f) ? _ScreenParams.xy : float2(1920.0f, 1080.0f);
+                // Offset konstan di screen space (satuan pixel), proporsional terhadap w clip
+                float2 ndcOffset = dir * (2.0f / screen) * _OutlineWidth;
+                output.positionCS.xy += ndcOffset * output.positionCS.w;
 
                 return output;
             }

@@ -1248,6 +1248,12 @@ namespace Pucaci.Player
                         characterRenderer.sharedMesh = fullBodyMesh;
                     }
                 }
+
+                var childOutline = characterRenderer.transform.Find("ToonOutline_Backface")?.GetComponent<SkinnedMeshRenderer>();
+                if (childOutline != null)
+                {
+                    childOutline.sharedMesh = characterRenderer.sharedMesh;
+                }
             }
 
             if (modelTransform != null)

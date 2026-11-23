@@ -119,7 +119,19 @@ namespace Pucaci.Player
                     pcc.SetGhostPhasing(false);
                 }
 
-                kuntiRenderers = kuntiModelTransform.GetComponentsInChildren<SkinnedMeshRenderer>(true);
+                var allKuntiRenderers = kuntiModelTransform.GetComponentsInChildren<SkinnedMeshRenderer>(true);
+                var validRenderers = new System.Collections.Generic.List<SkinnedMeshRenderer>();
+                if (allKuntiRenderers != null)
+                {
+                    foreach (var rend in allKuntiRenderers)
+                    {
+                        if (rend != null && !rend.name.Contains("ToonOutline"))
+                        {
+                            validRenderers.Add(rend);
+                        }
+                    }
+                }
+                kuntiRenderers = validRenderers.ToArray();
                 if (kuntiRenderers != null && kuntiRenderers.Length > 0)
                 {
                     instanceMaterials = new Material[kuntiRenderers.Length];
@@ -310,6 +322,16 @@ namespace Pucaci.Player
             {
                 pcc.SetGhostSpeedBoost(newState);
                 pcc.SetGhostPhasing(newState);
+            }
+
+            // Saat mode arwah gaib aktif: sembunyikan outline hitam agar murni transparan tembus pandang
+            var outlines = GetComponentsInChildren<SkinnedMeshRenderer>(true);
+            foreach (var smr in outlines)
+            {
+                if (smr != null && smr.name.Contains("ToonOutline"))
+                {
+                    smr.enabled = !newState;
+                }
             }
         }
 
