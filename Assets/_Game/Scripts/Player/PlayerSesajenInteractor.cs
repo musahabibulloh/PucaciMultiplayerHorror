@@ -18,8 +18,10 @@ namespace Pucaci.Player
     /// <summary>
     /// Menangani interaksi sesajen:
     /// 1. Survivor: Mendekati dan menghancurkan sesajen yang masih utuh.
-    /// 2. Impostor (Wujud Manusia): Mendekati dan memperbaiki sesajen yang sudah dihancurkan.
-    /// 3. Impostor (Wujud Kuntilanak): Tidak bisa memperbaiki sesajen (harus bertransformasi jadi manusia).
+    /// 2. Impostor (Wujud Manusia): 
+    ///    - BISA MENGHANCURKAN sesajen utuh (sebagai tipu daya/kamuflase agar teman setim bingung mencari impostor).
+    ///    - BISA MEMPERBAIKI sesajen yang hancur.
+    /// 3. Impostor (Wujud Kuntilanak): Dilarang memperbaiki sesajen (harus bertransformasi jadi manusia).
     /// </summary>
     public class PlayerSesajenInteractor : NetworkBehaviour
     {
@@ -179,8 +181,18 @@ namespace Pucaci.Player
                 }
                 else
                 {
-                    // Sesajen sudah utuh, impostor tidak perlu melakukan apa-apa
-                    currentMode = SesajenInteractionMode.None;
+                    // Sesajen masih utuh
+                    if (isHumanForm)
+                    {
+                        // Impostor dalam wujud manusia: BISA MENGHANCURKAN SESAJEN
+                        // Gunanya sebagai kamuflase/tipuan agar rekan satu tim mengira ia adalah survivor biasa
+                        currentMode = SesajenInteractionMode.Destroy;
+                    }
+                    else
+                    {
+                        // Impostor dalam wujud Kuntilanak: Tidak menghancurkan sesajen dalam wujud hantu
+                        currentMode = SesajenInteractionMode.None;
+                    }
                 }
             }
         }
