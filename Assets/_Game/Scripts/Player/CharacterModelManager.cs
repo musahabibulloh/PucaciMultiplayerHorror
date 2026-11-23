@@ -23,6 +23,8 @@ namespace Pucaci.Player
         [Header("First-Person Custom Meshes")]
         [Tooltip("Mesh khusus tangan saja untuk Pak Mamat di tampilan FPP")]
         [SerializeField] private Mesh pakMamatArmsMesh;
+        [Tooltip("Mesh tubuh utuh asli Pak Mamat (Cube) untuk tampilan TPP")]
+        [SerializeField] private Mesh pakMamatFullBodyMesh;
 
         [Header("Component References")]
         [SerializeField] private PlayerCharacterController characterController;
@@ -33,9 +35,17 @@ namespace Pucaci.Player
 
         [SyncVar(hook = nameof(OnCharacterIndexChanged))]
         private int characterIndex = -1;
+        private int localCharacterIndex = -1;
 
-        public CharacterType ActiveCharacterType => (CharacterType)Mathf.Max(0, characterIndex);
-        public GameObject ActiveModel => (characterIndex == 3) ? modelPakVincent : ((characterIndex == 2) ? modelKuntilanak : ((characterIndex == 1) ? modelPakMamat : modelLaras));
+        public CharacterType ActiveCharacterType => (CharacterType)Mathf.Max(0, (characterIndex >= 0 ? characterIndex : localCharacterIndex));
+        public GameObject ActiveModel
+        {
+            get
+            {
+                int idx = characterIndex >= 0 ? characterIndex : localCharacterIndex;
+                return (idx == 3) ? modelPakVincent : ((idx == 2) ? modelKuntilanak : ((idx == 1) ? modelPakMamat : modelLaras));
+            }
+        }
 
         private void Awake()
         {
@@ -124,6 +134,39 @@ namespace Pucaci.Player
                 pakMamatArmsMesh = UnityEditor.AssetDatabase.LoadAssetAtPath<Mesh>("Assets/_Game/Models/Character/Pak Mamat/PakMamat_ArmsOnly.asset");
 #endif
             }
+
+            if (pakMamatFullBodyMesh == null && modelPakMamat != null)
+            {
+                var smr = modelPakMamat.GetComponentInChildren<SkinnedMeshRenderer>();
+                if (smr != null && smr.sharedMesh != null && smr.sharedMesh != pakMamatArmsMesh)
+                {
+                    pakMamatFullBodyMesh = smr.sharedMesh;
+                }
+            }
+
+            if (pakMamatFullBodyMesh == null)
+            {
+#if UNITY_EDITOR
+                var assets = UnityEditor.AssetDatabase.LoadAllAssetsAtPath("Assets/_Game/Models/Character/Pak Mamat/Breathing Idle.fbx");
+                foreach (var a in assets)
+                {
+                    if (a is Mesh m && m.name == "Cube")
+                    {
+                        pakMamatFullBodyMesh = m;
+                        break;
+                    }
+                }
+#endif
+            }
+        }
+
+        public Mesh GetOriginalFullBodyMesh(CharacterType type)
+        {
+            if (type == CharacterType.PakMamat) return pakMamatFullBodyMesh;
+            if (type == CharacterType.Laras && modelLaras != null) return modelLaras.GetComponentInChildren<SkinnedMeshRenderer>()?.sharedMesh;
+            if (type == CharacterType.Kuntilanak && modelKuntilanak != null) return modelKuntilanak.GetComponentInChildren<SkinnedMeshRenderer>()?.sharedMesh;
+            if (type == CharacterType.PakVincent && modelPakVincent != null) return modelPakVincent.GetComponentInChildren<SkinnedMeshRenderer>()?.sharedMesh;
+            return null;
         }
 
         public void SelectCharacter(CharacterType type)
@@ -132,7 +175,7 @@ namespace Pucaci.Player
             int idx = (int)type;
             ApplyCharacter(idx);
 
-            if (isLocalPlayer && NetworkClient.isConnected)
+            if (netIdentity != null && isLocalPlayer && NetworkClient.isConnected)
             {
                 CmdSetCharacter(idx);
             }
@@ -140,16 +183,36 @@ namespace Pucaci.Player
 
         public void ApplyCharacter(int index)
         {
-            characterIndex = Mathf.Clamp(index, 0, 3);
+            int clamped = Mathf.Clamp(index, 0, 3);
+            localCharacterIndex = clamped;
+            if (netIdentity != null && (isServer || NetworkServer.active))
+            {
+                characterIndex = clamped;
+            }
+
             AutoResolveModels();
 
-            bool isLaras = (characterIndex == 0);
-            bool isMamat = (characterIndex == 1);
-            bool isKunti = (characterIndex == 2);
-            bool isVincent = (characterIndex == 3);
+            int activeIdx = characterIndex >= 0 ? characterIndex : localCharacterIndex;
+            bool isLaras = (activeIdx == 0);
+            bool isMamat = (activeIdx == 1);
+            bool isKunti = (activeIdx == 2);
+            bool isVincent = (activeIdx == 3);
 
             if (modelLaras != null) modelLaras.SetActive(isLaras);
-            if (modelPakMamat != null) modelPakMamat.SetActive(isMamat);
+            if (modelPakMamat != null)
+            {
+                // Jika Pak Mamat sedang dinonaktifkan, pastikan mesh-nya dikembalikan ke full-body
+                // agar tidak tertinggal dalam keadaan terpotong (tangan saja)
+                if (!isMamat && pakMamatFullBodyMesh != null)
+                {
+                    var mamatSmr = modelPakMamat.GetComponentInChildren<SkinnedMeshRenderer>();
+                    if (mamatSmr != null)
+                    {
+                        mamatSmr.sharedMesh = pakMamatFullBodyMesh;
+                    }
+                }
+                modelPakMamat.SetActive(isMamat);
+            }
             if (modelKuntilanak != null) modelKuntilanak.SetActive(isKunti);
             if (modelPakVincent != null) modelPakVincent.SetActive(isVincent);
 
@@ -177,7 +240,8 @@ namespace Pucaci.Player
             if (characterController != null)
             {
                 Mesh customFppMesh = (isMamat && isLocal) ? pakMamatArmsMesh : null;
-                characterController.SetupCharacterModel(targetTransform, targetAnim, targetRenderer, customFppMesh, isKunti, modelOffset);
+                Mesh targetFullBodyMesh = isMamat ? pakMamatFullBodyMesh : (targetRenderer != null ? targetRenderer.sharedMesh : null);
+                characterController.SetupCharacterModel(targetTransform, targetAnim, targetRenderer, customFppMesh, isKunti, modelOffset, targetFullBodyMesh);
             }
 
             if (flashlightController != null)
@@ -195,9 +259,11 @@ namespace Pucaci.Player
                 ghostVanish.SetKuntilanakActive(isKunti, targetTransform);
             }
 
-            if (networkSetup != null && targetRenderer != null)
+            if (networkSetup != null)
             {
-                networkSetup.SetupRenderer(targetRenderer);
+                if (targetRenderer != null) networkSetup.SetupRenderer(targetRenderer);
+                string charName = CharacterSelectionData.GetCharacterName((CharacterType)clamped);
+                networkSetup.UpdateNameTagText(charName);
             }
         }
     }

@@ -185,7 +185,8 @@ namespace Pucaci.Network
             nameTagObject.transform.localPosition = new Vector3(0f, 2.2f, 0f);
 
             nameTagText = nameTagObject.AddComponent<TextMesh>();
-            nameTagText.text = $"Pemain {netId}";
+            string idStr = (netIdentity != null) ? $" {netId}" : "";
+            nameTagText.text = $"Pemain{idStr}";
             nameTagText.characterSize = 0.08f;
             nameTagText.fontSize = 28;
             nameTagText.anchor = TextAnchor.MiddleCenter;
@@ -196,7 +197,10 @@ namespace Pucaci.Network
         private void LateUpdate()
         {
             // Pastikan label nama pemain lain selalu menghadap kamera aktif
-            if (!isLocalPlayer && nameTagObject != null && nameTagObject.activeSelf)
+            bool isLocal = false;
+            try { isLocal = isLocalPlayer; } catch { isLocal = true; }
+
+            if (!isLocal && nameTagObject != null && nameTagObject.activeSelf)
             {
                 Camera cam = Camera.main;
                 if (cam != null)
@@ -207,6 +211,19 @@ namespace Pucaci.Network
                         nameTagObject.transform.rotation = Quaternion.LookRotation(lookDir);
                     }
                 }
+            }
+        }
+
+        public void UpdateNameTagText(string newText)
+        {
+            if (nameTagObject == null)
+            {
+                CreateOverheadNameTag();
+            }
+
+            if (nameTagText != null)
+            {
+                nameTagText.text = newText;
             }
         }
 

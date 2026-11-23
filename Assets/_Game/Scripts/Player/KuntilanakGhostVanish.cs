@@ -31,6 +31,13 @@ namespace Pucaci.Player
         [Tooltip("Durasi transisi memudar menjadi arwah tembus pandang (detik)")]
         [SerializeField] private float fadeDuration = 0.5f;
 
+        [Header("Ghost Vanish Duration & Cooldown")]
+        [Tooltip("Durasi maksimal mode hilang dalam detik (otomatis kembali padat setelah durasi habis)")]
+        [SerializeField] private float maxGhostDuration = 6.0f;
+
+        [Tooltip("Durasi jeda (cooldown) setelah wujud gaib berakhir sebelum bisa digunakan lagi (detik)")]
+        [SerializeField] private float ghostCooldown = 8.0f;
+
         [Header("Casper Flight Boost")]
         [Tooltip("Kecepatan melayang saat dalam wujud arwah tanpa bobot (m/s)")]
         [SerializeField] private float ghostSpeed = 6.0f;
@@ -40,6 +47,17 @@ namespace Pucaci.Player
         private bool isGhostForm = false;
 
         public bool IsGhostForm => isGhostForm;
+        public float RemainingGhostDuration => Mathf.Max(0f, ghostDurationTimer);
+        public float MaxGhostDuration => maxGhostDuration;
+        public float GhostDurationNormalized => maxGhostDuration > 0f ? Mathf.Clamp01(ghostDurationTimer / maxGhostDuration) : 0f;
+
+        public float GhostCooldown => ghostCooldown;
+        public float RemainingCooldown => Mathf.Max(0f, ghostCooldownTimer);
+        public bool IsOnCooldown => ghostCooldownTimer > 0.01f;
+        public float CooldownNormalized => ghostCooldown > 0f ? Mathf.Clamp01(ghostCooldownTimer / ghostCooldown) : 0f;
+
+        private float ghostDurationTimer = 0.0f;
+        private float ghostCooldownTimer = 0.0f;
 
         private PlayerCharacterController pcc;
         private AudioSource audioSource;
@@ -92,10 +110,13 @@ namespace Pucaci.Player
             {
                 // Kondisi awal selalu full bentuk (padat / solid 100%, bukan transparan / menghilang)
                 isGhostForm = false;
+                ghostDurationTimer = 0.0f;
+                ghostCooldownTimer = 0.0f;
                 currentGhostBlend = 0.0f;
                 if (pcc != null)
                 {
                     pcc.SetGhostSpeedBoost(false);
+                    pcc.SetGhostPhasing(false);
                 }
 
                 kuntiRenderers = kuntiModelTransform.GetComponentsInChildren<SkinnedMeshRenderer>(true);
@@ -121,10 +142,13 @@ namespace Pucaci.Player
             {
                 // Reset wujud jika ganti ke karakter manusia
                 isGhostForm = false;
+                ghostDurationTimer = 0.0f;
+                ghostCooldownTimer = 0.0f;
                 currentGhostBlend = 0.0f;
                 if (pcc != null)
                 {
                     pcc.SetGhostSpeedBoost(false);
+                    pcc.SetGhostPhasing(false);
                 }
             }
         }
@@ -133,6 +157,30 @@ namespace Pucaci.Player
         {
             // Update interpolasi material setiap frame untuk semua pemain
             UpdateMaterialFade();
+
+            // Hitung mundur durasi mode hilang jika sedang aktif (hanya bertahan selama 6 detik)
+            if (isGhostForm)
+            {
+                ghostDurationTimer -= Time.deltaTime;
+                if (ghostDurationTimer <= 0f)
+                {
+                    ghostDurationTimer = 0f;
+                    // Durasi 6 detik habis: otomatis kembali ke wujud padat
+                    if (isLocalPlayer || (!NetworkClient.active && !NetworkServer.active) || isServer)
+                    {
+                        SetGhostForm(false);
+                    }
+                }
+            }
+            else if (ghostCooldownTimer > 0f)
+            {
+                // Hitung mundur jeda / cooldown 8 detik setelah kembali padat
+                ghostCooldownTimer -= Time.deltaTime;
+                if (ghostCooldownTimer < 0f)
+                {
+                    ghostCooldownTimer = 0f;
+                }
+            }
 
             // Hanya pemain lokal pemilik karakter Kuntilanak yang membaca tombol input
             if (!isLocalPlayer || !isKuntilanakActive) return;
@@ -166,36 +214,102 @@ namespace Pucaci.Player
 
         public void ToggleGhostForm()
         {
-            bool nextState = !isGhostForm;
-            if (!NetworkClient.active && !NetworkServer.active)
+            if (!isGhostForm && IsOnCooldown)
             {
-                // Mode offline / singleplayer
-                isGhostForm = nextState;
-                OnGhostVanishStateChanged(!nextState, nextState);
+                // Sedang cooldown 8 detik: abaikan tombol aktifasi
+                return;
             }
-            else if (isServer)
+            SetGhostForm(!isGhostForm);
+        }
+
+        public void SetGhostForm(bool state)
+        {
+            if (isGhostForm == state) return;
+
+            // Jika hendak mengaktifkan wujud gaib, cek cooldown
+            if (state && IsOnCooldown)
             {
-                isGhostForm = nextState;
+                return;
+            }
+
+            if (state)
+            {
+                ghostDurationTimer = maxGhostDuration;
             }
             else
             {
-                CmdSetGhostForm(nextState);
+                ghostDurationTimer = 0f;
+                ghostCooldownTimer = ghostCooldown;
+            }
+
+            if (!NetworkClient.active && !NetworkServer.active)
+            {
+                // Mode offline / singleplayer
+                isGhostForm = state;
+                OnGhostVanishStateChanged(!state, state);
+            }
+            else if (isServer)
+            {
+                isGhostForm = state;
+                OnGhostVanishStateChanged(!state, state);
+            }
+            else
+            {
+                CmdSetGhostForm(state);
+                if (pcc != null)
+                {
+                    pcc.SetGhostSpeedBoost(state);
+                    pcc.SetGhostPhasing(state);
+                }
             }
         }
 
         [Command]
         private void CmdSetGhostForm(bool state)
         {
+            if (state && ghostCooldownTimer > 0.01f)
+            {
+                return;
+            }
+
             isGhostForm = state;
+            if (state)
+            {
+                ghostDurationTimer = maxGhostDuration;
+            }
+            else
+            {
+                ghostDurationTimer = 0f;
+                ghostCooldownTimer = ghostCooldown;
+            }
+
+            if (isServer && isClient)
+            {
+                OnGhostVanishStateChanged(!state, state);
+            }
         }
 
         private void OnGhostVanishStateChanged(bool oldState, bool newState)
         {
             PlaySpectralAudio(newState);
 
+            if (newState)
+            {
+                ghostDurationTimer = maxGhostDuration;
+            }
+            else
+            {
+                ghostDurationTimer = 0f;
+                if (oldState)
+                {
+                    ghostCooldownTimer = ghostCooldown;
+                }
+            }
+
             if (pcc != null)
             {
                 pcc.SetGhostSpeedBoost(newState);
+                pcc.SetGhostPhasing(newState);
             }
         }
 

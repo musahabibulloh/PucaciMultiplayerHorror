@@ -2259,6 +2259,8 @@ GameObject:
   - component: {fileID: 5401666214727283198}
   - component: {fileID: 713583047217412002}
   - component: {fileID: 1655069731027675797}
+  - component: {fileID: 6217717012468571569}
+  - component: {fileID: -6842507358872054213}
   m_Layer: 0
   m_Name: PlayerCharacter
   m_TagString: Player
@@ -2345,6 +2347,10 @@ MonoBehaviour:
   slideSpeed: 8.5
   slideDuration: 1.2
   slideControllerHeight: 1
+  flightSpeed: 4.5
+  flightVerticalSpeed: 3.5
+  flightAcceleration: 12
+  ghostFlightSpeed: 6
   cameraRoot: {fileID: 4952371013146911731}
   lookSensitivity: 1.5
   topClamp: 85
@@ -2373,7 +2379,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   sceneId: 0
-  _assetId: 0
+  _assetId: 2074854611
   serverOnly: 0
   visibility: 0
   hasSpawned: 0
@@ -2524,6 +2530,7 @@ MonoBehaviour:
   slideVolume: 0.75
   minPitch: 0.94
   maxPitch: 1.06
+  isSilent: 0
 --- !u!114 &1655069731027675797
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2542,11 +2549,48 @@ MonoBehaviour:
   syncInterval: 0
   modelLaras: {fileID: 1451304397635678411}
   modelPakMamat: {fileID: 1931205580601754723}
+  modelKuntilanak: {fileID: 0}
+  modelPakVincent: {fileID: 0}
   pakMamatArmsMesh: {fileID: 4300000, guid: 6a68e8e214d61ea4fb61e891559f2769, type: 2}
   characterController: {fileID: 1351953526414716095}
   flashlightController: {fileID: 5401666214727283198}
   footstepAudio: {fileID: 713583047217412002}
   networkSetup: {fileID: 4225396089908499666}
+  ghostVanish: {fileID: 0}
+--- !u!114 &6217717012468571569
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6242783521741233628}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e9afcced77c7af140b5c33d77daab48d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  syncMethod: 0
+  syncDirection: 0
+  syncMode: 0
+  syncInterval: 0
+  maxHealth: 100
+--- !u!114 &-6842507358872054213
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6242783521741233628}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f017d4a0e22a01642a83997e847cfe49, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  maxChokeDuration: 5
+  chokeRange: 2.4
+  breakDistance: 3.5
+  isChoking: 0
+  isBeingChoked: 0
 --- !u!1 &6402227932230502383
 GameObject:
   m_ObjectHideFlags: 0

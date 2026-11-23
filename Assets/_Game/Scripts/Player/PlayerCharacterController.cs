@@ -88,10 +88,238 @@ namespace Pucaci.Player
         private bool isFlyingCharacter = false;
         public bool IsFlyingCharacter => isFlyingCharacter;
         private bool isGhostSpeedBoosted = false;
+        private bool isGhostPhasing = false;
+        public bool IsGhostPhasing => isGhostPhasing;
+        private readonly System.Collections.Generic.HashSet<Collider> ignoredColliders = new System.Collections.Generic.HashSet<Collider>();
+        private float ghostPhasingScanTimer = 0f;
 
         public void SetGhostSpeedBoost(bool boost)
         {
             isGhostSpeedBoosted = boost;
+        }
+
+        public void SetGhostPhasing(bool phasing)
+        {
+            if (isGhostPhasing == phasing) return;
+            isGhostPhasing = phasing;
+
+            if (phasing)
+            {
+                EnableGhostPhasing();
+            }
+            else
+            {
+                DisableGhostPhasing();
+            }
+        }
+
+        private void EnableGhostPhasing()
+        {
+            if (controller == null) controller = GetComponent<CharacterController>();
+            if (controller == null) return;
+
+            RefreshGhostPhasing();
+        }
+
+        private void RefreshGhostPhasing()
+        {
+            if (controller == null) return;
+
+            var allColliders = FindObjectsOfType<Collider>(false);
+            for (int i = 0; i < allColliders.Length; i++)
+            {
+                var col = allColliders[i];
+                if (col == null || col == controller || col.transform.IsChildOf(transform)) continue;
+
+                // Karakter hantu BISA menembus segala objek (pohon, pagar, batu, rintangan luar, player lain)
+                // KECUALI:
+                // 1. Tanah (Ground) - agar tidak jatuh ke bawah dunia
+                // 2. Rumah (House) - hantu tidak bisa menembus / masuk ke dalam rumah!
+                if (!IsGroundCollider(col) && !IsHouseCollider(col))
+                {
+                    if (ignoredColliders.Add(col))
+                    {
+                        Physics.IgnoreCollision(controller, col, true);
+                    }
+                }
+            }
+        }
+
+        private void DisableGhostPhasing()
+        {
+            if (controller == null) return;
+
+            foreach (var col in ignoredColliders)
+            {
+                if (col != null)
+                {
+                    Physics.IgnoreCollision(controller, col, false);
+                }
+            }
+            ignoredColliders.Clear();
+        }
+
+        public static bool IsGroundCollider(Collider col)
+        {
+            if (col == null) return false;
+
+            // 1. Tag pengecekan tanah
+            if (col.CompareTag("Ground")) return true;
+
+            // 2. Komponen terrain
+            if (col is TerrainCollider) return true;
+
+            // 3. Layer tanah
+            string layerName = LayerMask.LayerToName(col.gameObject.layer);
+            if (layerName.Equals("Ground", System.StringComparison.OrdinalIgnoreCase) ||
+                layerName.Equals("Terrain", System.StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+
+            // 4. Pengecekan nama objek tanah / lantai / terrain / plane
+            string colName = col.gameObject.name.ToLowerInvariant();
+            if (colName.Contains("ground") || colName.Contains("tanah") ||
+                colName.Contains("terrain") || colName.Contains("plane") ||
+                colName.Contains("floor") || colName.Contains("lantai"))
+            {
+                return true;
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// Mengecek apakah suatu collider merupakan bagian dari bangunan rumah (dinding, atap, pintu, dsb).
+        /// Hantu dalam mode menghilang TIDAK BISA menembus objek rumah ini (dilarang masuk ke dalam rumah).
+        /// </summary>
+        public static bool IsHouseCollider(Collider col)
+        {
+            if (col == null) return false;
+
+            // 1. Tag pengecekan rumah / bangunan (aman tanpa error jika tag belum terdaftar di TagManager)
+            try
+            {
+                string tag = col.gameObject.tag;
+                if (tag.Equals("House", System.StringComparison.OrdinalIgnoreCase) ||
+                    tag.Equals("Rumah", System.StringComparison.OrdinalIgnoreCase) ||
+                    tag.Equals("Building", System.StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+            }
+            catch { }
+
+            // 2. Layer rumah / bangunan
+            string layerName = LayerMask.LayerToName(col.gameObject.layer);
+            if (layerName.Equals("House", System.StringComparison.OrdinalIgnoreCase) ||
+                layerName.Equals("Building", System.StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+
+            // 3. Pengecekan nama GameObject collider
+            string n = col.gameObject.name.ToLowerInvariant();
+            if (n.Contains("rumah") || n.Contains("house") || n.Contains("gubuk") ||
+                n.Contains("home") || n.Contains("building") || n.Contains("pos") ||
+                n.Contains("dinding") || n.Contains("wall") || n.Contains("door") || n.Contains("pintu") ||
+                n.Contains("roof") || n.Contains("atap") || n.Contains("jendela") || n.Contains("window"))
+            {
+                return true;
+            }
+
+            // 4. Pengecekan nama Parent GameObject
+            if (col.transform.parent != null)
+            {
+                string pn = col.transform.parent.name.ToLowerInvariant();
+                if (pn.Contains("rumah") || pn.Contains("house") || pn.Contains("gubuk") ||
+                    pn.Contains("building") || pn.Contains("home"))
+                {
+                    return true;
+                }
+            }
+
+            // 5. Pengecekan nama Mesh pada MeshFilter
+            var mf = col.GetComponent<MeshFilter>();
+            if (mf != null && mf.sharedMesh != null)
+            {
+                string mn = mf.sharedMesh.name.ToLowerInvariant();
+                if (mn.Contains("rumah") || mn.Contains("house") || mn.Contains("gubuk") || mn == "pos")
+                {
+                    return true;
+                }
+            }
+
+            // 6. Pengecekan nama Material atau Tekstur
+            var r = col.GetComponent<Renderer>();
+            if (r != null && r.sharedMaterials != null)
+            {
+                foreach (var mat in r.sharedMaterials)
+                {
+                    if (mat == null) continue;
+                    string matName = mat.name.ToLowerInvariant();
+                    if (matName.Contains("rumah") || matName.Contains("house") || matName.Contains("gubuk"))
+                    {
+                        return true;
+                    }
+
+                    if (mat.mainTexture != null)
+                    {
+                        string texName = mat.mainTexture.name.ToLowerInvariant();
+                        if (texName.Contains("rumah") || texName.Contains("house") ||
+                            texName.Contains("gubuk") || texName == "pos")
+                        {
+                            return true;
+                        }
+                    }
+                }
+            }
+
+            return false;
+        }
+
+        private void OnControllerColliderHit(ControllerColliderHit hit)
+        {
+            if (isGhostPhasing && hit.collider != null && !IsGroundCollider(hit.collider) && !IsHouseCollider(hit.collider))
+            {
+                if (ignoredColliders.Add(hit.collider))
+                {
+                    Physics.IgnoreCollision(controller, hit.collider, true);
+                }
+            }
+        }
+
+        private void ClampAboveGround()
+        {
+            Vector3 rayStart = transform.position + Vector3.up * 1.5f;
+            RaycastHit[] hits = Physics.RaycastAll(rayStart, Vector3.down, 4.0f, ~0, QueryTriggerInteraction.Ignore);
+
+            float highestGroundY = float.MinValue;
+            bool foundGround = false;
+
+            for (int i = 0; i < hits.Length; i++)
+            {
+                var hit = hits[i];
+                if (hit.collider != null && hit.collider != controller && !hit.collider.transform.IsChildOf(transform) && (IsGroundCollider(hit.collider) || IsHouseCollider(hit.collider)))
+                {
+                    if (hit.point.y > highestGroundY)
+                    {
+                        highestGroundY = hit.point.y;
+                        foundGround = true;
+                    }
+                }
+            }
+
+            if (foundGround && transform.position.y < highestGroundY)
+            {
+                Vector3 clampedPos = transform.position;
+                clampedPos.y = highestGroundY;
+                transform.position = clampedPos;
+                if (verticalVelocity < 0f)
+                {
+                    verticalVelocity = 0f;
+                }
+            }
         }
 
         [Header("Camera & Mouse Look")]
@@ -114,6 +342,11 @@ namespace Pucaci.Player
 
         [Tooltip("Transform tulang leher (mixamorig:Neck) untuk disembunyikan saat First-Person agar kerah baju tidak menutupi kamera")]
         [SerializeField] private Transform neckBone;
+
+        public Transform NeckBone => neckBone;
+        public Transform HeadBone => headBone;
+        public CharacterController Controller => controller;
+        public bool IsChokeLifted => isChokeLifted;
 
         public CameraPerspective CurrentPerspective => cameraPerspective;
         public bool IsGrounded => isGrounded;
@@ -144,6 +377,9 @@ namespace Pucaci.Player
         [Tooltip("Offset posisi kamera saat First-Person (relatif ke CameraRoot)")]
         [SerializeField] private Vector3 firstPersonOffset = new Vector3(0f, 0.04f, 0.06f);
 
+        [Tooltip("Offset posisi kamera saat First-Person khusus Pak Mamat (postur tubuh lebih tinggi)")]
+        [SerializeField] private Vector3 pakMamatFirstPersonOffset = new Vector3(0f, 0.25f, 0.08f);
+
         [Header("Flashlight (Senter)")]
         [Tooltip("Lampu senter pemain")]
         [SerializeField] private Light flashlight;
@@ -171,6 +407,14 @@ namespace Pucaci.Player
         private Vector3 slideDirection;
         private Vector3 lastMoveDirection;
         private bool isDead;
+        private bool isImmobilized;
+        private bool isChokeLifted;
+        private float chokeLiftAmount;
+        private float targetChokeLift = 0.55f;
+        private float chokeHitStruggleTimer;
+
+        public bool IsDead => isDead;
+        public bool IsImmobilized => isImmobilized;
 
         // Status Stamina
         private float currentStamina = 100f;
@@ -199,7 +443,9 @@ namespace Pucaci.Player
         private static readonly int SlideHash = Animator.StringToHash("Slide");
         private static readonly int StumbleHash = Animator.StringToHash("Stumble");
         private static readonly int DeathHash = Animator.StringToHash("Death");
+        private static readonly int DieHash = Animator.StringToHash("Die");
         private static readonly int GetUpHash = Animator.StringToHash("GetUp");
+        private static readonly int HitHash = Animator.StringToHash("Hit");
 
         private System.Collections.Generic.HashSet<int> animatorParamHashes;
 
@@ -268,7 +514,7 @@ namespace Pucaci.Player
             RefreshAnimatorParams();
         }
 
-        public void SetupCharacterModel(Transform newModelTransform, Animator newAnimator, SkinnedMeshRenderer newRenderer, Mesh customFppMesh = null, bool isFlying = false, Vector3 customModelOffset = default)
+        public void SetupCharacterModel(Transform newModelTransform, Animator newAnimator, SkinnedMeshRenderer newRenderer, Mesh customFppMesh = null, bool isFlying = false, Vector3 customModelOffset = default, Mesh customFullBodyMesh = null)
         {
             modelOffset = customModelOffset;
             isFlyingCharacter = isFlying;
@@ -283,9 +529,17 @@ namespace Pucaci.Player
             characterRenderer = newRenderer;
             fppCustomMesh = customFppMesh;
 
-            if (characterRenderer != null)
+            if (customFullBodyMesh != null)
             {
-                fullBodyMesh = characterRenderer.sharedMesh;
+                fullBodyMesh = customFullBodyMesh;
+            }
+            else if (characterRenderer != null)
+            {
+                // Jangan timpa jika sharedMesh saat ini sedang berisi fppCustomMesh (tangan saja)
+                if (fppCustomMesh == null || characterRenderer.sharedMesh != fppCustomMesh)
+                {
+                    fullBodyMesh = characterRenderer.sharedMesh;
+                }
             }
 
             if (animator != null)
@@ -408,12 +662,25 @@ namespace Pucaci.Player
             {
                 characterRenderer = GetComponentInChildren<SkinnedMeshRenderer>();
             }
-            if (characterRenderer != null && fullBodyMesh == null)
+            if (characterRenderer != null && (fullBodyMesh == null || (fppCustomMesh != null && fullBodyMesh == fppCustomMesh)))
             {
-                fullBodyMesh = characterRenderer.sharedMesh;
+                if (fppCustomMesh == null || characterRenderer.sharedMesh != fppCustomMesh)
+                {
+                    fullBodyMesh = characterRenderer.sharedMesh;
+                }
             }
 
             ApplyCameraPerspective();
+        }
+
+        private void OnDisable()
+        {
+            DisableGhostPhasing();
+        }
+
+        private void OnDestroy()
+        {
+            DisableGhostPhasing();
         }
 
         private void Update()
@@ -422,8 +689,35 @@ namespace Pucaci.Player
 
             if (isDead)
             {
+                CheckGrounded();
                 ApplyGravityOnly();
                 return;
+            }
+
+            if (isImmobilized)
+            {
+                if (isChokeLifted)
+                {
+                    HandleChokeLiftMovement();
+                }
+                else
+                {
+                    ApplyGravityOnly();
+                    CheckGrounded();
+                }
+                HandleLook();
+                UpdateAnimator();
+                return;
+            }
+
+            if (isGhostPhasing)
+            {
+                ghostPhasingScanTimer -= Time.deltaTime;
+                if (ghostPhasingScanTimer <= 0f)
+                {
+                    ghostPhasingScanTimer = 0.5f;
+                    RefreshGhostPhasing();
+                }
             }
 
             CheckGrounded();
@@ -461,6 +755,17 @@ namespace Pucaci.Player
             if (headBone != null)
             {
                 headBone.localScale = isFirstPerson ? Vector3.zero : Vector3.one;
+            }
+
+            // Saat tubuh terangkat karena dicekik, tengadahkan leher sedikit ke atas/belakang menandakan reaksi tercekik
+            if (isChokeLifted && neckBone != null && !isFirstPerson)
+            {
+                neckBone.localRotation *= Quaternion.Euler(-18f, 0f, 0f);
+            }
+
+            if (isGhostPhasing)
+            {
+                ClampAboveGround();
             }
         }
 
@@ -578,6 +883,7 @@ namespace Pucaci.Player
             {
                 if (hit.collider != null && hit.collider != controller && !hit.collider.transform.IsChildOf(transform))
                 {
+                    if (isGhostPhasing && !IsGroundCollider(hit.collider) && !IsHouseCollider(hit.collider)) continue;
                     foundGround = true;
                     break;
                 }
@@ -909,7 +1215,13 @@ namespace Pucaci.Player
             }
             else
             {
-                actualCameraTransform.localPosition = firstPersonOffset;
+                Vector3 targetFppOffset = firstPersonOffset;
+                var modelMgr = GetComponent<CharacterModelManager>();
+                if (modelMgr != null && modelMgr.ActiveCharacterType == CharacterType.PakMamat)
+                {
+                    targetFppOffset = pakMamatFirstPersonOffset;
+                }
+                actualCameraTransform.localPosition = targetFppOffset;
             }
 
             // Perbarui mesh sesuai sudut pandang kamera (misal: Pak Mamat hanya menampilkan tangan di FPP)
@@ -919,9 +1231,22 @@ namespace Pucaci.Player
                 {
                     characterRenderer.sharedMesh = fppCustomMesh;
                 }
-                else if (fullBodyMesh != null)
+                else
                 {
-                    characterRenderer.sharedMesh = fullBodyMesh;
+                    // Di mode Third-Person, pastikan selalu menggunakan full-body mesh utuh
+                    if (fullBodyMesh == null || (fppCustomMesh != null && fullBodyMesh == fppCustomMesh))
+                    {
+                        var modelMgr = GetComponent<CharacterModelManager>();
+                        if (modelMgr != null)
+                        {
+                            fullBodyMesh = modelMgr.GetOriginalFullBodyMesh(modelMgr.ActiveCharacterType);
+                        }
+                    }
+
+                    if (fullBodyMesh != null && (fppCustomMesh == null || fullBodyMesh != fppCustomMesh))
+                    {
+                        characterRenderer.sharedMesh = fullBodyMesh;
+                    }
                 }
             }
 
@@ -955,6 +1280,12 @@ namespace Pucaci.Player
             if (!isGrounded)
             {
                 verticalVelocity += gravity * Time.deltaTime;
+                controller.Move(Vector3.up * (verticalVelocity * Time.deltaTime));
+            }
+            else
+            {
+                // Memberikan sedikit tekanan ke bawah agar CharacterController stabil di lantai
+                verticalVelocity = -2f;
                 controller.Move(Vector3.up * (verticalVelocity * Time.deltaTime));
             }
         }
@@ -1003,7 +1334,24 @@ namespace Pucaci.Player
         public void TriggerDeath()
         {
             isDead = true;
+            isImmobilized = false;
+            isChokeLifted = false;
+            chokeLiftAmount = 0f;
+            verticalVelocity = 0f;
+
+            // Turunkan langsung ke permukaan tanah seketika agar tidak tergeletak mengambang di udara
+            SnapToGround();
+
+            // Perkecil ukuran kapsul CharacterController saat mati agar badan tergeletak pas di tanah
+            // dan tidak menjadi tembok penghalang bagi pemain lain
+            if (controller != null)
+            {
+                controller.height = 0.35f;
+                controller.center = new Vector3(originalControllerCenter.x, 0.175f, originalControllerCenter.z);
+            }
+
             SetSafeTrigger(DeathHash);
+            SetSafeTrigger(DieHash);
         }
 
         public void TriggerGetUp()
@@ -1011,8 +1359,114 @@ namespace Pucaci.Player
             if (isDead)
             {
                 isDead = false;
+                isImmobilized = false;
+
+                // Kembalikan ukuran normal CharacterController saat bangkit kembali
+                if (controller != null)
+                {
+                    controller.height = originalControllerHeight;
+                    controller.center = originalControllerCenter;
+                }
+
                 SetSafeTrigger(GetUpHash);
             }
+        }
+
+        /// <summary>
+        /// Menjatuhkan / menempelkan karakter seketika ke permukaan tanah di bawahnya.
+        /// Sangat penting saat dilepas dari cekikan atau saat mati di udara agar tidak mengambang.
+        /// </summary>
+        public void SnapToGround()
+        {
+            isChokeLifted = false;
+            chokeLiftAmount = 0f;
+            verticalVelocity = 0f;
+
+            Vector3 rayStart = transform.position + Vector3.up * 0.5f;
+            float rayDistance = 15f;
+
+            RaycastHit[] hits = Physics.RaycastAll(rayStart, Vector3.down, rayDistance, groundLayers, QueryTriggerInteraction.Ignore);
+            RaycastHit? bestHit = null;
+            float closestDist = float.MaxValue;
+
+            foreach (var hit in hits)
+            {
+                if (hit.collider != null && hit.collider != controller && !hit.collider.transform.IsChildOf(transform))
+                {
+                    // Abaikan collider milik karakter lain (misalnya CharacterController Kuntilanak)
+                    if (hit.collider is CharacterController) continue;
+
+                    if (hit.distance < closestDist)
+                    {
+                        closestDist = hit.distance;
+                        bestHit = hit;
+                    }
+                }
+            }
+
+            if (bestHit.HasValue)
+            {
+                Vector3 targetPos = transform.position;
+                targetPos.y = bestHit.Value.point.y;
+                Vector3 delta = targetPos - transform.position;
+
+                if (controller != null && controller.enabled)
+                {
+                    controller.Move(delta);
+                }
+                if (Vector3.Distance(transform.position, targetPos) > 0.05f)
+                {
+                    transform.position = targetPos;
+                }
+                isGrounded = true;
+            }
+        }
+
+        public void SetImmobilized(bool immobilized)
+        {
+            isImmobilized = immobilized;
+            if (immobilized)
+            {
+                currentHorizontalSpeed = 0f;
+                currentMoveX = 0f;
+                currentMoveZ = 0f;
+                isSliding = false;
+            }
+        }
+
+        public void SetChokeLifted(bool lifted, float height = 0.55f)
+        {
+            isChokeLifted = lifted;
+            targetChokeLift = height;
+            if (!lifted)
+            {
+                chokeLiftAmount = 0f;
+            }
+            else
+            {
+                isImmobilized = true;
+                currentHorizontalSpeed = 0f;
+                currentMoveX = 0f;
+                currentMoveZ = 0f;
+                isSliding = false;
+                verticalVelocity = 0f;
+                chokeHitStruggleTimer = 0.6f;
+            }
+        }
+
+        private void HandleChokeLiftMovement()
+        {
+            // Pemicu reaksi kesakitan/meronta pada animator korban saat digantung di udara
+            chokeHitStruggleTimer -= Time.deltaTime;
+            if (chokeHitStruggleTimer <= 0f)
+            {
+                chokeHitStruggleTimer = 1.2f;
+                SetSafeTrigger(HitHash);
+            }
+
+            // Karakter di udara (kaki menggantung / tidak menempel tanah, posisi di-drive oleh Kuntilanak)
+            isGrounded = false;
+            verticalVelocity = 0f;
         }
         #endregion
 

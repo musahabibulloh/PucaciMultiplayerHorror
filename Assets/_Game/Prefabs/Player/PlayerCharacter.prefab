@@ -3035,6 +3035,10 @@ GameObject:
   - component: {fileID: 1642126959006020716}
   - component: {fileID: 7644581347225523372}
   - component: {fileID: -1208537850187742479}
+  - component: {fileID: 2353192370675085729}
+  - component: {fileID: -7102389012576326084}
+  - component: {fileID: -4544765373460921983}
+  - component: {fileID: -995737318718010449}
   m_Layer: 0
   m_Name: PlayerCharacter
   m_TagString: Player
@@ -3138,6 +3142,7 @@ MonoBehaviour:
   characterRenderer: {fileID: 2211357166288419346}
   thirdPersonOffset: {x: 0.4, y: 0.15, z: -2.4}
   firstPersonOffset: {x: 0, y: 0.04, z: 0.06}
+  pakMamatFirstPersonOffset: {x: 0, y: 0.25, z: 0.08}
   flashlight: {fileID: 5840184631323595779}
   modelTransform: {fileID: 0}
   modelOffset: {x: 0, y: 0, z: 0}
@@ -3328,6 +3333,7 @@ MonoBehaviour:
   modelKuntilanak: {fileID: 7448230648378539199}
   modelPakVincent: {fileID: 2968390470844201725}
   pakMamatArmsMesh: {fileID: 4300000, guid: 6a68e8e214d61ea4fb61e891559f2769, type: 2}
+  pakMamatFullBodyMesh: {fileID: 0}
   characterController: {fileID: 8672646015675804051}
   flashlightController: {fileID: 167755250288058724}
   footstepAudio: {fileID: 1642126959006020716}
@@ -3354,7 +3360,90 @@ MonoBehaviour:
   rimPower: 2
   rimIntensity: 2.2
   fadeDuration: 0.5
+  maxGhostDuration: 6
+  ghostCooldown: 8
   ghostSpeed: 6
+--- !u!114 &2353192370675085729
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4946537967781627025}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e9afcced77c7af140b5c33d77daab48d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  syncMethod: 0
+  syncDirection: 0
+  syncMode: 0
+  syncInterval: 0
+  maxHealth: 100
+  syncHealth: 100
+  syncDead: 0
+  currentHealth: 100
+  isDead: 0
+--- !u!114 &-7102389012576326084
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4946537967781627025}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f017d4a0e22a01642a83997e847cfe49, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  maxChokeDuration: 5
+  chokeCooldown: 25
+  chokeRange: 2.4
+  breakDistance: 3.5
+  victimLiftHeight: 0.38
+  liftDuration: 0.5
+  isChoking: 0
+  isBeingChoked: 0
+--- !u!114 &-4544765373460921983
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4946537967781627025}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e0e17f0826bb8d04cb626d4cd8b53f20, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  syncMethod: 0
+  syncDirection: 0
+  syncMode: 0
+  syncInterval: 0
+  interactRange: 2.8
+  sesajenLayers:
+    serializedVersion: 2
+    m_Bits: 4294967295
+--- !u!114 &-995737318718010449
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4946537967781627025}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 161411de856f3da4a8aa0c495f36f4a2, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  syncMethod: 0
+  syncDirection: 0
+  syncMode: 0
+  syncInterval: 0
+  currentRole: 1
+  humanDisguiseIndex: 1
+  currentForm: 0
+  transformCooldown: 4
 --- !u!1 &5032154089337949714
 GameObject:
   m_ObjectHideFlags: 0
