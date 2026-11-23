@@ -149,6 +149,7 @@ namespace Pucaci.Player
 
                 // Langsung inisialisasi material ke status padat (full bentuk) di awal
                 ApplyMaterialPropertiesImmediate(0.0f, false);
+                ApplyGhostVisibility(isGhostForm);
             }
             else
             {
@@ -162,6 +163,7 @@ namespace Pucaci.Player
                     pcc.SetGhostSpeedBoost(false);
                     pcc.SetGhostPhasing(false);
                 }
+                ApplyGhostVisibility(false);
             }
         }
 
@@ -324,13 +326,49 @@ namespace Pucaci.Player
                 pcc.SetGhostPhasing(newState);
             }
 
-            // Saat mode arwah gaib aktif: sembunyikan outline hitam agar murni transparan tembus pandang
-            var outlines = GetComponentsInChildren<SkinnedMeshRenderer>(true);
-            foreach (var smr in outlines)
+            ApplyGhostVisibility(newState);
+        }
+
+        /// <summary>
+        /// Mengatur visibilitas Kuntilanak saat mode menghilang.
+        /// Pada layar pemain lain (survivor): Kuntilanak HILANG TOTAL (Invisible 100% dari vision).
+        /// Pada layar pemain lokal (Kuntilanak): Menjadi arwah transparan Casper agar tetap bisa melihat arah navigasi.
+        /// </summary>
+        public void ApplyGhostVisibility(bool isGhost)
+        {
+            bool isLocal = false;
+            try { isLocal = isLocalPlayer; } catch { isLocal = true; }
+
+            if (!isLocal)
             {
-                if (smr != null && smr.name.Contains("ToonOutline"))
+                // Sembunyikan semua mesh renderer (tubuh, rambut, baju, outline) pada vision pemain lain
+                var allRenderers = GetComponentsInChildren<Renderer>(true);
+                foreach (var r in allRenderers)
                 {
-                    smr.enabled = !newState;
+                    if (r != null)
+                    {
+                        if (r.transform.name == "OverheadNameTag") continue;
+                        r.enabled = !isGhost;
+                    }
+                }
+
+                // Sembunyikan nametag melayang di atas kepala agar tidak membocorkan posisi
+                var nameTag = transform.Find("OverheadNameTag");
+                if (nameTag != null)
+                {
+                    nameTag.gameObject.SetActive(!isGhost);
+                }
+            }
+            else
+            {
+                // Pemain Kuntilanak lokal: tetap melihat wujud dirinya, sembunyikan outline hitam saja
+                var outlines = GetComponentsInChildren<SkinnedMeshRenderer>(true);
+                foreach (var smr in outlines)
+                {
+                    if (smr != null && smr.name.Contains("ToonOutline"))
+                    {
+                        smr.enabled = !isGhost;
+                    }
                 }
             }
         }

@@ -9,20 +9,30 @@ namespace Pucaci.Network
     {
         [Header("Components to isolate")]
         [SerializeField] private PlayerCharacterController characterController;
+        [SerializeField] private CharacterController unityCharacterController;
         [SerializeField] private GameObject cameraRoot;
         [SerializeField] private Camera playerCamera;
         [SerializeField] private AudioListener audioListener;
         [SerializeField] private SkinnedMeshRenderer characterRenderer;
+        [SerializeField] private SpectatorController spectatorController;
 
         [Header("Name Tag (Billboard Overhead)")]
         [SerializeField] private GameObject nameTagObject;
         [SerializeField] private TextMesh nameTagText;
+
+        private Vector3 lastRemotePosition;
+        private bool hasRecordedRemotePos = false;
 
         private void Awake()
         {
             if (characterController == null)
             {
                 characterController = GetComponent<PlayerCharacterController>();
+            }
+
+            if (unityCharacterController == null)
+            {
+                unityCharacterController = GetComponent<CharacterController>();
             }
 
             if (cameraRoot == null)
@@ -48,13 +58,23 @@ namespace Pucaci.Network
             {
                 characterRenderer = GetComponentInChildren<SkinnedMeshRenderer>();
             }
+
+            if (spectatorController == null)
+            {
+                spectatorController = GetComponent<SpectatorController>();
+            }
         }
 
         public override void OnStartLocalPlayer()
         {
             base.OnStartLocalPlayer();
 
-            // Aktifkan kontrol, kamera, dan audio listener untuk pemain lokal
+            // Aktifkan kontrol, CharacterController, kamera, dan audio listener untuk pemain lokal
+            if (unityCharacterController != null)
+            {
+                unityCharacterController.enabled = true;
+            }
+
             if (characterController != null)
             {
                 characterController.enabled = true;
@@ -74,6 +94,23 @@ namespace Pucaci.Network
             if (audioListener != null)
             {
                 audioListener.enabled = true;
+            }
+
+            // Inisialisasi sistem spectator untuk pemain lokal jika sewaktu-waktu mati
+            if (spectatorController == null)
+            {
+                spectatorController = gameObject.AddComponent<SpectatorController>();
+            }
+            if (spectatorController != null)
+            {
+                spectatorController.Initialize(cameraRoot != null ? cameraRoot.transform : null, playerCamera);
+            }
+
+            var health = GetComponent<PlayerHealth>();
+            if (health != null)
+            {
+                health.OnDeathEvent += HandleLocalPlayerDeath;
+                health.OnReviveEvent += HandleLocalPlayerRevive;
             }
 
             // Matikan SceneCamera / LobbyCamera jika ada di scene agar kamera beralih ke karakter lokal
@@ -102,8 +139,31 @@ namespace Pucaci.Network
             }
         }
 
+        private void HandleLocalPlayerDeath()
+        {
+            if (isLocalPlayer && spectatorController != null)
+            {
+                spectatorController.StartSpectating();
+            }
+        }
+
+        private void HandleLocalPlayerRevive()
+        {
+            if (isLocalPlayer && spectatorController != null)
+            {
+                spectatorController.StopSpectating();
+            }
+        }
+
         private void OnDestroy()
         {
+            var health = GetComponent<PlayerHealth>();
+            if (health != null)
+            {
+                health.OnDeathEvent -= HandleLocalPlayerDeath;
+                health.OnReviveEvent -= HandleLocalPlayerRevive;
+            }
+
             if (isLocalPlayer)
             {
                 var sceneCam = GameObject.Find("SceneCamera");
@@ -140,6 +200,16 @@ namespace Pucaci.Network
                 characterController.enabled = false;
             }
 
+            // Matikan CharacterController bawaan Unity agar NetworkTransform dapat memindahkan objek secara mulus tanpa tahanan fisika
+            if (unityCharacterController == null)
+            {
+                unityCharacterController = GetComponent<CharacterController>();
+            }
+            if (unityCharacterController != null)
+            {
+                unityCharacterController.enabled = false;
+            }
+
             // Matikan kamera dan audio listener untuk mencegah bentrok dan duplikat
             if (playerCamera != null)
             {
@@ -174,6 +244,30 @@ namespace Pucaci.Network
                 if (nameTagText != null)
                 {
                     nameTagText.text = $"Pemain {netId}";
+                }
+            }
+        }
+
+        private void Update()
+        {
+            // Untuk karakter pemain lain di layar kita:
+            // Hitung kecepatan dan translasi gerak nyata dari NetworkTransform
+            // lalu update animasi (jalan/lari/idle/mundur/strafe) secara mulus
+            if (!isLocalPlayer)
+            {
+                if (!hasRecordedRemotePos)
+                {
+                    lastRemotePosition = transform.position;
+                    hasRecordedRemotePos = true;
+                    return;
+                }
+
+                Vector3 delta = transform.position - lastRemotePosition;
+                lastRemotePosition = transform.position;
+
+                if (characterController != null)
+                {
+                    characterController.UpdateRemoteMovement(delta, Time.deltaTime);
                 }
             }
         }

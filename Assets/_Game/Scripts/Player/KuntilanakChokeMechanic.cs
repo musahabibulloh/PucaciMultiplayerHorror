@@ -1,5 +1,6 @@
 using System;
 using UnityEngine;
+using Mirror;
 #if ENABLE_INPUT_SYSTEM
 using UnityEngine.InputSystem;
 #endif
@@ -7,13 +8,13 @@ using UnityEngine.InputSystem;
 namespace Pucaci.Player
 {
     /// <summary>
-    /// Mekanik menyekik (Choke / Strangle) khusus Kuntilanak.
+    /// Mekanik menyekik (Choke / Strangle) khusus Kuntilanak dengan sinkronisasi multiplayer penuh (Mirror).
     /// Kuntilanak dapat mendekati pemain lain (manusia) dan menyekiknya dengan menahan [E] atau [Klik Kiri].
     /// Jika dicekik selama 5 detik penuh tanpa terputus, korban akan langsung mati.
-    /// Korban yang dicekik tidak dapat bergerak (immobilized).
+    /// Seluruh pemain (Kuntilanak, korban, maupun penonton/spectator) dapat melihat animasi mencekik secara real-time.
     /// </summary>
     [RequireComponent(typeof(PlayerCharacterController))]
-    public class KuntilanakChokeMechanic : MonoBehaviour
+    public class KuntilanakChokeMechanic : NetworkBehaviour
     {
         [Header("Choke Settings")]
         [Tooltip("Durasi menyekik hingga korban mati (5 detik)")]
@@ -38,6 +39,13 @@ namespace Pucaci.Player
         [Header("Runtime State")]
         [SerializeField] private bool isChoking = false;
         [SerializeField] private bool isBeingChoked = false;
+
+        [Header("Multiplayer Sync")]
+        [SyncVar(hook = nameof(OnSyncChokeChanged))]
+        private bool syncIsChoking = false;
+
+        [SyncVar(hook = nameof(OnSyncVictimChanged))]
+        private uint syncVictimNetId = 0;
 
         // Properti publik
         public bool IsChoking => isChoking;
@@ -166,7 +174,7 @@ namespace Pucaci.Player
             bool isKunti = (ModelMgr != null) && (ModelMgr.ActiveCharacterType == CharacterType.Kuntilanak);
             if (!isKunti)
             {
-                if (isChoking) StopChokingInternal("not Kuntilanak anymore (" + (ModelMgr != null ? ModelMgr.ActiveCharacterType.ToString() : "null") + ")");
+                if (isChoking) StopChokingInternal("not Kuntilanak anymore");
                 return;
             }
 
@@ -188,12 +196,9 @@ namespace Pucaci.Player
                 }
             }
 
-            // Cek apakah pemain lokal
-            bool isLocal = true;
-            if (TryGetComponent<Mirror.NetworkIdentity>(out var netId))
-            {
-                isLocal = netId.isLocalPlayer;
-            }
+            // Hanya pemain lokal pemilik karakter Kuntilanak yang membaca input dan mengendalikan target
+            bool isLocal = false;
+            try { isLocal = isLocalPlayer; } catch { isLocal = true; }
             if (!isLocal) return;
 
             // Jika sedang aktif mencekik mangsa:
@@ -237,7 +242,6 @@ namespace Pucaci.Player
                 if (targetHealth != null && targetHealth.IsDead) continue;
 
                 var targetModel = targetPcc.GetComponent<CharacterModelManager>();
-                // Kuntilanak tidak mencekik sesama Kuntilanak
                 if (targetModel != null && targetModel.ActiveCharacterType == CharacterType.Kuntilanak) continue;
 
                 var targetGhost = targetPcc.GetComponent<KuntilanakGhostVanish>();
@@ -286,7 +290,6 @@ namespace Pucaci.Player
                 CacheArmBones();
             }
 
-            // Kuntilanak di-immobilize agar fokus mencekik di tempat dan tidak bisa membawa korban terbang
             if (PCC != null)
             {
                 PCC.SetImmobilized(true);
@@ -294,15 +297,110 @@ namespace Pucaci.Player
 
             PlayChokeAudio(true);
 
-            // Korban tercekik dan tubuhnya mulai terangkat ke udara
-            var victimChoke = victim.GetComponent<KuntilanakChokeMechanic>();
-            if (victimChoke != null)
+            uint victimNetId = 0;
+            if (victim.TryGetComponent<NetworkIdentity>(out var vNet))
             {
-                victimChoke.SetBeingChoked(true, PCC);
+                victimNetId = vNet.netId;
+            }
+
+            if (NetworkClient.active || NetworkServer.active)
+            {
+                CmdStartChoke(victimNetId);
             }
             else
             {
-                victim.SetChokeLifted(true, 0.45f);
+                // Mode offline
+                var victimChoke = victim.GetComponent<KuntilanakChokeMechanic>();
+                if (victimChoke != null)
+                {
+                    victimChoke.SetBeingChoked(true, PCC);
+                }
+                else
+                {
+                    victim.SetChokeLifted(true, 0.45f);
+                }
+            }
+        }
+
+        [Command]
+        private void CmdStartChoke(uint victimId)
+        {
+            syncIsChoking = true;
+            syncVictimNetId = victimId;
+            isChoking = true;
+            chokeTimer = 0f;
+
+            if (PCC != null)
+            {
+                PCC.SetImmobilized(true);
+            }
+
+            if (NetworkServer.spawned.TryGetValue(victimId, out var victimIdentity))
+            {
+                var victimPcc = victimIdentity.GetComponent<PlayerCharacterController>();
+                activeVictim = victimPcc;
+
+                var victimChoke = victimIdentity.GetComponent<KuntilanakChokeMechanic>();
+                if (victimChoke != null)
+                {
+                    victimChoke.RpcSetBeingChoked(true, netId);
+                }
+            }
+
+            RpcNotifyChokeStart(victimId);
+        }
+
+        [ClientRpc]
+        private void RpcNotifyChokeStart(uint victimId)
+        {
+            isChoking = true;
+            if (!bonesCached) CacheArmBones();
+            PlayChokeAudio(true);
+
+            if (NetworkClient.spawned.TryGetValue(victimId, out var vIdentity))
+            {
+                activeVictim = vIdentity.GetComponent<PlayerCharacterController>();
+            }
+        }
+
+        [ClientRpc]
+        public void RpcSetBeingChoked(bool state, uint chokerId)
+        {
+            PlayerCharacterController chokerPcc = null;
+            if (chokerId != 0 && NetworkClient.spawned.TryGetValue(chokerId, out var chokerIdentity))
+            {
+                chokerPcc = chokerIdentity.GetComponent<PlayerCharacterController>();
+            }
+            SetBeingChoked(state, chokerPcc);
+        }
+
+        private void OnSyncChokeChanged(bool oldVal, bool newVal)
+        {
+            isChoking = newVal;
+            if (newVal)
+            {
+                if (!bonesCached) CacheArmBones();
+                PlayChokeAudio(true);
+                ResolveVictimFromNetId(syncVictimNetId);
+            }
+            else
+            {
+                PlayChokeAudio(false);
+                activeVictim = null;
+            }
+        }
+
+        private void OnSyncVictimChanged(uint oldVal, uint newVal)
+        {
+            ResolveVictimFromNetId(newVal);
+        }
+
+        private void ResolveVictimFromNetId(uint victimId)
+        {
+            if (victimId == 0) return;
+            if (NetworkClient.spawned.TryGetValue(victimId, out var victimObj))
+            {
+                activeVictim = victimObj.GetComponent<PlayerCharacterController>();
             }
         }
 
@@ -346,7 +444,7 @@ namespace Pucaci.Player
             float chokeHoldDist = 0.58f;
             Vector3 targetVictimPos = transform.position + transform.forward * chokeHoldDist;
 
-            // Angkat halus tubuh korban ke atas (0 -> victimLiftHeight dalam waktu liftDuration detik)
+            // Angkat halus tubuh korban ke atas
             float liftProgress = Mathf.Clamp01(chokeTimer / Mathf.Max(0.05f, liftDuration));
             float currentLift = Mathf.SmoothStep(0f, victimLiftHeight, liftProgress);
             targetVictimPos.y = transform.position.y + currentLift;
@@ -389,12 +487,37 @@ namespace Pucaci.Player
 
         private void ExecuteLethalChoke()
         {
-            PlaySnapAudio();
+            if (NetworkClient.active || NetworkServer.active)
+            {
+                CmdExecuteLethalChoke();
+            }
+            else
+            {
+                PlaySnapAudio();
+                if (activeVictim != null)
+                {
+                    activeVictim.SetChokeLifted(false);
+                    activeVictim.SnapToGround();
+                    var victimHealth = activeVictim.GetComponent<PlayerHealth>();
+                    if (victimHealth != null)
+                    {
+                        victimHealth.Kill();
+                    }
+                    activeVictim.TriggerDeath();
+                }
+                StopChokingInternal("lethal choke executed");
+            }
+        }
+
+        [Command]
+        private void CmdExecuteLethalChoke()
+        {
+            RpcPlaySnapAudio();
 
             if (activeVictim != null)
             {
                 activeVictim.SetChokeLifted(false);
-                activeVictim.SnapToGround(); // Jatuhkan korban seketika pas ke tanah!
+                activeVictim.SnapToGround();
                 var victimHealth = activeVictim.GetComponent<PlayerHealth>();
                 if (victimHealth != null)
                 {
@@ -403,7 +526,13 @@ namespace Pucaci.Player
                 activeVictim.TriggerDeath();
             }
 
-            StopChokingInternal("lethal choke executed");
+            CmdStopChoke("lethal choke executed");
+        }
+
+        [ClientRpc]
+        private void RpcPlaySnapAudio()
+        {
+            PlaySnapAudio();
         }
 
         private void StopChokingInternal(string reason = "")
@@ -413,7 +542,7 @@ namespace Pucaci.Player
 
             isChoking = false;
             chokeTimer = 0.0f;
-            chokeCooldownTimer = chokeCooldown; // Cooldown 25 detik dimulai setelah selesai menyekik
+            chokeCooldownTimer = chokeCooldown;
 
             if (PCC != null)
             {
@@ -422,22 +551,60 @@ namespace Pucaci.Player
 
             PlayChokeAudio(false);
 
-            if (activeVictim != null)
+            if (NetworkClient.active || NetworkServer.active)
             {
-                activeVictim.SetChokeLifted(false);
-                activeVictim.SnapToGround(); // Jika cekikan batal atau lepas, kembalikan korban menapak tanah!
-                var victimChoke = activeVictim.GetComponent<KuntilanakChokeMechanic>();
-                if (victimChoke != null)
+                CmdStopChoke(reason);
+            }
+            else
+            {
+                if (activeVictim != null)
                 {
-                    victimChoke.SetBeingChoked(false, null);
+                    activeVictim.SetChokeLifted(false);
+                    activeVictim.SnapToGround();
+                    var victimChoke = activeVictim.GetComponent<KuntilanakChokeMechanic>();
+                    if (victimChoke != null)
+                    {
+                        victimChoke.SetBeingChoked(false, null);
+                    }
+                    activeVictim = null;
                 }
-                activeVictim = null;
             }
         }
 
-        /// <summary>
-        /// Reset waktu tunggu (cooldown) cekikan (berguna untuk respawn atau reset state).
-        /// </summary>
+        [Command]
+        private void CmdStopChoke(string reason)
+        {
+            syncIsChoking = false;
+            syncVictimNetId = 0;
+            isChoking = false;
+
+            if (activeVictim != null)
+            {
+                var victimChoke = activeVictim.GetComponent<KuntilanakChokeMechanic>();
+                if (victimChoke != null)
+                {
+                    victimChoke.RpcSetBeingChoked(false, 0);
+                }
+                activeVictim = null;
+            }
+
+            RpcNotifyChokeStop();
+        }
+
+        [ClientRpc]
+        private void RpcNotifyChokeStop()
+        {
+            isChoking = false;
+            chokeTimer = 0f;
+            PlayChokeAudio(false);
+            activeVictim = null;
+
+            if (PCC != null)
+            {
+                PCC.SetImmobilized(false);
+            }
+        }
+
         public void ResetCooldown()
         {
             chokeCooldownTimer = 0f;
@@ -460,12 +627,12 @@ namespace Pucaci.Player
         private void LateUpdate()
         {
             // Transisi halus animasi tangan menyekik (0 -> 1 saat menyekik, 1 -> 0 saat selesai/batal)
+            // Berjalan di semua layar (Kuntilanak, korban, maupun penonton lain)
             float targetBlend = isChoking ? 1.0f : 0.0f;
             armChokeBlend = Mathf.MoveTowards(armChokeBlend, targetBlend, Time.deltaTime * 6f);
 
             if (armChokeBlend <= 0.001f)
             {
-                // Kembalikan skala tulang lengan ke normal jika sebelumnya sempat meregang
                 if (b6L != null) b6L.localScale = Vector3.one;
                 if (b7L != null) b7L.localScale = Vector3.one;
                 if (b8L != null) b8L.localScale = Vector3.one;
@@ -509,7 +676,7 @@ namespace Pucaci.Player
             Vector3 targetL = neckTarget - rgt * 0.06f;
             Vector3 targetR = neckTarget + rgt * 0.06f;
 
-            // LENGAN KIRI: Bahu -> Siku -> Telapak Tangan (Skala tetap 1.0f proporsional alami, TIDAK meregang)
+            // LENGAN KIRI: Bahu -> Siku -> Telapak Tangan
             if (b6L != null)
             {
                 Vector3 dir6L = (targetL - b6L.position).normalized;
@@ -534,7 +701,7 @@ namespace Pucaci.Player
                 }
             }
 
-            // LENGAN KANAN: Bahu -> Siku -> Telapak Tangan (Skala tetap 1.0f proporsional alami, TIDAK meregang)
+            // LENGAN KANAN: Bahu -> Siku -> Telapak Tangan
             if (b6R != null)
             {
                 Vector3 dir6R = (targetR - b6R.position).normalized;

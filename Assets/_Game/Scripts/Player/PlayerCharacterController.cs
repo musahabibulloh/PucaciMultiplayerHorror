@@ -1330,6 +1330,52 @@ namespace Pucaci.Player
             SetSafeBool(IsSlidingHash, isFlyingCharacter ? false : isSliding);
         }
 
+        /// <summary>
+        /// Dipanggil dari PlayerNetworkSetup pada client remote untuk menyinkronkan animasi gerakan
+        /// berdasarkan perubahan posisi nyata yang diterima dari NetworkTransform.
+        /// </summary>
+        public void UpdateRemoteMovement(Vector3 worldDelta, float dt)
+        {
+            if (animator == null) return;
+            if (isDead) return;
+
+            // Kunci posisi model agar tidak bergeser dari pivot controller
+            if (modelTransform != null)
+            {
+                modelTransform.localPosition = modelOffset;
+            }
+
+            if (hipsTransform != null)
+            {
+                Vector3 current = hipsTransform.localPosition;
+                hipsTransform.localPosition = new Vector3(initialHipsLocalX, current.y, initialHipsLocalZ);
+            }
+
+            float safeDt = (dt > 0.0001f) ? dt : 0.016f;
+            Vector3 worldVelocity = worldDelta / safeDt;
+            float rawSpeed = worldVelocity.magnitude;
+            Vector3 localVelocity = transform.InverseTransformDirection(worldVelocity);
+
+            bool isMoving = isFlyingCharacter ? (rawSpeed > 0.15f) : (rawSpeed > 0.2f);
+            float normalizedSpeed = isMoving ? Mathf.Clamp01(rawSpeed / sprintSpeed) : 0f;
+
+            float targetMoveX = isMoving ? Mathf.Clamp(localVelocity.x / walkSpeed, -1f, 1f) : 0f;
+            float targetMoveZ = isMoving ? Mathf.Clamp(localVelocity.z / walkSpeed, -1f, 1f) : 0f;
+
+            float smoothRate = isMoving ? 12f : 8f;
+            currentMoveX = Mathf.MoveTowards(currentMoveX, targetMoveX, safeDt * smoothRate);
+            currentMoveZ = Mathf.MoveTowards(currentMoveZ, targetMoveZ, safeDt * smoothRate);
+
+            SetSafeFloat(SpeedHash, normalizedSpeed);
+            SetSafeFloat(MoveXHash, currentMoveX);
+            SetSafeFloat(MoveZHash, currentMoveZ);
+            SetSafeFloat(MoveXSpaceHash, currentMoveX);
+            SetSafeFloat(MoveZSpaceHash, currentMoveZ);
+            SetSafeBool(IsMovingHash, isMoving);
+            SetSafeBool(IsGroundedHash, true);
+            SetSafeBool(IsSlidingHash, false);
+        }
+
         #region Public Action Triggers
         public void TriggerStumble()
         {
