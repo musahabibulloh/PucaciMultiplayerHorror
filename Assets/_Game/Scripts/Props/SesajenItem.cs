@@ -37,9 +37,6 @@ namespace Pucaci.Gameplay
         [Tooltip("Cahaya pendaran bara mistis / sinyal gaib pada bekas sesajen hancur")]
         [SerializeField] private Light ruinsBeaconLight;
 
-        [Tooltip("Partikel asap bara dan abu membara pada bekas sesajen")]
-        [SerializeField] private ParticleSystem ruinsSmokeParticles;
-
         [Header("Audio Elements")]
         [SerializeField] private AudioSource ambientAudio;
         [SerializeField] private AudioSource sfxAudio;
@@ -98,12 +95,6 @@ namespace Pucaci.Gameplay
                 var rbl = ruinsContainer.transform.Find("Ruins_Beacon");
                 if (rbl != null) ruinsBeaconLight = rbl.GetComponent<Light>();
             }
-
-            if (ruinsSmokeParticles == null && ruinsContainer != null)
-            {
-                var rsp = ruinsContainer.transform.Find("Ruins_Smoke");
-                if (rsp != null) ruinsSmokeParticles = rsp.GetComponent<ParticleSystem>();
-            }
         }
 
         private void ApplyInitialStateVisuals()
@@ -126,12 +117,6 @@ namespace Pucaci.Gameplay
             if (ruinsBeaconLight != null)
             {
                 ruinsBeaconLight.enabled = isDestroyed;
-            }
-
-            if (ruinsSmokeParticles != null)
-            {
-                if (isDestroyed) ruinsSmokeParticles.Play();
-                else ruinsSmokeParticles.Stop();
             }
         }
 
@@ -288,14 +273,6 @@ namespace Pucaci.Gameplay
                 ruinsBeaconLight.enabled = true;
             }
 
-            if (ruinsSmokeParticles != null)
-            {
-                ruinsSmokeParticles.Play();
-            }
-
-            // Mainkan efek partikel ledakan abu/bara/asap hitam
-            SpawnDestructionParticles();
-
             // Mainkan suara hancur & jeritan gaib
             PlayDestructionAudio();
 
@@ -326,11 +303,6 @@ namespace Pucaci.Gameplay
                 ruinsBeaconLight.enabled = false;
             }
 
-            if (ruinsSmokeParticles != null)
-            {
-                ruinsSmokeParticles.Stop();
-            }
-
             // Nyalakan kembali visual & efek lilin/dupa utuh
             if (visualContainer != null)
             {
@@ -359,9 +331,6 @@ namespace Pucaci.Gameplay
                 rootCollider.isTrigger = false;
             }
 
-            // Mainkan efek partikel pemulihan spiritual mistis
-            SpawnRepairParticles();
-
             // Mainkan suara perbaikan gaib (denting lonceng/gong ritual suci)
             PlayRepairAudio();
 
@@ -370,67 +339,6 @@ namespace Pucaci.Gameplay
             {
                 SesajenManager.Instance.NotifySesajenRepaired(this);
             }
-        }
-
-        private void SpawnDestructionParticles()
-        {
-            var burstObj = new GameObject("SesajenBurstFX");
-            burstObj.transform.position = transform.position + Vector3.up * 0.2f;
-
-            var ps = burstObj.AddComponent<ParticleSystem>();
-            ps.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
-            var main = ps.main;
-            main.duration = 1.0f;
-            main.loop = false;
-            main.startLifetime = 1.5f;
-            main.startSpeed = 3.5f;
-            main.startSize = 0.45f;
-            main.startColor = new ParticleSystem.MinMaxGradient(new Color(0.1f, 0.1f, 0.1f, 0.9f), new Color(0.9f, 0.35f, 0.05f, 1f));
-            main.stopAction = ParticleSystemStopAction.Destroy;
-
-            var emission = ps.emission;
-            emission.rateOverTime = 0;
-            emission.SetBursts(new ParticleSystem.Burst[] { new ParticleSystem.Burst(0.0f, 40) });
-
-            var shape = ps.shape;
-            shape.shapeType = ParticleSystemShapeType.Sphere;
-            shape.radius = 0.35f;
-
-            var renderer = burstObj.GetComponent<ParticleSystemRenderer>();
-            renderer.material = new Material(Shader.Find("Legacy Shaders/Particles/Alpha Blended Premultiply"));
-
-            ps.Play();
-        }
-
-        private void SpawnRepairParticles()
-        {
-            var repairObj = new GameObject("SesajenRepairFX");
-            repairObj.transform.position = transform.position + Vector3.up * 0.2f;
-
-            var ps = repairObj.AddComponent<ParticleSystem>();
-            ps.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
-            var main = ps.main;
-            main.duration = 1.2f;
-            main.loop = false;
-            main.startLifetime = 1.8f;
-            main.startSpeed = 2.0f;
-            main.startSize = 0.35f;
-            main.startColor = new ParticleSystem.MinMaxGradient(new Color(0.6f, 0.2f, 1.0f, 0.9f), new Color(0.2f, 0.9f, 1.0f, 1.0f));
-            main.stopAction = ParticleSystemStopAction.Destroy;
-
-            var emission = ps.emission;
-            emission.rateOverTime = 0;
-            emission.SetBursts(new ParticleSystem.Burst[] { new ParticleSystem.Burst(0.0f, 35) });
-
-            var shape = ps.shape;
-            shape.shapeType = ParticleSystemShapeType.Cone;
-            shape.angle = 25f;
-            shape.radius = 0.35f;
-
-            var renderer = repairObj.GetComponent<ParticleSystemRenderer>();
-            renderer.material = new Material(Shader.Find("Legacy Shaders/Particles/Alpha Blended Premultiply"));
-
-            ps.Play();
         }
 
         private void PlayDestructionAudio()

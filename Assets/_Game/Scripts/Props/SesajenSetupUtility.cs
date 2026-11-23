@@ -358,27 +358,7 @@ namespace Pucaci.Props
                 petal.GetComponent<MeshRenderer>().sharedMaterial = wiltedFlowerMat;
             }
 
-            // 8. Asap Bara Abu & Percikan Bara (Smoldering Ruins Smoke)
-            GameObject smokeObj = new GameObject("Ruins_Smoke");
-            smokeObj.transform.SetParent(ruinsObj.transform, false);
-            smokeObj.transform.localPosition = new Vector3(0f, 0.05f, 0f);
-            var ps = smokeObj.AddComponent<ParticleSystem>();
-            var main = ps.main;
-            main.duration = 2.0f;
-            main.loop = true;
-            main.startLifetime = 2.2f;
-            main.startSpeed = 0.18f;
-            main.startSize = 0.10f;
-            main.startColor = new ParticleSystem.MinMaxGradient(new Color(0.12f, 0.10f, 0.14f, 0.45f), new Color(1.0f, 0.35f, 0.08f, 0.75f));
-
-            var emission = ps.emission;
-            emission.rateOverTime = 10;
-
-            var shape = ps.shape;
-            shape.shapeType = ParticleSystemShapeType.Circle;
-            shape.radius = 0.25f;
-
-            // 9. Cursed Spectral Beacon Light (Pendaran Merah Mistis Penanda untuk Hantu)
+            // 8. Cursed Spectral Beacon Light (Pendaran Merah Mistis Penanda untuk Hantu)
             GameObject beaconObj = new GameObject("Ruins_Beacon");
             beaconObj.transform.SetParent(ruinsObj.transform, false);
             beaconObj.transform.localPosition = new Vector3(0f, 0.22f, 0f);
@@ -398,7 +378,6 @@ namespace Pucaci.Props
                 var so = new SerializedObject(sesajenItem);
                 so.FindProperty("ruinsContainer").objectReferenceValue = ruinsObj;
                 so.FindProperty("ruinsBeaconLight").objectReferenceValue = beaconLight;
-                so.FindProperty("ruinsSmokeParticles").objectReferenceValue = ps;
                 so.ApplyModifiedProperties();
             }
 
