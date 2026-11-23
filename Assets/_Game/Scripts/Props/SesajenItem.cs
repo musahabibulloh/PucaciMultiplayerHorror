@@ -97,9 +97,9 @@ namespace Pucaci.Gameplay
                 if (rbl != null) ruinsBeaconLight = rbl.GetComponent<Light>();
             }
 
-            // Outline kartunis tipis untuk objek sesajen
-            if (visualContainer != null) ToonOutlineApplier.ApplyTo(visualContainer, 1.0f);
-            if (ruinsContainer != null) ToonOutlineApplier.ApplyTo(ruinsContainer, 1.0f);
+            // Outline kartunis untuk objek sesajen
+            if (visualContainer != null) ToonOutlineApplier.ApplyTo(visualContainer, 2.5f);
+            if (ruinsContainer != null) ToonOutlineApplier.ApplyTo(ruinsContainer, 2.5f);
         }
 
         private void ApplyInitialStateVisuals()

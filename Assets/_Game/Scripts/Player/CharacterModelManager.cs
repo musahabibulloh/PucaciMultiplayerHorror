@@ -169,12 +169,12 @@ namespace Pucaci.Player
 #endif
             }
 
-            // Pasang Toon Outline tipis (Inverted Hull) ke seluruh model karakter dan senter
-            if (modelLaras != null) ToonOutlineApplier.ApplyTo(modelLaras, 1.2f);
-            if (modelPakMamat != null) ToonOutlineApplier.ApplyTo(modelPakMamat, 1.2f);
-            if (modelKuntilanak != null) ToonOutlineApplier.ApplyTo(modelKuntilanak, 1.2f);
-            if (modelPakVincent != null) ToonOutlineApplier.ApplyTo(modelPakVincent, 1.2f);
-            if (flashlightController != null) ToonOutlineApplier.ApplyTo(flashlightController.gameObject, 1.0f);
+            // Pasang Toon Outline tegas ala Fortnite (Inverted Hull) ke seluruh model karakter dan senter
+            if (modelLaras != null) ToonOutlineApplier.ApplyTo(modelLaras, 3.5f);
+            if (modelPakMamat != null) ToonOutlineApplier.ApplyTo(modelPakMamat, 3.5f);
+            if (modelKuntilanak != null) ToonOutlineApplier.ApplyTo(modelKuntilanak, 3.5f);
+            if (modelPakVincent != null) ToonOutlineApplier.ApplyTo(modelPakVincent, 3.5f);
+            if (flashlightController != null) ToonOutlineApplier.ApplyTo(flashlightController.gameObject, 2.5f);
         }
 
         public Mesh GetOriginalFullBodyMesh(CharacterType type)
@@ -250,7 +250,7 @@ namespace Pucaci.Player
             }
 
             SkinnedMeshRenderer targetRenderer = targetModelObj.GetComponentInChildren<SkinnedMeshRenderer>();
-            ToonOutlineApplier.ApplyTo(targetModelObj, 1.2f);
+            ToonOutlineApplier.ApplyTo(targetModelObj, 3.5f);
 
             bool isLocal = true;
             try { isLocal = isLocalPlayer; } catch {}

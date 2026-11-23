@@ -3,8 +3,8 @@ using UnityEngine;
 namespace Pucaci.Rendering
 {
     /// <summary>
-    /// Pengontrol runtime untuk efek Toon Outline (Cel-Shading) pada Karakter dan Objek 3D.
-    /// Tidak menggelapkan dunia sama sekali. Hanya memberi garis tepi hitam tipis dan halus pada model.
+    /// Pengontrol runtime untuk efek Toon Outline (Cel-Shading ala Fortnite / Anime) pada Karakter dan Objek 3D.
+    /// Tidak menggelapkan dunia sama sekali. Memberi garis siluet hitam tegas dan tajam pada model 3D.
     /// </summary>
     public class CartoonOutlineManager : MonoBehaviour
     {
@@ -14,12 +14,12 @@ namespace Pucaci.Rendering
         [Tooltip("Tekan tombol ini di in-game untuk menyalakan/mematikan outline (membandingkan sebelum & sesudah)")]
         [SerializeField] private KeyCode toggleKey = KeyCode.F6;
 
-        [Header("Pengaturan Outline")]
+        [Header("Pengaturan Outline (Fortnite Style)")]
         [SerializeField] private bool outlineEnabled = true;
-        [SerializeField] private Color outlineColor = new Color(0.05f, 0.05f, 0.05f, 1f);
-        [Range(0.5f, 3.5f)]
-        [Tooltip("Ketebalan garis di layar (1.0 - 1.5 sangat tipis dan halus ala anime/kartun)")]
-        [SerializeField] private float thickness = 1.2f;
+        [SerializeField] private Color outlineColor = Color.black;
+        [Range(1.0f, 8.0f)]
+        [Tooltip("Ketebalan garis di layar (3.0 - 5.0 adalah standar tegas ala Fortnite)")]
+        [SerializeField] private float thickness = 3.5f;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         private static void InitializeRuntime()
@@ -66,7 +66,7 @@ namespace Pucaci.Rendering
 
         public void SetThickness(float val)
         {
-            thickness = Mathf.Clamp(val, 0.2f, 4.0f);
+            thickness = Mathf.Clamp(val, 0.5f, 10.0f);
             ApplyToAllAppliers();
         }
 

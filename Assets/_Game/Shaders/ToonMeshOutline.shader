@@ -2,9 +2,9 @@ Shader "Pucaci/ToonMeshOutline"
 {
     Properties
     {
-        _OutlineColor ("Outline Color", Color) = (0.05, 0.05, 0.05, 1.0)
-        _OutlineWidth ("Outline Width (Pixels)", Range(0.5, 4.0)) = 1.2
-        _ZOffset ("Depth Offset", Range(0.0, 5.0)) = 0.5
+        _OutlineColor ("Outline Color", Color) = (0.0, 0.0, 0.0, 1.0)
+        _OutlineWidth ("Outline Width (Fortnite Style)", Range(1.0, 8.0)) = 3.5
+        _ZOffset ("Depth Offset", Range(0.0, 5.0)) = 1.0
     }
 
     SubShader
@@ -13,7 +13,7 @@ Shader "Pucaci/ToonMeshOutline"
         { 
             "RenderType" = "Opaque" 
             "RenderPipeline" = "UniversalPipeline"
-            "Queue" = "Geometry+5"
+            "Queue" = "Geometry+10"
         }
 
         LOD 100
@@ -56,30 +56,35 @@ Shader "Pucaci/ToonMeshOutline"
                 UNITY_SETUP_INSTANCE_ID(input);
                 UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(output);
 
-                VertexPositionInputs vertexInput = GetVertexPositionInputs(input.positionOS.xyz);
-                VertexNormalInputs normalInput = GetVertexNormalInputs(input.normalOS);
+                VertexPositionInputs posInputs = GetVertexPositionInputs(input.positionOS.xyz);
+                VertexNormalInputs normInputs = GetVertexNormalInputs(input.normalOS);
 
-                float4 posCS = TransformWorldToHClip(vertexInput.positionWS);
-                float3 normalCS = TransformWorldToHClipDir(normalInput.normalWS);
+                // View Space (Camera Space) Normal Extrusion
+                // Standar emas industri cel-shading (Fortnite anime skins / Arc System Works / Genshin)
+                float3 posVS = TransformWorldToView(posInputs.positionWS);
+                float3 normVS = TransformWorldToViewDir(normInputs.normalWS);
 
-                // Normalisasi arah tepi di layar 2D
-                float len = length(normalCS.xy);
-                float2 dir = len > 0.0001 ? (normalCS.xy / len) : float2(0, 0);
+                float dist = max(abs(posVS.z), 0.2f);
+                float2 norm2D = normVS.xy;
+                float len = length(norm2D);
+                norm2D = (len > 0.0001f) ? (norm2D / len) : float2(0, 1);
 
-                // Koreksi rasio aspek layar
-                float2 aspect = float2(_ScreenParams.y / _ScreenParams.x, 1.0);
+                float screenH = (_ScreenParams.y > 10.0f) ? _ScreenParams.y : 1080.0f;
+                float screenW = (_ScreenParams.x > 10.0f) ? _ScreenParams.x : 1920.0f;
+                float2 aspect = float2(screenH / screenW, 1.0f);
 
-                // Skala ketebalan konstan di layar (crisp pixel outline, tidak terlalu tebal)
-                float2 offset = dir * aspect * (_OutlineWidth * 0.0012) * posCS.w;
-                posCS.xy += offset;
+                // Ketebalan tegas dalam satuan piksel layar (ala Fortnite / anime)
+                float pixelOffset = (_OutlineWidth / screenH) * 2.0f;
+                posVS.xy += norm2D * aspect * pixelOffset * dist;
+
+                output.positionCS = TransformViewToHClip(posVS);
 
                 #if UNITY_REVERSED_Z
-                    posCS.z += _ZOffset * 0.0001 * posCS.w;
+                    output.positionCS.z -= _ZOffset * 0.0005f * output.positionCS.w;
                 #else
-                    posCS.z -= _ZOffset * 0.0001 * posCS.w;
+                    output.positionCS.z += _ZOffset * 0.0005f * output.positionCS.w;
                 #endif
 
-                output.positionCS = posCS;
                 return output;
             }
 

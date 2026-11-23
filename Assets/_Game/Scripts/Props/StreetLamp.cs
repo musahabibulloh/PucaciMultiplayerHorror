@@ -58,8 +58,8 @@ namespace Pucaci.Props
                 lampMaterial = lampRenderer.material;
             }
 
-            // Outline tipis pada tiang lampu
-            ToonOutlineApplier.ApplyTo(gameObject, 1.0f);
+            // Outline pada tiang lampu
+            ToonOutlineApplier.ApplyTo(gameObject, 2.5f);
 
             if (!isInitialized)
             {
