@@ -93,7 +93,21 @@ namespace Pucaci.Player
                 Pucaci.Gameplay.SesajenManager.Instance.RegisterPlayer(this);
             }
 
+            // Daftarkan ke PucaciNetworkManager jika ada
+            if (Pucaci.Network.PucaciNetworkManager.singleton != null)
+            {
+                Pucaci.Network.PucaciNetworkManager.singleton.RegisterPlayerRole(this);
+            }
+
             ApplyCurrentVisuals(false);
+        }
+
+        private void OnDestroy()
+        {
+            if (Pucaci.Network.PucaciNetworkManager.singleton != null)
+            {
+                Pucaci.Network.PucaciNetworkManager.singleton.UnregisterPlayerRole(this);
+            }
         }
 
         private void Update()

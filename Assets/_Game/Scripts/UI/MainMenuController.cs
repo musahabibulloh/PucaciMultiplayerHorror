@@ -97,7 +97,9 @@ namespace Pucaci.UI
 
             if (multiplayerLauncher == null)
             {
-                multiplayerLauncher = GetComponent<IMultiplayerLauncher>() ?? gameObject.AddComponent<StubMultiplayerLauncher>();
+                multiplayerLauncher = GetComponent<IMultiplayerLauncher>()
+                    ?? GetComponent<Pucaci.Network.PucaciMultiplayerLauncher>()
+                    ?? gameObject.AddComponent<Pucaci.Network.PucaciMultiplayerLauncher>();
             }
         }
 
@@ -141,6 +143,20 @@ namespace Pucaci.UI
             if (cancelQuitButton != null) cancelQuitButton.onClick.AddListener(ReturnToPreviousPanel);
 
             UpdateCharacterSelectUI();
+
+            // Setup Mabar Status Display
+            if (mabarStatusText != null)
+            {
+                if (multiplayerLauncher is Pucaci.Network.PucaciMultiplayerLauncher pucaciLauncher)
+                {
+                    pucaciLauncher.OnStatusChanged += (msg) =>
+                    {
+                        if (mabarStatusText != null) mabarStatusText.text = msg;
+                    };
+                    string ip = pucaciLauncher.GetLocalIPAddress();
+                    mabarStatusText.text = $"IP Lokal Anda: <color=#FFB347><b>{ip}:7777</b></color>\n<size=13><color=#8899AA>(Bagikan ke teman untuk mabar LAN / Radmin / ZeroTier / Playit)</color></size>";
+                }
+            }
 
             // Sembunyikan semua panel sekunder dan tampilkan panel utama
             HideAllSecondaryPanels();
@@ -314,6 +330,7 @@ namespace Pucaci.UI
         #region Mabar Actions
         private void OnHostClicked()
         {
+            if (mabarStatusText != null) mabarStatusText.text = "Membuat Ruangan Server (Host)...";
             multiplayerLauncher.Host();
             if (!multiplayerLauncher.IsAvailable && mabarStatusText != null)
             {
@@ -324,6 +341,7 @@ namespace Pucaci.UI
         private void OnJoinClicked()
         {
             string code = roomCodeInput != null ? roomCodeInput.text.Trim() : "";
+            if (mabarStatusText != null) mabarStatusText.text = $"Menghubungkan ke {(string.IsNullOrEmpty(code) ? "localhost" : code)}...";
             multiplayerLauncher.Join(code);
             if (!multiplayerLauncher.IsAvailable && mabarStatusText != null)
             {

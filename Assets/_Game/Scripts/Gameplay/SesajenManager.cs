@@ -89,11 +89,22 @@ namespace Pucaci.Gameplay
             CheckSurvivorElimination();
         }
 
+        public void NotifyRolesAssigned()
+        {
+            rolesAssigned = true;
+        }
+
         private void EvaluateInitialRoles()
         {
             if (rolesAssigned) return;
 
-            // Cari semua PlayerRoleManager di scene
+            // Jika dalam sesi online Mirror (Host/Client), pembagian peran dikontrol oleh PucaciNetworkManager
+            if (NetworkServer.active || NetworkClient.active)
+            {
+                return;
+            }
+
+            // Mode offline / singleplayer: langsung bagikan peran
             var players = FindObjectsOfType<PlayerRoleManager>();
             foreach (var p in players)
             {
@@ -102,11 +113,7 @@ namespace Pucaci.Gameplay
 
             if (registeredPlayers.Count == 0) return;
 
-            // Hanya server atau mode offline yang menentukan role
-            if (!NetworkClient.active || NetworkServer.active)
-            {
-                AssignRandomRoles();
-            }
+            AssignRandomRoles();
         }
 
         public void AssignRandomRoles()
