@@ -3,7 +3,7 @@ Shader "Pucaci/ToonMeshOutline"
     Properties
     {
         _OutlineColor ("Outline Color", Color) = (0.0, 0.0, 0.0, 1.0)
-        _OutlineWidth ("Outline Width (Fortnite Style)", Range(1.0, 10.0)) = 4.0
+        _OutlineWidth ("Outline Width (Fortnite Style)", Range(1.0, 15.0)) = 6.0
     }
 
     SubShader
@@ -59,19 +59,13 @@ Shader "Pucaci/ToonMeshOutline"
                 VertexPositionInputs posInputs = GetVertexPositionInputs(input.positionOS.xyz);
                 VertexNormalInputs normInputs = GetVertexNormalInputs(input.normalOS);
 
-                output.positionCS = posInputs.positionCS;
+                float3 camPosWS = GetCameraPositionWS();
+                float dist = length(camPosWS - posInputs.positionWS);
+                // Skala outline dengan jarak kamera agar ketebalan garis tegas ala komik/Fortnite
+                float width = _OutlineWidth * 0.002f * clamp(dist, 1.0f, 15.0f);
+                float3 extrudedWS = posInputs.positionWS + normInputs.normalWS * width;
 
-                // View-space normal projection for crisp uniform screen-space outline
-                float3 normVS = TransformWorldToViewDir(normInputs.normalWS);
-                float2 dir = normVS.xy;
-                float len = length(dir);
-                dir = (len > 0.0001f) ? (dir / len) : float2(0.0f, 1.0f);
-
-                float2 screen = (_ScreenParams.xy > 10.0f) ? _ScreenParams.xy : float2(1920.0f, 1080.0f);
-                // Offset konstan di screen space (satuan pixel), proporsional terhadap w clip
-                float2 ndcOffset = dir * (2.0f / screen) * _OutlineWidth;
-                output.positionCS.xy += ndcOffset * output.positionCS.w;
-
+                output.positionCS = TransformWorldToHClip(extrudedWS);
                 return output;
             }
 

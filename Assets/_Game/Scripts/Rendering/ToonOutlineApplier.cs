@@ -19,9 +19,9 @@ namespace Pucaci.Rendering
         [Tooltip("Material outline kartunis (Pucaci/ToonMeshOutline)")]
         [SerializeField] private Material outlineMaterial;
 
-        [Range(1.0f, 10.0f)]
-        [Tooltip("Ketebalan garis di layar (3.5 - 5.0 adalah standar tegas ala Fortnite / comic anime)")]
-        [SerializeField] private float outlineWidth = 4.0f;
+        [Range(1.0f, 15.0f)]
+        [Tooltip("Ketebalan garis di layar (5.0 - 8.0 adalah standar tegas ala Fortnite / comic anime)")]
+        [SerializeField] private float outlineWidth = 6.0f;
 
         [Tooltip("Warna outline (hitam pekat kartunis)")]
         [SerializeField] private Color outlineColor = Color.black;
@@ -31,7 +31,7 @@ namespace Pucaci.Rendering
 
         private Material materialInstance;
         private bool isApplied;
-        private readonly List<GameObject> spawnedOutlineObjects = new List<GameObject>();
+        private readonly List<Renderer> outlineRenderers = new List<Renderer>();
 
         private static readonly int OutlineWidthId = Shader.PropertyToID("_OutlineWidth");
         private static readonly int OutlineColorId = Shader.PropertyToID("_OutlineColor");
@@ -58,7 +58,7 @@ namespace Pucaci.Rendering
 
         private void Start()
         {
-            if (applyOnStart && !isApplied)
+            if (applyOnStart)
             {
                 ApplyOutline();
             }
@@ -69,7 +69,14 @@ namespace Pucaci.Rendering
             RemoveOutline();
             if (materialInstance != null)
             {
-                Destroy(materialInstance);
+                if (Application.isPlaying)
+                {
+                    Destroy(materialInstance);
+                }
+                else
+                {
+                    DestroyImmediate(materialInstance);
+                }
             }
         }
 
@@ -103,7 +110,7 @@ namespace Pucaci.Rendering
             EnsureMaterial();
             if (materialInstance == null) return;
 
-            RemoveOutline();
+            outlineRenderers.Clear();
 
             var renderers = includeChildren
                 ? GetComponentsInChildren<Renderer>(true)
@@ -112,74 +119,124 @@ namespace Pucaci.Rendering
             foreach (var rend in renderers)
             {
                 if (rend == null) continue;
-                if (rend.name.Contains("ToonOutline")) continue;
+                if (rend.name.Contains("ToonOutline"))
+                {
+                    rend.sharedMaterial = materialInstance;
+                    rend.enabled = true;
+                    if (!outlineRenderers.Contains(rend)) outlineRenderers.Add(rend);
+                    continue;
+                }
                 if (rend is ParticleSystemRenderer || rend is TrailRenderer || rend is LineRenderer)
                     continue;
 
-                CreateOutlineForRenderer(rend);
+                CreateOrUpdateOutlineForRenderer(rend);
             }
 
             isApplied = true;
         }
 
-        private void CreateOutlineForRenderer(Renderer rend)
+        private void CreateOrUpdateOutlineForRenderer(Renderer rend)
         {
+            // Cek apakah sudah ada child ToonOutline_Backface
+            Transform existingChild = rend.transform.Find("ToonOutline_Backface");
+
             if (rend is SkinnedMeshRenderer smr)
             {
                 if (smr.sharedMesh == null) return;
 
-                var outlineGo = new GameObject("ToonOutline_Backface");
-                outlineGo.transform.SetParent(smr.transform, false);
-                outlineGo.transform.localPosition = Vector3.zero;
-                outlineGo.transform.localRotation = Quaternion.identity;
-                outlineGo.transform.localScale = Vector3.one;
+                SkinnedMeshRenderer outlineSmr;
+                if (existingChild != null)
+                {
+                    outlineSmr = existingChild.GetComponent<SkinnedMeshRenderer>();
+                }
+                else
+                {
+                    var outlineGo = new GameObject("ToonOutline_Backface");
+                    outlineGo.transform.SetParent(smr.transform, false);
+                    outlineGo.transform.localPosition = Vector3.zero;
+                    outlineGo.transform.localRotation = Quaternion.identity;
+                    outlineGo.transform.localScale = Vector3.one;
+                    outlineSmr = outlineGo.AddComponent<SkinnedMeshRenderer>();
+                }
 
-                var outlineSmr = outlineGo.AddComponent<SkinnedMeshRenderer>();
-                outlineSmr.sharedMesh = smr.sharedMesh;
-                outlineSmr.bones = smr.bones;
-                outlineSmr.rootBone = smr.rootBone;
-                outlineSmr.sharedMaterial = materialInstance;
-                outlineSmr.updateWhenOffscreen = smr.updateWhenOffscreen;
-
-                spawnedOutlineObjects.Add(outlineGo);
+                if (outlineSmr != null)
+                {
+                    outlineSmr.sharedMesh = smr.sharedMesh;
+                    outlineSmr.bones = smr.bones;
+                    outlineSmr.rootBone = smr.rootBone;
+                    outlineSmr.sharedMaterial = materialInstance;
+                    outlineSmr.updateWhenOffscreen = smr.updateWhenOffscreen;
+                    outlineSmr.enabled = true;
+                    if (!outlineRenderers.Contains(outlineSmr)) outlineRenderers.Add(outlineSmr);
+                }
             }
             else if (rend is MeshRenderer mr)
             {
                 var mf = mr.GetComponent<MeshFilter>();
                 if (mf == null || mf.sharedMesh == null) return;
 
-                var outlineGo = new GameObject("ToonOutline_Backface");
-                outlineGo.transform.SetParent(mr.transform, false);
-                outlineGo.transform.localPosition = Vector3.zero;
-                outlineGo.transform.localRotation = Quaternion.identity;
-                outlineGo.transform.localScale = Vector3.one;
+                MeshRenderer childMr;
+                if (existingChild != null)
+                {
+                    childMr = existingChild.GetComponent<MeshRenderer>();
+                }
+                else
+                {
+                    var outlineGo = new GameObject("ToonOutline_Backface");
+                    outlineGo.transform.SetParent(mr.transform, false);
+                    outlineGo.transform.localPosition = Vector3.zero;
+                    outlineGo.transform.localRotation = Quaternion.identity;
+                    outlineGo.transform.localScale = Vector3.one;
 
-                var childMf = outlineGo.AddComponent<MeshFilter>();
-                childMf.sharedMesh = mf.sharedMesh;
+                    var childMf = outlineGo.AddComponent<MeshFilter>();
+                    childMf.sharedMesh = mf.sharedMesh;
+                    childMr = outlineGo.AddComponent<MeshRenderer>();
+                }
 
-                var childMr = outlineGo.AddComponent<MeshRenderer>();
-                childMr.sharedMaterial = materialInstance;
+                if (childMr != null)
+                {
+                    childMr.sharedMaterial = materialInstance;
+                    childMr.enabled = true;
+                    if (!outlineRenderers.Contains(childMr)) outlineRenderers.Add(childMr);
+                }
+            }
+        }
 
-                spawnedOutlineObjects.Add(outlineGo);
+        public void SetOutlineEnabled(bool enabledState)
+        {
+            foreach (var r in outlineRenderers)
+            {
+                if (r != null)
+                {
+                    r.enabled = enabledState;
+                }
             }
         }
 
         public void RemoveOutline()
         {
-            foreach (var go in spawnedOutlineObjects)
+            var children = GetComponentsInChildren<Transform>(true);
+            foreach (var child in children)
             {
-                if (go != null)
+                if (child != null && child.name.Contains("ToonOutline"))
                 {
-                    Destroy(go);
+                    if (Application.isPlaying)
+                    {
+                        Destroy(child.gameObject);
+                    }
+                    else
+                    {
+                        DestroyImmediate(child.gameObject);
+                    }
                 }
             }
-            spawnedOutlineObjects.Clear();
+            outlineRenderers.Clear();
             isApplied = false;
         }
 
         public void SetOutlineWidth(float width)
         {
-            outlineWidth = Mathf.Clamp(width, 0.5f, 10.0f);
+            outlineWidth = Mathf.Clamp(width, 1.0f, 15.0f);
             if (materialInstance != null)
             {
                 materialInstance.SetFloat(OutlineWidthId, outlineWidth);
@@ -210,7 +267,7 @@ namespace Pucaci.Rendering
         /// <summary>
         /// Helper statis untuk menambahkan ToonOutline tegas ke GameObject apapun (karakter atau props).
         /// </summary>
-        public static ToonOutlineApplier ApplyTo(GameObject target, float width = 4.0f)
+        public static ToonOutlineApplier ApplyTo(GameObject target, float width = 6.0f)
         {
             if (target == null) return null;
 
