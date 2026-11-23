@@ -112,7 +112,7 @@ namespace Pucaci.UI
             }
 
             // Bind Main Menu Buttons
-            if (playButton != null) playButton.onClick.AddListener(OpenCharacterSelectPanel);
+            if (playButton != null) playButton.onClick.AddListener(() => OpenPanel(mabarPanel));
             if (mabarButton != null) mabarButton.onClick.AddListener(() => OpenPanel(mabarPanel));
             if (caraBermainButton != null) caraBermainButton.onClick.AddListener(() => OpenPanel(caraBermainPanel));
             if (settingsButton != null) settingsButton.onClick.AddListener(() => OpenPanel(settingsPanel));
@@ -130,9 +130,9 @@ namespace Pucaci.UI
             // Bind Mabar Panel
             if (hostButton != null) hostButton.onClick.AddListener(OnHostClicked);
             if (joinButton != null) joinButton.onClick.AddListener(OnJoinClicked);
-            if (soloPracticeButton != null) soloPracticeButton.onClick.AddListener(OpenCharacterSelectPanel);
+            if (soloPracticeButton != null) soloPracticeButton.onClick.AddListener(OnSoloPracticeClicked);
             if (mabarBackButton != null) mabarBackButton.onClick.AddListener(ReturnToPreviousPanel);
-            if (mabarChangeCharacterButton != null) mabarChangeCharacterButton.onClick.AddListener(OpenCharacterSelectPanel);
+            if (mabarChangeCharacterButton != null) mabarChangeCharacterButton.gameObject.SetActive(false);
 
             // Bind Other Back Buttons
             if (caraBermainBackButton != null) caraBermainBackButton.onClick.AddListener(ReturnToPreviousPanel);
@@ -320,9 +320,7 @@ namespace Pucaci.UI
 
             if (mabarCharacterText != null)
             {
-                string charName = CharacterSelectionData.GetCharacterName(current);
-                string charRole = CharacterSelectionData.GetCharacterRole(current);
-                mabarCharacterText.text = $"Karakter Aktif: <color=#FFB347><b>{charName}</b></color> ({charRole})";
+                mabarCharacterText.text = "Karakter: <color=#00FFAA><b>Acak Otomatis</b></color> (Laras / Pak Mamat / Pak Vincent)\n<size=12><color=#FF8899>1 dari 3 pemain terpilih acak sebagai Hantu (Impostor)</color></size>";
             }
         }
         #endregion

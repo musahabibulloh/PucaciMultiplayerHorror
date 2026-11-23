@@ -101,9 +101,13 @@ namespace Pucaci.Network
 
             Debug.Log($"<color=#00FFAA>[PucaciNetworkManager] Player baru bergabung: connId={conn.connectionId}, posisi={player.transform.position}</color>");
 
-            // Cari komponen PlayerRoleManager pada player yang baru dibuat
+            // Beri karakter acak sementara (0 = Laras, 1 = Pak Mamat, 3 = Pak Vincent)
             if (player.TryGetComponent<PlayerRoleManager>(out var roleManager))
             {
+                int[] initialVillagers = { 0, 1, 3 };
+                int initialDisguise = initialVillagers[Mathf.Abs(conn.connectionId) % initialVillagers.Length];
+                roleManager.SetRole(PlayerRole.Survivor, initialDisguise);
+
                 RegisterPlayerRole(roleManager);
             }
         }

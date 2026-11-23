@@ -60,11 +60,12 @@ namespace Pucaci.Player
 
         private void Start()
         {
-            // Jika mode offline / singleplayer / belum ada koneksi Mirror yang aktif
+            // Jika mode offline / singleplayer: acak 1 warga (0 = Laras, 1 = Pak Mamat, 3 = Pak Vincent)
             if (!NetworkClient.active && !NetworkServer.active)
             {
-                int defaultChoice = (int)CharacterSelectionData.CurrentCharacter;
-                ApplyCharacter(defaultChoice);
+                int[] villagers = { 0, 1, 3 };
+                int randomVillager = villagers[UnityEngine.Random.Range(0, villagers.Length)];
+                ApplyCharacter(randomVillager);
             }
             else if (characterIndex >= 0)
             {
@@ -76,9 +77,11 @@ namespace Pucaci.Player
         {
             base.OnStartLocalPlayer();
 
-            int myChoice = (int)CharacterSelectionData.CurrentCharacter;
-            ApplyCharacter(myChoice);
-            CmdSetCharacter(myChoice);
+            // Karakter ditentukan secara server-authoritative (acak oleh server, tidak bisa dipilih manual)
+            if (characterIndex >= 0)
+            {
+                ApplyCharacter(characterIndex);
+            }
         }
 
         public override void OnStartClient()
@@ -89,6 +92,12 @@ namespace Pucaci.Player
             {
                 ApplyCharacter(characterIndex);
             }
+        }
+
+        [Server]
+        public void SetServerCharacter(int index)
+        {
+            characterIndex = Mathf.Clamp(index, 0, 3);
         }
 
         [Command]

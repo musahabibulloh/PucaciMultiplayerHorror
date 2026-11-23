@@ -79,11 +79,12 @@ namespace Pucaci.Player
 
         private void Start()
         {
-            // Jika mode offline / singleplayer: pastikan role default adalah Impostor agar langsung siap diuji
+            // Jika mode offline / singleplayer: acak 1 wujud awal manusia dari 3 warga (Laras, Pak Mamat, Pak Vincent)
             if (!NetworkClient.active && !NetworkServer.active)
             {
                 currentRole = PlayerRole.Impostor;
-                humanDisguiseIndex = 1; // Default Pak Mamat
+                int[] villagers = { 0, 1, 3 };
+                humanDisguiseIndex = villagers[UnityEngine.Random.Range(0, villagers.Length)];
                 currentForm = ImpostorForm.Human;
             }
 
@@ -368,7 +369,17 @@ namespace Pucaci.Player
                 }
             }
 
-            modelManager.SelectCharacter((CharacterType)targetIndex);
+            modelManager.ApplyCharacter(targetIndex);
+            if (isServer || NetworkServer.active)
+            {
+                modelManager.SetServerCharacter(targetIndex);
+            }
+
+            if (TryGetComponent<Pucaci.Network.PlayerNetworkSetup>(out var netSetup))
+            {
+                string displayName = isKunti ? "<color=#FF0033>KUNTILANAK</color>" : CharacterSelectionData.GetCharacterName((CharacterType)targetIndex);
+                netSetup.UpdateNameTag(displayName);
+            }
 
             if (playEffects)
             {
