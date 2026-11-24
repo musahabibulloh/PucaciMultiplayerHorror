@@ -134,7 +134,7 @@ namespace Pucaci.UI
                 hudHeaderTitle.text = "<b><color=#FF4444>KEMAMPUAN HANTU KUNTILANAK</color></b>";
                 if (disguiseSubInfo != null)
                 {
-                    disguiseSubInfo.text = "<color=#AAAAAA>Wujud Asli</color> | Tekan <b>[1] [2] [3]</b> untuk Menyamar";
+                    disguiseSubInfo.text = "<color=#AAAAAA>Wujud Asli</color> | Tekan <b>[1] [2] [3] [4]</b> untuk Menyamar";
                 }
             }
             else
@@ -143,7 +143,7 @@ namespace Pucaci.UI
                 hudHeaderTitle.text = $"<b><color=#99BBFF>PENYAMARAN: {disguiseName}</color></b>";
                 if (disguiseSubInfo != null)
                 {
-                    disguiseSubInfo.text = "Tekan <b>[T / 4]</b> untuk Kembali Menjadi Kuntilanak";
+                    disguiseSubInfo.text = "Tekan <b>[T / 5]</b> wujud Kunti | <b>[Q]</b> Sabotase Lampu";
                 }
             }
         }
@@ -157,7 +157,8 @@ namespace Pucaci.UI
             var vlm = VillageLightManager.Instance;
             if (vlm == null) return;
 
-            bool isKunti = roleManager.IsKuntilanakForm;
+            // Kuntilanak bisa mensabotase lampu baik saat berwujud Kuntilanak maupun saat masih dalam wujud manusia
+            bool canUse = roleManager.IsImpostor;
             bool isSabotaged = vlm.IsSabotaged;
             bool isOnCd = vlm.IsOnCooldown;
 
@@ -166,7 +167,7 @@ namespace Pucaci.UI
                 // Status: Lampu Padam Aktif
                 float rem = vlm.RemainingBlackout;
                 float fill = vlm.BlackoutNormalized;
-                SetCardState(sabotageCard, isKunti, true, sabotageActiveColor, cardBgNormal,
+                SetCardState(sabotageCard, canUse, true, sabotageActiveColor, cardBgNormal,
                     fill, "SABOTASE", $"{rem:0.0}s", "<color=#DDAAFF>PADAM TOTAL</color>");
 
                 // Animasi denyut
@@ -177,16 +178,16 @@ namespace Pucaci.UI
                 // Status: Cooldown jeda padam
                 float rem = vlm.RemainingCooldown;
                 float fill = vlm.CooldownNormalized;
-                SetCardState(sabotageCard, isKunti, false, borderDim, cardBgCooldown,
+                SetCardState(sabotageCard, canUse, false, borderDim, cardBgCooldown,
                     fill, "COOLDOWN", $"{rem:0.0}s", "<color=#FFAA33>JEDA LISTRIK</color>");
                 ResetScale(sabotageCard.cardRect);
             }
             else
             {
-                // Status: Siap digunakan
-                Color readyColor = isKunti ? sabotageTheme : borderDim;
-                string readyStatus = isKunti ? "<color=#55FF55>SIAP DIGUNAKAN</color>" : "<color=#888888>WUJUD KUNTI</color>";
-                SetCardState(sabotageCard, isKunti, false, readyColor, cardBgNormal,
+                // Status: Siap digunakan (bisa diaktifkan baik dalam wujud Kunti maupun manusia)
+                Color readyColor = canUse ? sabotageTheme : borderDim;
+                string readyStatus = canUse ? "<color=#55FF55>SIAP DIGUNAKAN</color>" : "<color=#888888>NON-AKTIF</color>";
+                SetCardState(sabotageCard, canUse, false, readyColor, cardBgNormal,
                     0f, "SABOTASE", "READY", readyStatus);
                 ResetScale(sabotageCard.cardRect);
             }

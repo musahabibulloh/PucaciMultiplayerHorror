@@ -64,8 +64,9 @@ namespace Pucaci.Player
             // Hanya diproses untuk pemain lokal
             if (!isLocalPlayer) return;
 
-            // Hanya bisa digunakan saat berwujud hantu Kuntilanak
-            if (roleManager == null || !roleManager.IsImpostor || !roleManager.IsKuntilanakForm)
+            // Bisa digunakan oleh Kuntilanak (Impostor) baik saat wujud Kuntilanak maupun saat masih menyamar dalam wujud manusia
+            if (roleManager == null) roleManager = GetComponent<PlayerRoleManager>();
+            if (roleManager == null || !roleManager.IsImpostor)
             {
                 return;
             }
@@ -95,7 +96,8 @@ namespace Pucaci.Player
 
         public bool CanUseSkill()
         {
-            if (roleManager == null || !roleManager.IsImpostor || !roleManager.IsKuntilanakForm)
+            if (roleManager == null) roleManager = GetComponent<PlayerRoleManager>();
+            if (roleManager == null || !roleManager.IsImpostor)
             {
                 return false;
             }
@@ -119,7 +121,8 @@ namespace Pucaci.Player
         [Command]
         private void CmdTriggerSabotage()
         {
-            if (roleManager == null || !roleManager.IsImpostor || !roleManager.IsKuntilanakForm)
+            if (roleManager == null) roleManager = GetComponent<PlayerRoleManager>();
+            if (roleManager == null || !roleManager.IsImpostor)
             {
                 return;
             }

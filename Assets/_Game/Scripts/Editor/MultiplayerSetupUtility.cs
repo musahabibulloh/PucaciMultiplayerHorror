@@ -192,5 +192,76 @@ namespace Pucaci.Editor
             EditorSceneManager.SaveScene(scene);
             Debug.Log("[MultiplayerSetupUtility] Scene MainMenu berhasil di-setup dan disimpan.");
         }
+
+        [MenuItem("Pucaci/Verify Human Sabotage Feature")]
+        public static void VerifyHumanSabotageFeature()
+        {
+            var go = new GameObject("Test_Player_Sabotage");
+            GameObject vlmObj = null;
+            try
+            {
+                var roleMgr = go.AddComponent<Pucaci.Player.PlayerRoleManager>();
+                var sabotage = go.AddComponent<Pucaci.Player.KuntilanakLightSabotage>();
+
+                // Setup VillageLightManager dummy jika belum ada
+                if (Pucaci.Gameplay.VillageLightManager.Instance == null)
+                {
+                    vlmObj = new GameObject("Test_VLM");
+                    var vlm = vlmObj.AddComponent<Pucaci.Gameplay.VillageLightManager>();
+                    typeof(Pucaci.Gameplay.VillageLightManager)
+                        .GetProperty("Instance", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static)
+                        ?.SetValue(null, vlm);
+                }
+
+                var roleField = typeof(Pucaci.Player.PlayerRoleManager).GetField("currentRole", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+                var formField = typeof(Pucaci.Player.PlayerRoleManager).GetField("currentForm", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+
+                // Test 1: Impostor dalam wujud Human
+                roleField?.SetValue(roleMgr, Pucaci.Player.PlayerRole.Impostor);
+                formField?.SetValue(roleMgr, Pucaci.Player.ImpostorForm.Human);
+
+                bool canSabotageHuman = sabotage.CanUseSkill();
+                Debug.Log($"[TEST] Sabotase Lampu saat Wujud Human: {canSabotageHuman} (Expected: True)");
+
+                // Test 2: Impostor dalam wujud Kuntilanak
+                formField?.SetValue(roleMgr, Pucaci.Player.ImpostorForm.Kuntilanak);
+
+                bool canSabotageKunti = sabotage.CanUseSkill();
+                Debug.Log($"[TEST] Sabotase Lampu saat Wujud Kuntilanak: {canSabotageKunti} (Expected: True)");
+
+                // Test 3: Survivor (bukan Impostor)
+                roleField?.SetValue(roleMgr, Pucaci.Player.PlayerRole.Survivor);
+
+                bool canSabotageSurvivor = sabotage.CanUseSkill();
+                Debug.Log($"[TEST] Sabotase Lampu untuk Survivor: {canSabotageSurvivor} (Expected: False)");
+
+                string report = $"[TEST] Sabotase Lampu saat Wujud Human: {canSabotageHuman} (Expected: True)\n" +
+                                $"[TEST] Sabotase Lampu saat Wujud Kuntilanak: {canSabotageKunti} (Expected: True)\n" +
+                                $"[TEST] Sabotase Lampu untuk Survivor: {canSabotageSurvivor} (Expected: False)\n";
+
+                if (canSabotageHuman && canSabotageKunti && !canSabotageSurvivor)
+                {
+                    report += "RESULT: SUCCESS - Kuntilanak berhasil mensabotase lampu saat wujud manusia dan wujud kunti! Survivor tidak bisa sabotase.";
+                    Debug.Log("<color=#00FFAA><b>[VERIFICATION SUCCESS] Kuntilanak berhasil mensabotase lampu saat wujud manusia dan wujud kunti! Survivor tidak bisa sabotase.</b></color>");
+                }
+                else
+                {
+                    report += "RESULT: FAILED - Kondisi sabotase tidak sesuai ekspektasi.";
+                    Debug.LogError("[VERIFICATION FAILED] Kondisi sabotase tidak sesuai ekspektasi.");
+                }
+
+                System.IO.File.WriteAllText("C:/Users/MUSA/.gemini/antigravity/brain/3104c68e-3988-4937-956a-544f03a4f729/sabotage_test_report.txt", report);
+            }
+            catch (System.Exception ex)
+            {
+                System.IO.File.WriteAllText("C:/Users/MUSA/.gemini/antigravity/brain/3104c68e-3988-4937-956a-544f03a4f729/sabotage_test_report.txt", "EXCEPTION: " + ex.ToString());
+                Debug.LogException(ex);
+            }
+            finally
+            {
+                if (vlmObj != null) Object.DestroyImmediate(vlmObj);
+                Object.DestroyImmediate(go);
+            }
+        }
     }
 }

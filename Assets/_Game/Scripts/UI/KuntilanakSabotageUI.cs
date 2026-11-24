@@ -72,8 +72,8 @@ namespace Pucaci.UI
                 }
             }
 
-            bool isKunti = localRoleManager.IsImpostor && localRoleManager.IsKuntilanakForm;
-            if (!isKunti)
+            bool canSabotage = localRoleManager.IsImpostor;
+            if (!canSabotage)
             {
                 FadeOut();
                 return;

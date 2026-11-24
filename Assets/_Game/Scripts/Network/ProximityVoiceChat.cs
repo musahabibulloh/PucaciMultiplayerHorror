@@ -99,6 +99,8 @@ namespace Pucaci.Network
         private readonly object ringLock = new object();
         private int remoteSampleRate = 16000;
         private float lastVoiceReceivedTime = 0f;
+        private int cachedOutputSampleRate = 48000;
+        private volatile bool isVoiceStale = true;
 
         // Sprite Logo Suara & Overhead Indicator (Di atas kepala pemain)
         private static Sprite cachedSpeakerSprite;
@@ -170,6 +172,15 @@ namespace Pucaci.Network
         private void Awake()
         {
             cachedNetIdentity = GetComponent<NetworkIdentity>();
+            try
+            {
+                cachedOutputSampleRate = AudioSettings.outputSampleRate;
+                if (cachedOutputSampleRate <= 0) cachedOutputSampleRate = 48000;
+            }
+            catch
+            {
+                cachedOutputSampleRate = 48000;
+            }
             SetupSpatialAudioSource();
             CreateOverheadIndicator();
         }
@@ -342,6 +353,8 @@ namespace Pucaci.Network
 
         private void Update()
         {
+            isVoiceStale = (Time.time - lastVoiceReceivedTime > 0.35f);
+
             bool isLocal = SafeIsLocalPlayer || (!NetworkClient.active && !NetworkServer.active);
 
             if (isLocal)
@@ -606,8 +619,7 @@ namespace Pucaci.Network
                 return;
             }
 
-            int outputRate = AudioSettings.outputSampleRate;
-            if (outputRate <= 0) outputRate = 48000;
+            int outputRate = cachedOutputSampleRate > 0 ? cachedOutputSampleRate : 48000;
             float resampleRatio = (float)remoteSampleRate / outputRate;
 
             lock (ringLock)
@@ -618,7 +630,7 @@ namespace Pucaci.Network
                     : (RingBufferSize - currentPos + writeIndex);
 
                 // Jika audio hening > 0.35 detik atau buffer hampir kosong
-                if (buffered < 64 || (Time.time - lastVoiceReceivedTime > 0.35f))
+                if (buffered < 64 || isVoiceStale)
                 {
                     for (int i = 0; i < data.Length; i++) data[i] = 0f;
                     return;
