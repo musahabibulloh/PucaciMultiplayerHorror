@@ -119,6 +119,12 @@ namespace Pucaci.Player
                 PCC.TriggerDeath();
             }
 
+            var choke = GetComponent<KuntilanakChokeMechanic>();
+            if (choke != null)
+            {
+                choke.SetBeingChoked(false, null);
+            }
+
             OnDeathEvent?.Invoke();
 
             if (Pucaci.Gameplay.SesajenManager.Instance != null)
@@ -189,6 +195,11 @@ namespace Pucaci.Player
             if (newDead && PCC != null)
             {
                 PCC.TriggerDeath();
+                var choke = GetComponent<KuntilanakChokeMechanic>();
+                if (choke != null)
+                {
+                    choke.SetBeingChoked(false, null);
+                }
                 OnDeathEvent?.Invoke();
             }
             else if (!newDead && PCC != null)

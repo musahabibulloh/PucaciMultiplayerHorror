@@ -427,6 +427,7 @@ namespace Pucaci.Player
 
         // Nilai awal CharacterController
         private float originalControllerHeight;
+        private float originalControllerRadius;
         private Vector3 originalControllerCenter;
 
         // Animator Hash IDs
@@ -457,6 +458,7 @@ namespace Pucaci.Player
         {
             controller = GetComponent<CharacterController>();
             originalControllerHeight = controller.height;
+            originalControllerRadius = controller.radius;
             originalControllerCenter = controller.center;
             currentStamina = maxStamina;
 
@@ -734,7 +736,7 @@ namespace Pucaci.Player
             // Kunci posisi model agar tidak bergeser dari pivot controller, namun jika dicekik angkat ke atas (kaki melayang)
             if (modelTransform != null)
             {
-                Vector3 chokeLift = isChokeLifted ? Vector3.up * 0.45f : Vector3.zero;
+                Vector3 chokeLift = (!isDead && isChokeLifted) ? Vector3.up * 0.45f : Vector3.zero;
                 modelTransform.localPosition = modelOffset + chokeLift;
             }
 
@@ -759,7 +761,7 @@ namespace Pucaci.Player
             }
 
             // Saat tubuh terangkat karena dicekik, tengadahkan leher sedikit ke atas/belakang menandakan reaksi tercekik
-            if (isChokeLifted && neckBone != null && !isFirstPerson)
+            if (!isDead && isChokeLifted && neckBone != null && !isFirstPerson)
             {
                 neckBone.localRotation *= Quaternion.Euler(-18f, 0f, 0f);
             }
@@ -1393,15 +1395,31 @@ namespace Pucaci.Player
             chokeLiftAmount = 0f;
             verticalVelocity = 0f;
 
+            // Putuskan status cekik sepenuhnya jika sedang dicekik
+            var choke = GetComponent<KuntilanakChokeMechanic>();
+            if (choke != null)
+            {
+                choke.SetBeingChoked(false, null);
+            }
+
             // Turunkan langsung ke permukaan tanah seketika agar tidak tergeletak mengambang di udara
             SnapToGround();
 
-            // Perkecil ukuran kapsul CharacterController saat mati agar badan tergeletak pas di tanah
-            // dan tidak menjadi tembok penghalang bagi pemain lain
+            // Perkecil ukuran kapsul CharacterController saat mati dan abaikan tabrakan antar pemain
+            // agar mayat tergeletak di tanah dan tidak nyangkut / terseret oleh pemain lain atau hantu yang lewat
             if (controller != null)
             {
-                controller.height = 0.35f;
-                controller.center = new Vector3(originalControllerCenter.x, 0.175f, originalControllerCenter.z);
+                controller.height = 0.1f;
+                controller.radius = 0.1f;
+                controller.center = new Vector3(originalControllerCenter.x, 0.05f, originalControllerCenter.z);
+
+                foreach (var otherPcc in FindObjectsOfType<PlayerCharacterController>())
+                {
+                    if (otherPcc != this && otherPcc.Controller != null)
+                    {
+                        Physics.IgnoreCollision(controller, otherPcc.Controller, true);
+                    }
+                }
             }
 
             SetSafeTrigger(DeathHash);
@@ -1415,11 +1433,20 @@ namespace Pucaci.Player
                 isDead = false;
                 isImmobilized = false;
 
-                // Kembalikan ukuran normal CharacterController saat bangkit kembali
+                // Kembalikan ukuran normal CharacterController dan kembalikan deteksi tabrakan saat bangkit kembali
                 if (controller != null)
                 {
                     controller.height = originalControllerHeight;
+                    controller.radius = originalControllerRadius;
                     controller.center = originalControllerCenter;
+
+                    foreach (var otherPcc in FindObjectsOfType<PlayerCharacterController>())
+                    {
+                        if (otherPcc != this && otherPcc.Controller != null)
+                        {
+                            Physics.IgnoreCollision(controller, otherPcc.Controller, false);
+                        }
+                    }
                 }
 
                 SetSafeTrigger(GetUpHash);
