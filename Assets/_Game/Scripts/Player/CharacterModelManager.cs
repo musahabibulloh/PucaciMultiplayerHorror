@@ -20,6 +20,9 @@ namespace Pucaci.Player
         [Tooltip("Root GameObject model Pak Vincent")]
         [SerializeField] private GameObject modelPakVincent;
 
+        [Tooltip("Root GameObject model Rocky")]
+        [SerializeField] private GameObject modelRocky;
+
         [Header("First-Person Custom Meshes")]
         [Tooltip("Mesh khusus tangan saja untuk Pak Mamat di tampilan FPP")]
         [SerializeField] private Mesh pakMamatArmsMesh;
@@ -43,7 +46,7 @@ namespace Pucaci.Player
             get
             {
                 int idx = characterIndex >= 0 ? characterIndex : localCharacterIndex;
-                return (idx == 3) ? modelPakVincent : ((idx == 2) ? modelKuntilanak : ((idx == 1) ? modelPakMamat : modelLaras));
+                return (idx == 4) ? modelRocky : ((idx == 3) ? modelPakVincent : ((idx == 2) ? modelKuntilanak : ((idx == 1) ? modelPakMamat : modelLaras)));
             }
         }
 
@@ -60,10 +63,10 @@ namespace Pucaci.Player
 
         private void Start()
         {
-            // Jika mode offline / singleplayer: acak 1 warga (0 = Laras, 1 = Pak Mamat, 3 = Pak Vincent)
+            // Jika mode offline / singleplayer: acak 1 warga (0 = Laras, 1 = Pak Mamat, 3 = Pak Vincent, 4 = Rocky)
             if (!NetworkClient.active && !NetworkServer.active)
             {
-                int[] villagers = { 0, 1, 3 };
+                int[] villagers = { 0, 1, 3, 4 };
                 int randomVillager = villagers[UnityEngine.Random.Range(0, villagers.Length)];
                 ApplyCharacter(randomVillager);
             }
@@ -97,7 +100,7 @@ namespace Pucaci.Player
         [Server]
         public void SetServerCharacter(int index)
         {
-            characterIndex = Mathf.Clamp(index, 0, 3);
+            characterIndex = Mathf.Clamp(index, 0, 4);
         }
 
         [Command]
@@ -137,6 +140,12 @@ namespace Pucaci.Player
                 if (t != null) modelPakVincent = t.gameObject;
             }
 
+            if (modelRocky == null)
+            {
+                var t = transform.Find("Model_Rocky") ?? transform.Find("Model_MasRocky");
+                if (t != null) modelRocky = t.gameObject;
+            }
+
             if (pakMamatArmsMesh == null)
             {
 #if UNITY_EDITOR
@@ -173,6 +182,7 @@ namespace Pucaci.Player
             if (modelPakMamat != null) Pucaci.Rendering.ToonOutlineApplier.ApplyTo(modelPakMamat, 3.8f);
             if (modelKuntilanak != null) Pucaci.Rendering.ToonOutlineApplier.ApplyTo(modelKuntilanak, 3.8f);
             if (modelPakVincent != null) Pucaci.Rendering.ToonOutlineApplier.ApplyTo(modelPakVincent, 3.8f);
+            if (modelRocky != null) Pucaci.Rendering.ToonOutlineApplier.ApplyTo(modelRocky, 3.8f);
         }
 
         public Mesh GetOriginalFullBodyMesh(CharacterType type)
@@ -181,6 +191,7 @@ namespace Pucaci.Player
             if (type == CharacterType.Laras && modelLaras != null) return modelLaras.GetComponentInChildren<SkinnedMeshRenderer>()?.sharedMesh;
             if (type == CharacterType.Kuntilanak && modelKuntilanak != null) return modelKuntilanak.GetComponentInChildren<SkinnedMeshRenderer>()?.sharedMesh;
             if (type == CharacterType.PakVincent && modelPakVincent != null) return modelPakVincent.GetComponentInChildren<SkinnedMeshRenderer>()?.sharedMesh;
+            if (type == CharacterType.Rocky && modelRocky != null) return modelRocky.GetComponentInChildren<SkinnedMeshRenderer>()?.sharedMesh;
             return null;
         }
 
@@ -198,7 +209,7 @@ namespace Pucaci.Player
 
         public void ApplyCharacter(int index)
         {
-            int clamped = Mathf.Clamp(index, 0, 3);
+            int clamped = Mathf.Clamp(index, 0, 4);
             localCharacterIndex = clamped;
             if (netIdentity != null && (isServer || NetworkServer.active))
             {
@@ -212,6 +223,7 @@ namespace Pucaci.Player
             bool isMamat = (activeIdx == 1);
             bool isKunti = (activeIdx == 2);
             bool isVincent = (activeIdx == 3);
+            bool isRocky = (activeIdx == 4);
 
             if (modelLaras != null) modelLaras.SetActive(isLaras);
             if (modelPakMamat != null)
@@ -230,8 +242,9 @@ namespace Pucaci.Player
             }
             if (modelKuntilanak != null) modelKuntilanak.SetActive(isKunti);
             if (modelPakVincent != null) modelPakVincent.SetActive(isVincent);
+            if (modelRocky != null) modelRocky.SetActive(isRocky);
 
-            GameObject targetModelObj = isVincent ? modelPakVincent : (isKunti ? modelKuntilanak : (isMamat ? modelPakMamat : modelLaras));
+            GameObject targetModelObj = isRocky ? modelRocky : (isVincent ? modelPakVincent : (isKunti ? modelKuntilanak : (isMamat ? modelPakMamat : modelLaras)));
             if (targetModelObj == null) return;
 
             // Armature & Mesh FBX Pak Vincent memiliki offset X = +0.716134f bawaan export Blender.

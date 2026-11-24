@@ -7,7 +7,8 @@ namespace Pucaci.Player
         Laras = 0,
         PakMamat = 1,
         Kuntilanak = 2,
-        PakVincent = 3
+        PakVincent = 3,
+        Rocky = 4
     }
 
     public static class CharacterSelectionData
@@ -32,6 +33,7 @@ namespace Pucaci.Player
                 CharacterType.PakMamat => "Pak Mamat",
                 CharacterType.Kuntilanak => "Kuntilanak",
                 CharacterType.PakVincent => "Pak Vincent",
+                CharacterType.Rocky => "Mas Rocky",
                 _ => "Laras"
             };
         }
@@ -44,6 +46,7 @@ namespace Pucaci.Player
                 CharacterType.PakMamat => "Hansip Kampung",
                 CharacterType.Kuntilanak => "Hantu Penunggu",
                 CharacterType.PakVincent => "Penyelidik Desa",
+                CharacterType.Rocky => "Pemuda Desa",
                 _ => "Warga Kampung"
             };
         }
@@ -56,6 +59,7 @@ namespace Pucaci.Player
                 CharacterType.PakMamat => "Penjaga malam senior kampung. Kenyang pengalaman mistis dan memiliki langkah mantap penuh waspada.",
                 CharacterType.Kuntilanak => "Sosok hantu wanita bergaun putih dengan rambut panjang terurai. Melayang tenang di kegelapan malam desa.",
                 CharacterType.PakVincent => "Pria tenang dan penuh perhitungan. Memiliki langkah terukur untuk menyelidiki misteri dan bertahan dari teror malam desa.",
+                CharacterType.Rocky => "Pemuda berbadan tegap dan tangguh. Memiliki fisik prima serta langkah berani untuk melindungi warga dari teror malam desa.",
                 _ => ""
             };
         }

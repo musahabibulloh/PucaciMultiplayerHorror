@@ -1005,43 +1005,7 @@ namespace Pucaci.Editor
             Button btnSelectMamat = CreateButton(mamatInner.transform, "BtnSelectMamat", "PILIH PAK MAMAT", ColorText, ColorBg, 280f);
             TMP_Text mamatBadge = btnSelectMamat.GetComponentInChildren<TMP_Text>();
 
-            // --- Card 3: Kuntilanak ---
-            GameObject cardKunti = new GameObject("Card_Kuntilanak", typeof(RectTransform), typeof(Image));
-            cardKunti.transform.SetParent(cardsRow.transform, false);
-            Image kuntiBorder = cardKunti.GetComponent<Image>();
-            kuntiBorder.color = new Color(0.18f, 0.22f, 0.32f, 1f);
-
-            GameObject kuntiInner = new GameObject("Inner", typeof(RectTransform), typeof(Image), typeof(VerticalLayoutGroup));
-            kuntiInner.transform.SetParent(cardKunti.transform, false);
-            RectTransform kiRect = kuntiInner.GetComponent<RectTransform>();
-            kiRect.anchorMin = Vector2.zero;
-            kiRect.anchorMax = Vector2.one;
-            kiRect.offsetMin = new Vector2(4f, 4f);
-            kiRect.offsetMax = new Vector2(-4f, -4f);
-            kuntiInner.GetComponent<Image>().color = new Color(0.08f, 0.11f, 0.18f, 0.98f);
-
-            VerticalLayoutGroup kiLayout = kuntiInner.GetComponent<VerticalLayoutGroup>();
-            kiLayout.spacing = 10f;
-            kiLayout.childAlignment = TextAnchor.UpperCenter;
-            kiLayout.childControlWidth = true;
-            kiLayout.childControlHeight = false;
-            kiLayout.padding = new RectOffset(20, 20, 20, 20);
-
-            CreateTMPText(kuntiInner.transform, "Name", "KUNTILANAK", 30, TextAlignmentOptions.Center);
-            var roleKunti = CreateTMPText(kuntiInner.transform, "Role", "[ HANTU PENUNGGU ]", 16, TextAlignmentOptions.Center);
-            roleKunti.GetComponent<TMP_Text>().color = new Color(0.85f, 0.6f, 1f, 1f);
-
-            string kuntiDesc = "Sosok hantu wanita bergaun putih dengan rambut panjang terurai. Melayang tenang di kegelapan malam desa.";
-            CreateTMPText(kuntiInner.transform, "Desc", kuntiDesc, 16, TextAlignmentOptions.TopLeft);
-
-            string kuntiTraits = "• Gerakan Melayang Senyap\n• Langkah Tanpa Suara\n• Aura Dingin Mencekam";
-            var traitKunti = CreateTMPText(kuntiInner.transform, "Traits", kuntiTraits, 15, TextAlignmentOptions.TopLeft);
-            traitKunti.GetComponent<TMP_Text>().color = new Color(0.7f, 0.8f, 0.9f, 0.9f);
-
-            Button btnSelectKunti = CreateButton(kuntiInner.transform, "BtnSelectKunti", "PILIH KUNTILANAK", ColorText, ColorBg, 280f);
-            TMP_Text kuntiBadge = btnSelectKunti.GetComponentInChildren<TMP_Text>();
-
-            // --- Card 4: Pak Vincent ---
+            // --- Card 3: Pak Vincent ---
             GameObject cardVincent = new GameObject("Card_PakVincent", typeof(RectTransform), typeof(Image));
             cardVincent.transform.SetParent(cardsRow.transform, false);
             Image vincentBorder = cardVincent.GetComponent<Image>();
@@ -1077,6 +1041,42 @@ namespace Pucaci.Editor
             Button btnSelectVincent = CreateButton(vincentInner.transform, "BtnSelectVincent", "PILIH PAK VINCENT", ColorText, ColorBg, 280f);
             TMP_Text vincentBadge = btnSelectVincent.GetComponentInChildren<TMP_Text>();
 
+            // --- Card 4: Mas Rocky ---
+            GameObject cardRocky = new GameObject("Card_MasRocky", typeof(RectTransform), typeof(Image));
+            cardRocky.transform.SetParent(cardsRow.transform, false);
+            Image rockyBorder = cardRocky.GetComponent<Image>();
+            rockyBorder.color = new Color(0.18f, 0.22f, 0.32f, 1f);
+
+            GameObject rockyInner = new GameObject("Inner", typeof(RectTransform), typeof(Image), typeof(VerticalLayoutGroup));
+            rockyInner.transform.SetParent(cardRocky.transform, false);
+            RectTransform rkRect = rockyInner.GetComponent<RectTransform>();
+            rkRect.anchorMin = Vector2.zero;
+            rkRect.anchorMax = Vector2.one;
+            rkRect.offsetMin = new Vector2(4f, 4f);
+            rkRect.offsetMax = new Vector2(-4f, -4f);
+            rockyInner.GetComponent<Image>().color = new Color(0.08f, 0.11f, 0.18f, 0.98f);
+
+            VerticalLayoutGroup rkLayout = rockyInner.GetComponent<VerticalLayoutGroup>();
+            rkLayout.spacing = 10f;
+            rkLayout.childAlignment = TextAnchor.UpperCenter;
+            rkLayout.childControlWidth = true;
+            rkLayout.childControlHeight = false;
+            rkLayout.padding = new RectOffset(20, 20, 20, 20);
+
+            CreateTMPText(rockyInner.transform, "Name", "MAS ROCKY", 28, TextAlignmentOptions.Center);
+            var roleRocky = CreateTMPText(rockyInner.transform, "Role", "[ PEMUDA DESA ]", 16, TextAlignmentOptions.Center);
+            roleRocky.GetComponent<TMP_Text>().color = new Color(0.95f, 0.75f, 0.3f, 1f);
+
+            string rockyDesc = "Pemuda desa berfisik prima dan tangguh. Siap berpatroli menjaga keamanan warga dari gangguan makhluk gaib malam hari.";
+            CreateTMPText(rockyInner.transform, "Desc", rockyDesc, 16, TextAlignmentOptions.TopLeft);
+
+            string rockyTraits = "• Fisik Prima & Berotot\n• Langkah Tegap & Waspada\n• Keberanian Pemuda Desa";
+            var traitRocky = CreateTMPText(rockyInner.transform, "Traits", rockyTraits, 15, TextAlignmentOptions.TopLeft);
+            traitRocky.GetComponent<TMP_Text>().color = new Color(0.7f, 0.8f, 0.9f, 0.9f);
+
+            Button btnSelectRocky = CreateButton(rockyInner.transform, "BtnSelectRocky", "PILIH MAS ROCKY", ColorText, ColorBg, 280f);
+            TMP_Text rockyBadge = btnSelectRocky.GetComponentInChildren<TMP_Text>();
+
             // Bottom Action Row
             GameObject bottomRow = new GameObject("BottomRow", typeof(RectTransform), typeof(HorizontalLayoutGroup));
             bottomRow.transform.SetParent(panelObj.transform, false);
@@ -1093,16 +1093,16 @@ namespace Pucaci.Editor
             SerializedObject so = new SerializedObject(controller);
             so.FindProperty("selectLarasCardButton").objectReferenceValue = btnSelectLaras;
             so.FindProperty("selectMamatCardButton").objectReferenceValue = btnSelectMamat;
-            so.FindProperty("selectKuntiCardButton").objectReferenceValue = btnSelectKunti;
             so.FindProperty("selectVincentCardButton").objectReferenceValue = btnSelectVincent;
+            so.FindProperty("selectRockyCardButton").objectReferenceValue = btnSelectRocky;
             so.FindProperty("larasCardBorder").objectReferenceValue = larasBorder;
             so.FindProperty("mamatCardBorder").objectReferenceValue = mamatBorder;
-            so.FindProperty("kuntiCardBorder").objectReferenceValue = kuntiBorder;
             so.FindProperty("vincentCardBorder").objectReferenceValue = vincentBorder;
+            so.FindProperty("rockyCardBorder").objectReferenceValue = rockyBorder;
             so.FindProperty("larasStatusBadge").objectReferenceValue = larasBadge;
             so.FindProperty("mamatStatusBadge").objectReferenceValue = mamatBadge;
-            so.FindProperty("kuntiStatusBadge").objectReferenceValue = kuntiBadge;
             so.FindProperty("vincentStatusBadge").objectReferenceValue = vincentBadge;
+            so.FindProperty("rockyStatusBadge").objectReferenceValue = rockyBadge;
             so.FindProperty("startPlayWithCharacterButton").objectReferenceValue = btnStartWithChar;
             so.FindProperty("characterSelectBackButton").objectReferenceValue = btnCharBack;
             so.ApplyModifiedPropertiesWithoutUndo();

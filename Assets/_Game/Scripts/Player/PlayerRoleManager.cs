@@ -79,11 +79,11 @@ namespace Pucaci.Player
 
         private void Start()
         {
-            // Jika mode offline / singleplayer: acak 1 wujud awal manusia dari 3 warga (Laras, Pak Mamat, Pak Vincent)
+            // Jika mode offline / singleplayer: acak 1 wujud awal manusia dari 4 warga (Laras, Pak Mamat, Pak Vincent, Rocky)
             if (!NetworkClient.active && !NetworkServer.active)
             {
                 currentRole = PlayerRole.Impostor;
-                int[] villagers = { 0, 1, 3 };
+                int[] villagers = { 0, 1, 3, 4 };
                 humanDisguiseIndex = villagers[UnityEngine.Random.Range(0, villagers.Length)];
                 currentForm = ImpostorForm.Human;
             }
@@ -137,7 +137,8 @@ namespace Pucaci.Player
             bool pressLaras = false;   // [1]
             bool pressMamat = false;   // [2]
             bool pressVincent = false; // [3]
-            bool pressKunti = false;   // [T] atau [4]
+            bool pressRocky = false;   // [4]
+            bool pressKunti = false;   // [T] atau [5]
 
 #if ENABLE_INPUT_SYSTEM
             var kb = Keyboard.current;
@@ -146,16 +147,18 @@ namespace Pucaci.Player
                 if (kb.digit1Key.wasPressedThisFrame || kb.numpad1Key.wasPressedThisFrame) pressLaras = true;
                 if (kb.digit2Key.wasPressedThisFrame || kb.numpad2Key.wasPressedThisFrame) pressMamat = true;
                 if (kb.digit3Key.wasPressedThisFrame || kb.numpad3Key.wasPressedThisFrame) pressVincent = true;
-                if (kb.tKey.wasPressedThisFrame || kb.digit4Key.wasPressedThisFrame || kb.numpad4Key.wasPressedThisFrame) pressKunti = true;
+                if (kb.digit4Key.wasPressedThisFrame || kb.numpad4Key.wasPressedThisFrame) pressRocky = true;
+                if (kb.tKey.wasPressedThisFrame || kb.digit5Key.wasPressedThisFrame || kb.numpad5Key.wasPressedThisFrame) pressKunti = true;
             }
 #else
             if (Input.GetKeyDown(KeyCode.Alpha1) || Input.GetKeyDown(KeyCode.Keypad1)) pressLaras = true;
             if (Input.GetKeyDown(KeyCode.Alpha2) || Input.GetKeyDown(KeyCode.Keypad2)) pressMamat = true;
             if (Input.GetKeyDown(KeyCode.Alpha3) || Input.GetKeyDown(KeyCode.Keypad3)) pressVincent = true;
-            if (Input.GetKeyDown(KeyCode.T) || Input.GetKeyDown(KeyCode.Alpha4) || Input.GetKeyDown(KeyCode.Keypad4)) pressKunti = true;
+            if (Input.GetKeyDown(KeyCode.Alpha4) || Input.GetKeyDown(KeyCode.Keypad4)) pressRocky = true;
+            if (Input.GetKeyDown(KeyCode.T) || Input.GetKeyDown(KeyCode.Alpha5) || Input.GetKeyDown(KeyCode.Keypad5)) pressKunti = true;
 #endif
 
-            if (!pressLaras && !pressMamat && !pressVincent && !pressKunti) return;
+            if (!pressLaras && !pressMamat && !pressVincent && !pressRocky && !pressKunti) return;
 
             // Jika sedang bermain sendiri/testing dan belum Impostor, otomatis jadikan Impostor
             if (!IsImpostor)
@@ -197,6 +200,10 @@ namespace Pucaci.Player
             {
                 MimicHuman(3); // Pak Vincent
             }
+            else if (pressRocky)
+            {
+                MimicHuman(4); // Rocky
+            }
             else if (pressKunti)
             {
                 ToggleKuntilanakForm();
@@ -204,11 +211,11 @@ namespace Pucaci.Player
         }
 
         /// <summary>
-        /// Meniru wujud manusia tertentu (0 = Laras, 1 = Pak Mamat, 3 = Pak Vincent).
+        /// Meniru wujud manusia tertentu (0 = Laras, 1 = Pak Mamat, 3 = Pak Vincent, 4 = Rocky).
         /// </summary>
         public void MimicHuman(int targetHumanIndex)
         {
-            if (targetHumanIndex != 0 && targetHumanIndex != 1 && targetHumanIndex != 3)
+            if (targetHumanIndex != 0 && targetHumanIndex != 1 && targetHumanIndex != 3 && targetHumanIndex != 4)
             {
                 targetHumanIndex = 1; // Default Pak Mamat
             }
