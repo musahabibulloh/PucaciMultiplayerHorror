@@ -309,16 +309,16 @@ namespace Pucaci.UI
             }
             else if (isKunti)
             {
-                // Kuntilanak siap menyamar menjadi manusia [1] [2] [3]
+                // Kuntilanak siap menyamar menjadi 4 manusia [1] [2] [3] [4]
                 SetCardState(disguiseCard, true, false, disguiseTheme, cardBgNormal,
-                    0f, "MENYAMAR", "SIAP", "<color=#DDAAFF>[1] [2] [3] PILIH</color>");
+                    0f, "MENYAMAR", "SIAP", "<color=#DDAAFF>[1] [2] [3] [4] PILIH</color>");
                 ResetScale(disguiseCard.cardRect);
             }
             else
             {
-                // Sedang dalam wujud manusia: siap kembali ke Kuntilanak [T / 4]
+                // Sedang dalam wujud manusia: siap kembali ke Kuntilanak [T / 5]
                 SetCardState(disguiseCard, true, true, sabotageTheme, cardBgNormal,
-                    0f, "KUNTILANAK", "[T / 4]", "<color=#FF6666>WUJUD HANTU</color>");
+                    0f, "KUNTILANAK", "[T / 5]", "<color=#FF6666>WUJUD HANTU</color>");
                 ApplyPulse(disguiseCard.cardRect, 1.03f, 4f);
             }
         }

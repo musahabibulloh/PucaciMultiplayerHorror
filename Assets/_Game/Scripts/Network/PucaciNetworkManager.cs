@@ -22,17 +22,17 @@ namespace Pucaci.Network
     /// Custom NetworkManager untuk Pucaci Horror Multiplayer:
     /// - Arsitektur Host-Client 100% gratis (Mirror + KCP UDP / LAN / VPN / Playit)
     /// - Menangani perpindahan scene MainMenu <-> Gameplay
-    /// - Menangani spawn 3 player di titik awal (SpawnPoints side-by-side)
-    /// - Mengacak peran: 1 Hantu Kuntilanak (Impostor) + 2 Survivor (Warga)
-    /// - Menyamarkan Impostor sebagai salah satu manusia (Laras, Pak Mamat, Pak Vincent)
+    /// - Menangani spawn 4 player di titik awal (SpawnPoints side-by-side)
+    /// - Mengacak peran: 1 Hantu Kuntilanak (Impostor) + 3 Survivor (Warga)
+    /// - Menyamarkan Impostor sebagai salah satu dari 4 warga (Laras, Pak Mamat, Pak Vincent, Rocky)
     /// </summary>
     public class PucaciNetworkManager : NetworkManager
     {
         public static new PucaciNetworkManager singleton => NetworkManager.singleton as PucaciNetworkManager;
 
         [Header("Pucaci Match Configuration")]
-        [Tooltip("Jumlah pemain target untuk mode multiplayer (Default: 3 pemain)")]
-        [SerializeField] private int targetPlayerCount = 3;
+        [Tooltip("Jumlah pemain target untuk mode multiplayer (Default: 4 pemain)")]
+        [SerializeField] private int targetPlayerCount = 4;
 
         [Tooltip("Durasi hitung mundur sebelum peran dibagikan setelah pemain lengkap (detik)")]
         [SerializeField] private float countdownDuration = 5.0f;
@@ -114,10 +114,10 @@ namespace Pucaci.Network
 
             Debug.Log($"<color=#00FFAA>[PucaciNetworkManager] Player baru bergabung: connId={conn.connectionId}, posisi={player.transform.position}</color>");
 
-            // Beri karakter acak sementara (0 = Laras, 1 = Pak Mamat, 3 = Pak Vincent)
+            // Beri karakter acak sementara dari 4 warga desa (0 = Laras, 1 = Pak Mamat, 3 = Pak Vincent, 4 = Rocky)
             if (player.TryGetComponent<PlayerRoleManager>(out var roleManager))
             {
-                int[] initialVillagers = { 0, 1, 3 };
+                int[] initialVillagers = { 0, 1, 3, 4 };
                 int initialDisguise = initialVillagers[Mathf.Abs(conn.connectionId) % initialVillagers.Length];
                 roleManager.SetRole(PlayerRole.Survivor, initialDisguise);
 

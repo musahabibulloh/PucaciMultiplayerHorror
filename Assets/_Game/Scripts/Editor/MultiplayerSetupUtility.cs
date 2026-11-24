@@ -100,6 +100,11 @@ namespace Pucaci.Editor
             pucaciNet.offlineScene = "MainMenu";
             pucaciNet.onlineScene = "Gameplay";
 
+            var soNet = new SerializedObject(pucaciNet);
+            var propTarget = soNet.FindProperty("targetPlayerCount");
+            if (propTarget != null) propTarget.intValue = 4;
+            soNet.ApplyModifiedPropertiesWithoutUndo();
+
             // 3. Tambahkan MultiplayerLobbyHUD ke GameplayCanvas
             GameObject canvasObj = GameObject.Find("GameplayCanvas");
             if (canvasObj != null)
@@ -187,6 +192,11 @@ namespace Pucaci.Editor
             pucaciNet.runInBackground = true;
             pucaciNet.offlineScene = "MainMenu";
             pucaciNet.onlineScene = "Gameplay";
+
+            var soNetMain = new SerializedObject(pucaciNet);
+            var propTargetMain = soNetMain.FindProperty("targetPlayerCount");
+            if (propTargetMain != null) propTargetMain.intValue = 4;
+            soNetMain.ApplyModifiedPropertiesWithoutUndo();
 
             EditorSceneManager.MarkSceneDirty(scene);
             EditorSceneManager.SaveScene(scene);

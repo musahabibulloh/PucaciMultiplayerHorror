@@ -216,7 +216,8 @@ namespace Pucaci.UI
                 {
                     if (NetworkServer.active)
                     {
-                        statusSubText.text = "Ajak 2 teman lagi untuk mabar, atau tekan <color=#00FFAA><b>[F5]</b></color> untuk Mulai Langsung.";
+                        int needed = Mathf.Max(1, target - current);
+                        statusSubText.text = $"Ajak {needed} teman lagi untuk mabar ({target} orang), atau tekan <color=#00FFAA><b>[F5]</b></color> untuk Mulai Langsung.";
                     }
                     else
                     {
@@ -228,7 +229,7 @@ namespace Pucaci.UI
             {
                 if (statusTitleText != null)
                 {
-                    statusTitleText.text = "<color=#00FFAA><b>PEMAIN LENGKAP (3/3)!</b></color>";
+                    statusTitleText.text = $"<color=#00FFAA><b>PEMAIN LENGKAP ({current}/{target})!</b></color>";
                 }
                 if (statusSubText != null)
                 {

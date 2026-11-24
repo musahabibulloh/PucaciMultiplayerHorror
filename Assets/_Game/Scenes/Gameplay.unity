@@ -21287,7 +21287,7 @@ MonoBehaviour:
   evaluationMethod: 0
   evaluationInterval: 3
   timeInterpolationGui: 0
-  targetPlayerCount: 3
+  targetPlayerCount: 4
   countdownDuration: 3
   matchStarted: 0
 --- !u!1 &1913932148

@@ -139,6 +139,11 @@ namespace Pucaci.Editor
             pucaciNet.offlineScene = "MainMenu";
             pucaciNet.onlineScene = "Gameplay";
 
+            var soNet = new SerializedObject(pucaciNet);
+            var propTarget = soNet.FindProperty("targetPlayerCount");
+            if (propTarget != null) propTarget.intValue = 4;
+            soNet.ApplyModifiedPropertiesWithoutUndo();
+
             // 6. UI readability gradient (behind panels)
             BuildLeftVignette(canvasObj.transform);
 
