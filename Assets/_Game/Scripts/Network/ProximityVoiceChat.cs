@@ -37,8 +37,8 @@ namespace Pucaci.Network
         [Tooltip("Frekuensi sampling VoIP untuk transmisi jaringan (16000 Hz standar broadcast)")]
         [SerializeField] private int voipSampleRate = 16000;
 
-        [Tooltip("Interval pengiriman paket suara ke server (detik)")]
-        [SerializeField] private float packetInterval = 0.05f;
+        [Tooltip("Interval pengiriman paket suara ke server (detik, 25ms = 800 bytes per paket, aman di bawah MTU)")]
+        [SerializeField] private float packetInterval = 0.025f;
 
         [Tooltip("Tombol Push-to-Talk / Toggle Voice (Default: V)")]
         [SerializeField] private KeyCode pushToTalkKey = KeyCode.V;
@@ -309,7 +309,7 @@ namespace Pucaci.Network
         }
 
         /// <summary>
-        /// Dipanggil langsung untuk toggle on/off mic dengan sekali pencet.
+        /// Dipanggil langsung untuk toggle on/off mic dengan sekali pencet / klik tombol HUD.
         /// </summary>
         public void ToggleVoice()
         {
@@ -355,58 +355,60 @@ namespace Pucaci.Network
 
         private void CheckInputState()
         {
-            bool isHeld = IsPushToTalkHeld();
+            // Deteksi input V dari New Input System dan Legacy Input System
+            bool isVDown = false;
+            bool isVHeld = false;
+            bool isVUp = false;
 
-            // Deteksi transisi tombol:
-            if (isHeld && !wasKeyPressedLastFrame)
-            {
-                keyPressStartTime = Time.time;
-            }
-            else if (!isHeld && wasKeyPressedLastFrame)
-            {
-                float holdDuration = Time.time - keyPressStartTime;
-                // Jika ditekan sebentar (< 0.35s) = TAP -> Toggle On/Off
-                if (holdDuration < 0.35f)
-                {
-                    isToggleActive = !isToggleActive;
-                }
-                else
-                {
-                    // Jika ditahan lama (> 0.35s) dan dilepas = PTT selesai -> matikan
-                    isToggleActive = false;
-                }
-            }
-            wasKeyPressedLastFrame = isHeld;
-
-            // Aktif jika tombol sedang ditahan ATAU mode toggle sedang ON
-            IsSpeaking = isHeld || isToggleActive;
-        }
-
-        private bool IsPushToTalkHeld()
-        {
 #if ENABLE_INPUT_SYSTEM
             try
             {
-                if (UnityEngine.InputSystem.Keyboard.current != null)
+                var kb = UnityEngine.InputSystem.Keyboard.current;
+                if (kb != null)
                 {
-                    if (UnityEngine.InputSystem.Keyboard.current.vKey.isPressed)
-                    {
-                        return true;
-                    }
+                    if (kb.vKey.wasPressedThisFrame) isVDown = true;
+                    if (kb.vKey.isPressed) isVHeld = true;
+                    if (kb.vKey.wasReleasedThisFrame) isVUp = true;
                 }
             }
             catch { }
 #endif
-            try
+
+            if (!isVDown && !isVHeld && !isVUp)
             {
-                if (Input.GetKey(pushToTalkKey))
+                try
                 {
-                    return true;
+                    if (Input.GetKeyDown(pushToTalkKey)) isVDown = true;
+                    if (Input.GetKey(pushToTalkKey)) isVHeld = true;
+                    if (Input.GetKeyUp(pushToTalkKey)) isVUp = true;
+                }
+                catch { }
+            }
+
+            // Saat tombol V mulai ditekan
+            if (isVDown)
+            {
+                keyPressStartTime = Time.time;
+            }
+
+            // Saat tombol V dilepas
+            if (isVUp)
+            {
+                float holdDuration = Time.time - keyPressStartTime;
+                if (holdDuration < 0.35f)
+                {
+                    // Tap sebentar = Toggle ON / OFF
+                    isToggleActive = !isToggleActive;
+                }
+                else
+                {
+                    // Hold lama lalu lepas = PTT selesai -> MATIKAN
+                    isToggleActive = false;
                 }
             }
-            catch { }
 
-            return false;
+            // Bicara aktif saat tombol SEDANG DITAHAN atau MODE TOGGLE SEDANG AKTIF
+            IsSpeaking = isVHeld || isToggleActive;
         }
 
         private void UpdateLocalVoiceTransmission()
@@ -685,15 +687,15 @@ namespace Pucaci.Network
             if (overheadVoiceIndicator != null) return;
             overheadVoiceIndicator = new GameObject("OverheadVoiceIndicator");
             overheadVoiceIndicator.transform.SetParent(transform, false);
-            overheadVoiceIndicator.transform.localPosition = new Vector3(0f, 2.35f, 0f);
-            overheadVoiceIndicator.transform.localScale = new Vector3(0.6f, 0.6f, 0.6f);
+            overheadVoiceIndicator.transform.localPosition = new Vector3(0f, 2.15f, 0f);
+            overheadVoiceIndicator.transform.localScale = new Vector3(0.75f, 0.75f, 0.75f);
 
             overheadVoiceRenderer = overheadVoiceIndicator.AddComponent<SpriteRenderer>();
             overheadVoiceRenderer.sprite = GetSpeakerSprite();
             // Shader Sprites/Default yang unlit agar logo sound berpendar terang di malam hari
             var unlitMat = new Material(Shader.Find("Sprites/Default"));
             overheadVoiceRenderer.material = unlitMat;
-            overheadVoiceRenderer.color = new Color(0.1f, 1f, 0.55f, 1f); // Neon green
+            overheadVoiceRenderer.color = new Color(0f, 1f, 0.65f, 1f); // Neon green
             overheadVoiceRenderer.sortingOrder = 100;
 
             overheadVoiceIndicator.SetActive(false);
@@ -711,13 +713,11 @@ namespace Pucaci.Network
                 if (isTalking)
                 {
                     Camera cam = Camera.main;
+                    if (cam == null) cam = FindObjectOfType<Camera>();
                     if (cam != null)
                     {
-                        Vector3 lookDir = overheadVoiceIndicator.transform.position - cam.transform.position;
-                        if (lookDir.sqrMagnitude > 0.001f)
-                        {
-                            overheadVoiceIndicator.transform.rotation = Quaternion.LookRotation(lookDir);
-                        }
+                        // Billboard murni: selalu sejajar datar sempurna dengan layar kamera
+                        overheadVoiceIndicator.transform.rotation = cam.transform.rotation;
                     }
                 }
             }
@@ -756,14 +756,15 @@ namespace Pucaci.Network
             }
 
             RectTransform rt = hudVoiceIndicator.GetComponent<RectTransform>();
-            rt.anchorMin = new Vector2(1f, 0f);
-            rt.anchorMax = new Vector2(1f, 0f);
-            rt.pivot = new Vector2(1f, 0f);
-            rt.anchoredPosition = new Vector2(-30f, 30f);
-            rt.sizeDelta = new Vector2(160f, 44f);
+            // Posisi di tengah bawah (tepat di atas stamina bar) agar terlihat sangat jelas saat bicara
+            rt.anchorMin = new Vector2(0.5f, 0f);
+            rt.anchorMax = new Vector2(0.5f, 0f);
+            rt.pivot = new Vector2(0.5f, 0f);
+            rt.anchoredPosition = new Vector2(0f, 75f);
+            rt.sizeDelta = new Vector2(210f, 54f);
 
             var bgImg = hudVoiceIndicator.GetComponent<Image>();
-            bgImg.color = new Color(0.04f, 0.07f, 0.12f, 0.88f);
+            bgImg.color = new Color(0.04f, 0.08f, 0.12f, 0.90f);
 
             // Icon Image (Logo Sound 🔊)
             GameObject iconObj = new GameObject("Icon", typeof(RectTransform), typeof(Image));
@@ -773,11 +774,11 @@ namespace Pucaci.Network
             irt.anchorMax = new Vector2(0f, 0.5f);
             irt.pivot = new Vector2(0f, 0.5f);
             irt.anchoredPosition = new Vector2(14f, 0f);
-            irt.sizeDelta = new Vector2(28f, 28f);
+            irt.sizeDelta = new Vector2(36f, 36f);
 
             hudVoiceIcon = iconObj.GetComponent<Image>();
             hudVoiceIcon.sprite = GetSpeakerSprite();
-            hudVoiceIcon.color = new Color(0.5f, 0.55f, 0.6f, 0.6f);
+            hudVoiceIcon.color = new Color(0f, 1f, 0.65f, 1f);
 
             // Text Label
             GameObject textObj = new GameObject("Text", typeof(RectTransform), typeof(TMPro.TextMeshProUGUI));
@@ -786,37 +787,39 @@ namespace Pucaci.Network
             trt.anchorMin = new Vector2(0f, 0f);
             trt.anchorMax = new Vector2(1f, 1f);
             trt.pivot = new Vector2(0f, 0.5f);
-            trt.offsetMin = new Vector2(50f, 0f);
+            trt.offsetMin = new Vector2(58f, 0f);
             trt.offsetMax = new Vector2(-10f, 0f);
 
             hudVoiceTmp = textObj.GetComponent<TMPro.TextMeshProUGUI>();
-            hudVoiceTmp.fontSize = 15;
+            hudVoiceTmp.fontSize = 16;
             hudVoiceTmp.fontStyle = TMPro.FontStyles.Bold;
             hudVoiceTmp.alignment = TMPro.TextAlignmentOptions.MidlineLeft;
-            hudVoiceTmp.color = new Color(0.7f, 0.7f, 0.7f, 1f);
-            hudVoiceTmp.text = "[V]";
+            hudVoiceTmp.color = new Color(0f, 1f, 0.65f, 1f);
+            hudVoiceTmp.text = "[V] ||||";
+
+            // Sembunyikan saat awal (Hanya MUNCUL / KELUAR saat tombol V ditekan / aktif!)
+            hudVoiceIndicator.SetActive(false);
         }
 
         private void UpdateHUDIndicator()
         {
-            if (hudVoiceTmp == null || hudVoiceIcon == null) return;
+            if (hudVoiceIndicator == null || hudVoiceTmp == null || hudVoiceIcon == null) return;
 
-            bool hasHardwareMic = (Microphone.devices != null && Microphone.devices.Length > 0);
+            // KELUAR (TAMPIL) SAAT BICARA, SEMBUNYI SAAT TIDAK BICARA
+            if (hudVoiceIndicator.activeSelf != IsSpeaking)
+            {
+                hudVoiceIndicator.SetActive(IsSpeaking);
+            }
 
             if (IsSpeaking)
             {
-                hudVoiceIcon.color = new Color(0f, 1f, 0.65f, 1f); // Neon green saat aktif bicara
-                hudVoiceIcon.transform.localScale = Vector3.one * (1f + Mathf.PingPong(Time.time * 2.5f, 0.15f));
+                bool hasHardwareMic = (Microphone.devices != null && Microphone.devices.Length > 0);
+                hudVoiceIcon.color = new Color(0f, 1f, 0.65f, 1f); // Neon green
+                hudVoiceIcon.transform.localScale = Vector3.one * (1f + Mathf.PingPong(Time.time * 3f, 0.18f));
 
                 int barCount = hasHardwareMic ? Mathf.Clamp((int)(CurrentMicLevel * 100f), 1, 5) : 3;
                 string meter = new string('|', barCount);
                 hudVoiceTmp.text = $"<color=#00FFAA><b>[V]</b></color> <color=#00FF88>{meter}</color>";
-            }
-            else
-            {
-                hudVoiceIcon.color = new Color(0.45f, 0.5f, 0.55f, 0.55f); // Dimmed saat standby
-                hudVoiceIcon.transform.localScale = Vector3.one;
-                hudVoiceTmp.text = "<color=#888888>[V]</color>";
             }
         }
         #endregion
