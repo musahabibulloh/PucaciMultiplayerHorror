@@ -34,7 +34,10 @@ namespace Pucaci.Player
         [SerializeField] private PlayerRole currentRole = PlayerRole.Impostor;
 
         [SyncVar(hook = nameof(OnDisguiseChanged))]
-        [SerializeField] private int humanDisguiseIndex = 1; // 0 = Laras, 1 = Pak Mamat, 3 = Pak Vincent
+        [SerializeField] private int humanDisguiseIndex = 1; // 0 = Laras, 1 = Pak Mamat, 3 = Pak Vincent, 4 = Rocky
+
+        [SyncVar]
+        [SerializeField] private int initialDisguiseIndex = -1; // Karakter utama awal hantu saat match dimulai
 
         [SyncVar(hook = nameof(OnFormChanged))]
         [SerializeField] private ImpostorForm currentForm = ImpostorForm.Human;
@@ -50,6 +53,8 @@ namespace Pucaci.Player
         public bool IsHumanForm => currentForm == ImpostorForm.Human;
         public bool IsKuntilanakForm => currentForm == ImpostorForm.Kuntilanak;
         public CharacterType HumanDisguise => (CharacterType)humanDisguiseIndex;
+        public int InitialDisguiseIndex => (initialDisguiseIndex >= 0) ? initialDisguiseIndex : humanDisguiseIndex;
+        public CharacterType InitialHumanCharacter => (CharacterType)InitialDisguiseIndex;
         public float TransformCooldownRemaining => Mathf.Max(0f, transformCooldownTimer);
         public bool CanTransform => IsImpostor && transformCooldownTimer <= 0.01f;
 
@@ -85,6 +90,7 @@ namespace Pucaci.Player
                 currentRole = PlayerRole.Impostor;
                 int[] villagers = { 0, 1, 3, 4 };
                 humanDisguiseIndex = villagers[UnityEngine.Random.Range(0, villagers.Length)];
+                initialDisguiseIndex = humanDisguiseIndex;
                 currentForm = ImpostorForm.Human;
             }
 
@@ -245,7 +251,8 @@ namespace Pucaci.Player
         }
 
         /// <summary>
-        /// Berganti antara wujud asli Kuntilanak dan wujud manusia yang sedang ditiru.
+        /// Berganti antara wujud asli Kuntilanak dan wujud manusia.
+        /// Saat kembali dari Kuntilanak ke wujud manusia, hantu selalu kembali ke wujud karakter utama dia di awal permainan.
         /// </summary>
         public void ToggleKuntilanakForm()
         {
@@ -256,9 +263,17 @@ namespace Pucaci.Player
             }
             else
             {
-                // Kembali ke wujud manusia yang terakhir ditiru
-                MimicHuman(humanDisguiseIndex);
+                // Kembali ke wujud manusia karakter utama dia di awal pertandingan
+                MimicHuman(InitialDisguiseIndex);
             }
+        }
+
+        /// <summary>
+        /// Mengembalikan wujud hantu langsung ke karakter manusia utama dia di awal permainan.
+        /// </summary>
+        public void RevertToOriginalHuman()
+        {
+            MimicHuman(InitialDisguiseIndex);
         }
 
         public void TransformToKuntilanak()
@@ -329,6 +344,7 @@ namespace Pucaci.Player
         {
             currentRole = role;
             humanDisguiseIndex = disguiseIndex;
+            initialDisguiseIndex = disguiseIndex; // Catat karakter utama dia di awal pertandingan
             currentForm = ImpostorForm.Human; // Impostor selalu mulai dalam wujud manusia (menyamar)
 
             ApplyCurrentVisuals(false);
@@ -392,7 +408,7 @@ namespace Pucaci.Player
                     applier.SetOutlineEnabled(true);
                 }
             }
-            if (isServer || NetworkServer.active)
+            if (netIdentity != null && netIdentity.isServer)
             {
                 modelManager.SetServerCharacter(targetIndex);
             }
@@ -406,7 +422,7 @@ namespace Pucaci.Player
             if (playEffects)
             {
                 Vector3 fxPos = transform.position + Vector3.up * 0.9f;
-                if (isServer || NetworkServer.active)
+                if (netIdentity != null && netIdentity.isServer)
                 {
                     RpcPlayTransformFX(isKunti, fxPos);
                 }

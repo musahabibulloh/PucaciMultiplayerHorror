@@ -134,7 +134,8 @@ namespace Pucaci.UI
                 hudHeaderTitle.text = "<b><color=#FF4444>KEMAMPUAN HANTU KUNTILANAK</color></b>";
                 if (disguiseSubInfo != null)
                 {
-                    disguiseSubInfo.text = "<color=#AAAAAA>Wujud Asli</color> | Tekan <b>[1] [2] [3] [4]</b> untuk Menyamar";
+                    string origName = roleManager.InitialHumanCharacter.ToString().ToUpper();
+                    disguiseSubInfo.text = $"Tekan <b>[T / 5]</b> untuk Kembali Menjadi <b>{origName}</b> | <b>[1-4]</b> Menyamar";
                 }
             }
             else
@@ -309,9 +310,10 @@ namespace Pucaci.UI
             }
             else if (isKunti)
             {
-                // Kuntilanak siap menyamar menjadi 4 manusia [1] [2] [3] [4]
+                // Kuntilanak siap kembali menjadi wujud aslinya di awal [T / 5] atau memilih penyamaran [1-4]
+                string origName = roleManager.InitialHumanCharacter.ToString().ToUpper();
                 SetCardState(disguiseCard, true, false, disguiseTheme, cardBgNormal,
-                    0f, "MENYAMAR", "SIAP", "<color=#DDAAFF>[1] [2] [3] [4] PILIH</color>");
+                    0f, "KEMBALI MANUSIA", "[T / 5]", $"<color=#DDAAFF>{origName}</color>");
                 ResetScale(disguiseCard.cardRect);
             }
             else

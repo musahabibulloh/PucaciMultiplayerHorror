@@ -273,5 +273,90 @@ namespace Pucaci.Editor
                 Object.DestroyImmediate(go);
             }
         }
+
+        [MenuItem("Pucaci/Verify Hantu Revert Initial Character")]
+        public static void VerifyHantuRevertInitialCharacter()
+        {
+            var go = new GameObject("Test_Player_Revert");
+            try
+            {
+                var modelMgr = go.AddComponent<Pucaci.Player.CharacterModelManager>();
+                var roleMgr = go.AddComponent<Pucaci.Player.PlayerRoleManager>();
+
+                // Inisialisasi awal: Role Impostor dengan karakter Rocky (4)
+                roleMgr.SetRole(Pucaci.Player.PlayerRole.Impostor, 4);
+
+                bool initialCheck = (roleMgr.InitialDisguiseIndex == 4) && (roleMgr.HumanDisguise == Pucaci.Player.CharacterType.Rocky);
+                Debug.Log($"[TEST 1] Initial Disguise is Rocky: {initialCheck} (disguise={roleMgr.HumanDisguise})");
+
+                // Bertransformasi ke Kuntilanak
+                roleMgr.TransformToKuntilanak();
+                bool isKunti = roleMgr.IsKuntilanakForm;
+                Debug.Log($"[TEST 2] Transformed to Kuntilanak: {isKunti}");
+
+                // Kembali ke wujud manusia via ToggleKuntilanakForm
+                roleMgr.ToggleKuntilanakForm();
+                bool backToInitialHuman = roleMgr.IsHumanForm && (roleMgr.HumanDisguise == Pucaci.Player.CharacterType.Rocky);
+                Debug.Log($"[TEST 3] Reverted back to Rocky: {backToInitialHuman} (disguise={roleMgr.HumanDisguise})");
+
+                // Test skenario jika sempat meniru orang lain (misal Pak Vincent = 3), lalu berubah kunti, lalu kembali
+                roleMgr.MimicHuman(3);
+                bool mimickedVincent = (roleMgr.HumanDisguise == Pucaci.Player.CharacterType.PakVincent);
+                Debug.Log($"[TEST 4] Mimicked Vincent: {mimickedVincent}");
+
+                roleMgr.TransformToKuntilanak();
+                Debug.Log($"[TEST 5] Transformed to Kuntilanak again: {roleMgr.IsKuntilanakForm}");
+
+                roleMgr.ToggleKuntilanakForm();
+                bool revertedToInitialAfterMimic = roleMgr.IsHumanForm && (roleMgr.HumanDisguise == Pucaci.Player.CharacterType.Rocky);
+                Debug.Log($"[TEST 6] Reverted to Initial (Rocky) after previous mimic: {revertedToInitialAfterMimic} (disguise={roleMgr.HumanDisguise})");
+
+                // Uji juga untuk karakter lain: misal Laras (0)
+                roleMgr.SetRole(Pucaci.Player.PlayerRole.Impostor, 0);
+                roleMgr.TransformToKuntilanak();
+                roleMgr.ToggleKuntilanakForm();
+                bool larasCheck = roleMgr.IsHumanForm && (roleMgr.HumanDisguise == Pucaci.Player.CharacterType.Laras);
+                Debug.Log($"[TEST 7] Initial Laras reverted correctly: {larasCheck} (disguise={roleMgr.HumanDisguise})");
+
+                // Uji juga untuk karakter Pak Mamat (1)
+                roleMgr.SetRole(Pucaci.Player.PlayerRole.Impostor, 1);
+                roleMgr.TransformToKuntilanak();
+                roleMgr.ToggleKuntilanakForm();
+                bool mamatCheck = roleMgr.IsHumanForm && (roleMgr.HumanDisguise == Pucaci.Player.CharacterType.PakMamat);
+                Debug.Log($"[TEST 8] Initial Pak Mamat reverted correctly: {mamatCheck} (disguise={roleMgr.HumanDisguise})");
+
+                bool allSuccess = initialCheck && isKunti && backToInitialHuman && mimickedVincent && revertedToInitialAfterMimic && larasCheck && mamatCheck;
+
+                string report = $"[TEST 1] Initial Disguise is Rocky: {initialCheck}\n" +
+                                $"[TEST 2] Transformed to Kuntilanak: {isKunti}\n" +
+                                $"[TEST 3] Reverted back to Rocky: {backToInitialHuman}\n" +
+                                $"[TEST 4] Mimicked Vincent: {mimickedVincent}\n" +
+                                $"[TEST 5] Transformed to Kuntilanak: {roleMgr.IsKuntilanakForm}\n" +
+                                $"[TEST 6] Reverted to Initial (Rocky) after previous mimic: {revertedToInitialAfterMimic}\n" +
+                                $"[TEST 7] Initial Laras reverted correctly: {larasCheck}\n" +
+                                $"[TEST 8] Initial Pak Mamat reverted correctly: {mamatCheck}\n" +
+                                $"ALL TESTS PASSED: {allSuccess}\n";
+
+                System.IO.File.WriteAllText("C:/Users/MUSA/.gemini/antigravity/brain/3104c68e-3988-4937-956a-544f03a4f729/hantu_revert_report.txt", report);
+
+                if (allSuccess)
+                {
+                    Debug.Log("<color=#00FFAA><b>[VERIFICATION SUCCESS] Hantu selalu kembali ke karakter utama awalnya setelah bertransformasi menjadi Kuntilanak!</b></color>");
+                }
+                else
+                {
+                    Debug.LogError("[VERIFICATION FAILED] Hantu gagal kembali ke karakter utama awalnya.");
+                }
+            }
+            catch (System.Exception ex)
+            {
+                System.IO.File.WriteAllText("C:/Users/MUSA/.gemini/antigravity/brain/3104c68e-3988-4937-956a-544f03a4f729/hantu_revert_report.txt", "EXCEPTION: " + ex.ToString());
+                Debug.LogException(ex);
+            }
+            finally
+            {
+                Object.DestroyImmediate(go);
+            }
+        }
     }
 }
