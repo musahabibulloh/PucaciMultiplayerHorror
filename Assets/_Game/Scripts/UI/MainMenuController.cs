@@ -356,13 +356,11 @@ namespace Pucaci.UI
                 return;
             }
 #endif
-            if (SceneFader.Instance != null)
+            if (mabarStatusText != null) mabarStatusText.text = "Memulai Permainan...";
+            multiplayerLauncher.Host();
+            if (!multiplayerLauncher.IsAvailable && mabarStatusText != null)
             {
-                SceneFader.Instance.FadeAndLoadScene(gameSceneName);
-            }
-            else
-            {
-                UnityEngine.SceneManagement.SceneManager.LoadScene(gameSceneName);
+                mabarStatusText.text = "Fitur permainan belum tersedia.";
             }
         }
         #endregion

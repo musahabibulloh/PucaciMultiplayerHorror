@@ -928,10 +928,10 @@ MonoBehaviour:
       m_Calls: []
   m_text: "<b>KONTROL GERAKAN (PUCACI):</b>\n\u2022 <b>WASD</b>: Bergerak / Berjalan\n\u2022
     <b>Shift Kiri</b>: Lari Cepat (Sprint)\n\u2022 <b>Spasi</b>: Melompat | <b>Ctrl
-    / C</b>: Meluncur\n\u2022 <b>F / R</b>: Wujud Gaib (Kuntilanak) / Senter (Manusia)\n\u2022
-    <b>Q</b>: Sabotase Lampu Desa (Kuntilanak)\n\u2022 <b>Klik Kiri / E</b>: Menyekik
-    Mangsa (Kuntilanak)\n\u2022 <b>X</b>: Nengok ke Belakang\n\u2022 <b>Esc</b>:
-    Buka Kursor Mouse"
+    / C</b>: Meluncur\n\u2022 <b>V</b>: Obrolan Suara (Voice Chat 3D) [Tekan/Tahan]\n\u2022
+    <b>F / R</b>: Wujud Gaib (Kuntilanak) / Senter (Manusia)\n\u2022 <b>Q</b>: Sabotase
+    Lampu Desa (Kuntilanak)\n\u2022 <b>Klik Kiri / E</b>: Menyekik Mangsa (Kuntilanak)\n\u2022
+    <b>X</b>: Nengok ke Belakang\n\u2022 <b>Esc</b>: Buka Kursor Mouse"
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
   m_sharedMaterial: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
@@ -7614,6 +7614,10 @@ MonoBehaviour:
   statusTitleText: {fileID: 0}
   statusSubText: {fileID: 0}
   bannerBgImage: {fileID: 0}
+  centerCountdownRoot: {fileID: 0}
+  centerCanvasGroup: {fileID: 0}
+  centerCountdownTitle: {fileID: 0}
+  centerCountdownNumber: {fileID: 0}
 --- !u!1 &716844887
 GameObject:
   m_ObjectHideFlags: 0

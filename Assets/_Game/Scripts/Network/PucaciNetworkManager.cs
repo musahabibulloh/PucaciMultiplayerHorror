@@ -64,6 +64,19 @@ namespace Pucaci.Network
             onlineScene = "Gameplay";
         }
 
+        public override void Start()
+        {
+            base.Start();
+
+            // Jika berada di scene Gameplay dan network belum aktif (misal tes langsung di Unity Editor):
+            // Otomatis mulai Host agar player langsung spawn dan semua fitur gameplay/voice chat dapat diuji langsung!
+            if (SceneManager.GetActiveScene().name == "Gameplay" && !NetworkServer.active && !NetworkClient.active)
+            {
+                Debug.Log("<color=#00FFAA>[PucaciNetworkManager] Mode Gameplay Offline / Editor terdeteksi. Otomatis memulai Host & spawn pemain!</color>");
+                StartHost();
+            }
+        }
+
         public override void Update()
         {
             base.Update();

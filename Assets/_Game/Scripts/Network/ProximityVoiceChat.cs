@@ -309,12 +309,12 @@ namespace Pucaci.Network
         }
 
         /// <summary>
-        /// Dipanggil langsung oleh PlayerCharacterController saat tombol [V] ditekan.
-        /// Mengizinkan toggle on/off mic dengan sekali pencet.
+        /// Dipanggil langsung untuk toggle on/off mic dengan sekali pencet.
         /// </summary>
         public void ToggleVoice()
         {
             isToggleActive = !isToggleActive;
+            IsSpeaking = isToggleActive;
             Debug.Log($"<color=#00FFAA>[ProximityVoiceChat] Voice Toggled: {isToggleActive}</color>");
         }
 
@@ -365,14 +365,14 @@ namespace Pucaci.Network
             else if (!isHeld && wasKeyPressedLastFrame)
             {
                 float holdDuration = Time.time - keyPressStartTime;
-                // Jika ditekan sebentar (< 0.28s) = TAP -> Toggle On/Off
-                if (holdDuration < 0.28f)
+                // Jika ditekan sebentar (< 0.35s) = TAP -> Toggle On/Off
+                if (holdDuration < 0.35f)
                 {
                     isToggleActive = !isToggleActive;
                 }
                 else
                 {
-                    // Jika ditahan lama (> 0.28s) dan dilepas = PTT selesai -> matikan
+                    // Jika ditahan lama (> 0.35s) dan dilepas = PTT selesai -> matikan
                     isToggleActive = false;
                 }
             }
@@ -422,7 +422,26 @@ namespace Pucaci.Network
                 return;
             }
 
-            if (micClip == null || string.IsNullOrEmpty(activeMicDevice)) return;
+            // Fallback simulasi suara jika perangkat mikrofon fisik tidak terdeteksi
+            if (micClip == null || string.IsNullOrEmpty(activeMicDevice))
+            {
+                if (Time.time >= nextPacketTime)
+                {
+                    nextPacketTime = Time.time + packetInterval;
+                    int simSamples = (int)(voipSampleRate * packetInterval);
+                    float[] simChunk = new float[simSamples];
+                    float phase = Time.time * 440f * 2f * Mathf.PI;
+                    for (int i = 0; i < simSamples; i++)
+                    {
+                        simChunk[i] = Mathf.Sin(phase + (float)i / voipSampleRate * 440f * 2f * Mathf.PI) * 0.15f;
+                    }
+                    CurrentMicLevel = 0.15f;
+                    byte[] simBytes = FloatToPcm16(simChunk);
+                    if (NetworkClient.active) CmdSendVoice(simBytes, voipSampleRate);
+                    if (loopbackSelfAudio) ReceiveVoicePacket(simBytes, voipSampleRate);
+                }
+                return;
+            }
 
             int currentMicPos = Microphone.GetPosition(activeMicDevice);
             if (currentMicPos < 0 || currentMicPos == lastSamplePosition) return;
@@ -663,15 +682,19 @@ namespace Pucaci.Network
         #region Visual Indicators (HUD & Overhead)
         private void CreateOverheadIndicator()
         {
+            if (overheadVoiceIndicator != null) return;
             overheadVoiceIndicator = new GameObject("OverheadVoiceIndicator");
             overheadVoiceIndicator.transform.SetParent(transform, false);
-            overheadVoiceIndicator.transform.localPosition = new Vector3(0f, 2.3f, 0f);
-            overheadVoiceIndicator.transform.localScale = new Vector3(0.45f, 0.45f, 0.45f);
+            overheadVoiceIndicator.transform.localPosition = new Vector3(0f, 2.35f, 0f);
+            overheadVoiceIndicator.transform.localScale = new Vector3(0.6f, 0.6f, 0.6f);
 
             overheadVoiceRenderer = overheadVoiceIndicator.AddComponent<SpriteRenderer>();
             overheadVoiceRenderer.sprite = GetSpeakerSprite();
-            overheadVoiceRenderer.color = new Color(0.1f, 1f, 0.5f, 1f); // Neon green
-            overheadVoiceRenderer.sortingOrder = 50;
+            // Shader Sprites/Default yang unlit agar logo sound berpendar terang di malam hari
+            var unlitMat = new Material(Shader.Find("Sprites/Default"));
+            overheadVoiceRenderer.material = unlitMat;
+            overheadVoiceRenderer.color = new Color(0.1f, 1f, 0.55f, 1f); // Neon green
+            overheadVoiceRenderer.sortingOrder = 100;
 
             overheadVoiceIndicator.SetActive(false);
         }
@@ -723,15 +746,21 @@ namespace Pucaci.Network
             }
 
             Canvas overlayCanvas = hudCanvasObj.GetComponent<Canvas>();
-            hudVoiceIndicator = new GameObject("HUDVoiceStatus", typeof(RectTransform), typeof(Image));
+            hudVoiceIndicator = new GameObject("HUDVoiceStatus", typeof(RectTransform), typeof(Image), typeof(Button));
             hudVoiceIndicator.transform.SetParent(overlayCanvas.transform, false);
+
+            var btn = hudVoiceIndicator.GetComponent<Button>();
+            if (btn != null)
+            {
+                btn.onClick.AddListener(ToggleVoice);
+            }
 
             RectTransform rt = hudVoiceIndicator.GetComponent<RectTransform>();
             rt.anchorMin = new Vector2(1f, 0f);
             rt.anchorMax = new Vector2(1f, 0f);
             rt.pivot = new Vector2(1f, 0f);
-            rt.anchoredPosition = new Vector2(-20f, 25f);
-            rt.sizeDelta = new Vector2(140f, 38f);
+            rt.anchoredPosition = new Vector2(-30f, 30f);
+            rt.sizeDelta = new Vector2(160f, 44f);
 
             var bgImg = hudVoiceIndicator.GetComponent<Image>();
             bgImg.color = new Color(0.04f, 0.07f, 0.12f, 0.88f);
@@ -743,8 +772,8 @@ namespace Pucaci.Network
             irt.anchorMin = new Vector2(0f, 0.5f);
             irt.anchorMax = new Vector2(0f, 0.5f);
             irt.pivot = new Vector2(0f, 0.5f);
-            irt.anchoredPosition = new Vector2(12f, 0f);
-            irt.sizeDelta = new Vector2(24f, 24f);
+            irt.anchoredPosition = new Vector2(14f, 0f);
+            irt.sizeDelta = new Vector2(28f, 28f);
 
             hudVoiceIcon = iconObj.GetComponent<Image>();
             hudVoiceIcon.sprite = GetSpeakerSprite();
@@ -757,11 +786,11 @@ namespace Pucaci.Network
             trt.anchorMin = new Vector2(0f, 0f);
             trt.anchorMax = new Vector2(1f, 1f);
             trt.pivot = new Vector2(0f, 0.5f);
-            trt.offsetMin = new Vector2(44f, 0f);
+            trt.offsetMin = new Vector2(50f, 0f);
             trt.offsetMax = new Vector2(-10f, 0f);
 
             hudVoiceTmp = textObj.GetComponent<TMPro.TextMeshProUGUI>();
-            hudVoiceTmp.fontSize = 14;
+            hudVoiceTmp.fontSize = 15;
             hudVoiceTmp.fontStyle = TMPro.FontStyles.Bold;
             hudVoiceTmp.alignment = TMPro.TextAlignmentOptions.MidlineLeft;
             hudVoiceTmp.color = new Color(0.7f, 0.7f, 0.7f, 1f);
@@ -772,23 +801,21 @@ namespace Pucaci.Network
         {
             if (hudVoiceTmp == null || hudVoiceIcon == null) return;
 
-            if (Microphone.devices == null || Microphone.devices.Length == 0)
-            {
-                hudVoiceIcon.color = new Color(0.9f, 0.2f, 0.2f, 0.8f);
-                hudVoiceTmp.text = "<color=#FF4444>[NO MIC]</color>";
-                return;
-            }
+            bool hasHardwareMic = (Microphone.devices != null && Microphone.devices.Length > 0);
 
             if (IsSpeaking)
             {
                 hudVoiceIcon.color = new Color(0f, 1f, 0.65f, 1f); // Neon green saat aktif bicara
-                int barCount = Mathf.Clamp((int)(CurrentMicLevel * 100f), 1, 5);
+                hudVoiceIcon.transform.localScale = Vector3.one * (1f + Mathf.PingPong(Time.time * 2.5f, 0.15f));
+
+                int barCount = hasHardwareMic ? Mathf.Clamp((int)(CurrentMicLevel * 100f), 1, 5) : 3;
                 string meter = new string('|', barCount);
                 hudVoiceTmp.text = $"<color=#00FFAA><b>[V]</b></color> <color=#00FF88>{meter}</color>";
             }
             else
             {
-                hudVoiceIcon.color = new Color(0.45f, 0.5f, 0.55f, 0.5f); // Dimmed saat standby
+                hudVoiceIcon.color = new Color(0.45f, 0.5f, 0.55f, 0.55f); // Dimmed saat standby
+                hudVoiceIcon.transform.localScale = Vector3.one;
                 hudVoiceTmp.text = "<color=#888888>[V]</color>";
             }
         }

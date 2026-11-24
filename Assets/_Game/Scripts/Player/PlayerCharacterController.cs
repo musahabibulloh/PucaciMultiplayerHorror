@@ -1160,21 +1160,6 @@ namespace Pucaci.Player
             bool lookBack = GetLookBackInput();
             SetSafeBool(LookBackHash, lookBack);
 
-            // Toggle Proximity Voice Chat (V)
-#if ENABLE_INPUT_SYSTEM
-            if (Keyboard.current != null && Keyboard.current.vKey.wasPressedThisFrame)
-            {
-                var voice = GetComponent<Pucaci.Network.ProximityVoiceChat>();
-                if (voice != null) voice.ToggleVoice();
-            }
-#else
-            if (Input.GetKeyDown(KeyCode.V))
-            {
-                var voice = GetComponent<Pucaci.Network.ProximityVoiceChat>();
-                if (voice != null) voice.ToggleVoice();
-            }
-#endif
-
             // Toggle Senter (F)
 #if ENABLE_INPUT_SYSTEM
             if (Keyboard.current != null && Keyboard.current.fKey.wasPressedThisFrame)
