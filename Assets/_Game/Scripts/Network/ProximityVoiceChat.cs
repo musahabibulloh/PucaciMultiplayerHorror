@@ -333,30 +333,21 @@ namespace Pucaci.Network
 
                 lastSamplePosition = currentMicPos;
 
-                // Hitung level volume RMS
-                float sum = 0f;
-                for (int i = 0; i < chunk.Length; i++)
-                {
-                    sum += chunk[i] * chunk[i];
-                }
-                float rms = Mathf.Sqrt(sum / chunk.Length);
-                CurrentMicLevel = rms;
-
-                // Cek sensitivitas threshold VAD
-                float threshold = voiceDetectionThreshold;
-                if (Pucaci.UI.SettingsManager.Instance != null)
-                {
-                    threshold = Mathf.Lerp(0.02f, 0.001f, Pucaci.UI.SettingsManager.Instance.MicSensitivity);
-                }
-
+                // Push-to-Talk eksklusif: Voice hanya aktif saat tombol [V] ditekan / ditahan
                 bool pttPressed = IsPushToTalkPressed();
-                bool vadActive = (rms > threshold);
-
-                // Tombol [V] atau berbicara langsung memicu transmisi suara
-                IsSpeaking = pttPressed || vadActive;
+                IsSpeaking = pttPressed;
 
                 if (IsSpeaking)
                 {
+                    // Hitung level volume RMS saat berbicara
+                    float sum = 0f;
+                    for (int i = 0; i < chunk.Length; i++)
+                    {
+                        sum += chunk[i] * chunk[i];
+                    }
+                    float rms = Mathf.Sqrt(sum / chunk.Length);
+                    CurrentMicLevel = rms;
+
                     byte[] pcmBytes = FloatToPcm16(chunk);
 
                     // Kirim ke server jika terhubung di multiplayer Mirror
@@ -370,6 +361,10 @@ namespace Pucaci.Network
                     {
                         ReceiveVoicePacket(pcmBytes, actualSampleRate);
                     }
+                }
+                else
+                {
+                    CurrentMicLevel = 0f;
                 }
             }
         }
@@ -526,13 +521,13 @@ namespace Pucaci.Network
             overheadVoiceIndicator.transform.localPosition = new Vector3(0f, 2.45f, 0f);
 
             overheadVoiceText = overheadVoiceIndicator.AddComponent<TextMesh>();
-            overheadVoiceText.text = "🔊 [BICARA]";
-            overheadVoiceText.characterSize = 0.075f;
-            overheadVoiceText.fontSize = 26;
+            overheadVoiceText.text = "🔊";
+            overheadVoiceText.characterSize = 0.12f;
+            overheadVoiceText.fontSize = 32;
             overheadVoiceText.fontStyle = FontStyle.Bold;
             overheadVoiceText.anchor = TextAnchor.MiddleCenter;
             overheadVoiceText.alignment = TextAlignment.Center;
-            overheadVoiceText.color = new Color(0.2f, 1f, 0.45f, 1f); // Neon green
+            overheadVoiceText.color = new Color(0.2f, 1f, 0.5f, 1f); // Neon green / cyan
 
             overheadVoiceIndicator.SetActive(false);
         }
@@ -592,7 +587,7 @@ namespace Pucaci.Network
             rt.anchorMax = new Vector2(1f, 0f);
             rt.pivot = new Vector2(1f, 0f);
             rt.anchoredPosition = new Vector2(-20f, 25f);
-            rt.sizeDelta = new Vector2(280f, 40f);
+            rt.sizeDelta = new Vector2(160f, 38f);
 
             var bgImg = hudVoiceIndicator.GetComponent<Image>();
             bgImg.color = new Color(0.04f, 0.07f, 0.12f, 0.88f);
@@ -606,11 +601,11 @@ namespace Pucaci.Network
             trt.anchoredPosition = Vector2.zero;
 
             hudVoiceTmp = textObj.GetComponent<TMPro.TextMeshProUGUI>();
-            hudVoiceTmp.fontSize = 13;
+            hudVoiceTmp.fontSize = 14;
             hudVoiceTmp.fontStyle = TMPro.FontStyles.Bold;
             hudVoiceTmp.alignment = TMPro.TextAlignmentOptions.Center;
             hudVoiceTmp.color = new Color(0.85f, 0.85f, 0.85f, 1f);
-            hudVoiceTmp.text = "🎙️ VOICE: SIAP (Tahan [V] / Bicara)";
+            hudVoiceTmp.text = "🔇 <color=#888888>[V]</color>";
         }
 
         private void UpdateHUDIndicator()
@@ -619,19 +614,19 @@ namespace Pucaci.Network
 
             if (Microphone.devices == null || Microphone.devices.Length == 0)
             {
-                hudVoiceTmp.text = "🎙️ <color=#FF4444>MIC: TIDAK TERDETEKSI</color>";
+                hudVoiceTmp.text = "🔇 <color=#FF4444>[NO MIC]</color>";
                 return;
             }
 
             if (IsSpeaking)
             {
-                int barCount = Mathf.Clamp((int)(CurrentMicLevel * 100f), 1, 8);
+                int barCount = Mathf.Clamp((int)(CurrentMicLevel * 100f), 1, 6);
                 string meter = new string('|', barCount);
-                hudVoiceTmp.text = $"🎙️ <color=#00FFAA><b>VOICE: AKTIF</b></color> <color=#FFDD00>[{meter}]</color> <size=11><color=#88FFAA>[V]</color></size>";
+                hudVoiceTmp.text = $"🔊 <color=#00FFAA><b>[V]</b></color> <color=#00FF88>{meter}</color>";
             }
             else
             {
-                hudVoiceTmp.text = "🎙️ <color=#CCCCCC>VOICE: SIAP (Tahan [V] / Bicara)</color>";
+                hudVoiceTmp.text = "🔇 <color=#888888>[V]</color>";
             }
         }
         #endregion
