@@ -21,7 +21,7 @@ namespace Pucaci.Rendering
 
         [Range(1.0f, 15.0f)]
         [Tooltip("Ketebalan garis di layar (5.0 - 8.0 adalah standar tegas ala Fortnite / comic anime)")]
-        [SerializeField] private float outlineWidth = 6.0f;
+        [SerializeField] private float outlineWidth = 7.5f;
 
         [Tooltip("Warna outline (hitam pekat kartunis)")]
         [SerializeField] private Color outlineColor = Color.black;
@@ -127,6 +127,13 @@ namespace Pucaci.Rendering
                     continue;
                 }
                 if (rend is ParticleSystemRenderer || rend is TrailRenderer || rend is LineRenderer)
+                    continue;
+
+                string nameLower = rend.gameObject.name.ToLower();
+                if (nameLower.Contains("plane") || nameLower.Contains("terrain") || nameLower.Contains("ground") || nameLower.Contains("water") || nameLower.Contains("sky"))
+                    continue;
+
+                if (rend.CompareTag("Ground"))
                     continue;
 
                 CreateOrUpdateOutlineForRenderer(rend);
@@ -267,7 +274,7 @@ namespace Pucaci.Rendering
         /// <summary>
         /// Helper statis untuk menambahkan ToonOutline tegas ke GameObject apapun (karakter atau props).
         /// </summary>
-        public static ToonOutlineApplier ApplyTo(GameObject target, float width = 6.0f)
+        public static ToonOutlineApplier ApplyTo(GameObject target, float width = 7.5f)
         {
             if (target == null) return null;
 

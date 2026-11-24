@@ -40,7 +40,7 @@ namespace Pucaci.Rendering
         [SerializeField] private Color outlineColor = Color.black;
         [Range(1.0f, 15.0f)]
         [Tooltip("Ketebalan garis di layar (5.0 - 8.0 adalah standar tegas ala Fortnite)")]
-        [SerializeField] private float thickness = 6.0f;
+        [SerializeField] private float thickness = 7.5f;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         private static void InitializeRuntime()
@@ -64,6 +64,63 @@ namespace Pucaci.Rendering
                 return;
             }
             instance = this;
+        }
+
+        private void OnEnable()
+        {
+            UnityEngine.SceneManagement.SceneManager.sceneLoaded += OnSceneLoaded;
+        }
+
+        private void OnDisable()
+        {
+            UnityEngine.SceneManagement.SceneManager.sceneLoaded -= OnSceneLoaded;
+        }
+
+        private void Start()
+        {
+            AutoApplyOutlineToSceneProps();
+        }
+
+        private void OnSceneLoaded(UnityEngine.SceneManagement.Scene scene, UnityEngine.SceneManagement.LoadSceneMode mode)
+        {
+            AutoApplyOutlineToSceneProps();
+        }
+
+        /// <summary>
+        /// Secara otomatis memindai dan menerapkan outline kartunis tebal ke seluruh objek dan props desa (rumah, pagar, lampu, sesajen, dll).
+        /// </summary>
+        public void AutoApplyOutlineToSceneProps()
+        {
+            var activeScene = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
+            if (!activeScene.isLoaded) return;
+
+            var rootObjects = activeScene.GetRootGameObjects();
+            foreach (var root in rootObjects)
+            {
+                if (root == null) continue;
+
+                // Abaikan UI, kamera, manager sistem, spawn points, dan lighting
+                string rootName = root.name;
+                if (rootName.Contains("Camera") || rootName.Contains("Canvas") || rootName.Contains("EventSystem") ||
+                    rootName.Contains("NetworkManager") || rootName.Contains("SpawnPoints") || rootName.Contains("Moonlight") ||
+                    rootName.Contains("GlobalVolume") || rootName.Contains("AudioPlayer") || rootName.StartsWith("["))
+                {
+                    continue;
+                }
+
+                if (root.GetComponent<Camera>() != null || root.GetComponent<Canvas>() != null)
+                {
+                    continue;
+                }
+
+                // Cek apakah memiliki MeshRenderer atau SkinnedMeshRenderer
+                if (root.GetComponentInChildren<MeshRenderer>(true) != null || root.GetComponentInChildren<SkinnedMeshRenderer>(true) != null)
+                {
+                    ToonOutlineApplier.ApplyTo(root, thickness);
+                }
+            }
+
+            ApplyToAllAppliers();
         }
 
         private void Update()

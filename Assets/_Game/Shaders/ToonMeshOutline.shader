@@ -3,7 +3,7 @@ Shader "Pucaci/ToonMeshOutline"
     Properties
     {
         _OutlineColor ("Outline Color", Color) = (0.0, 0.0, 0.0, 1.0)
-        _OutlineWidth ("Outline Width (Fortnite Style)", Range(1.0, 15.0)) = 6.0
+        _OutlineWidth ("Outline Width (Fortnite Style)", Range(1.0, 25.0)) = 6.0
     }
 
     SubShader
@@ -19,7 +19,7 @@ Shader "Pucaci/ToonMeshOutline"
         Cull Front
         ZWrite On
         ZTest LEqual
-        Offset 1, 1
+        Offset -0.5, -0.5
 
         Pass
         {
@@ -59,13 +59,20 @@ Shader "Pucaci/ToonMeshOutline"
                 VertexPositionInputs posInputs = GetVertexPositionInputs(input.positionOS.xyz);
                 VertexNormalInputs normInputs = GetVertexNormalInputs(input.normalOS);
 
-                float3 camPosWS = GetCameraPositionWS();
-                float dist = length(camPosWS - posInputs.positionWS);
-                // Skala outline dengan jarak kamera agar ketebalan garis tegas ala komik/Fortnite
-                float width = _OutlineWidth * 0.002f * clamp(dist, 1.0f, 15.0f);
-                float3 extrudedWS = posInputs.positionWS + normInputs.normalWS * width;
+                float3 posVS = TransformWorldToView(posInputs.positionWS);
+                float3 normVS = TransformWorldToViewNormal(normInputs.normalWS, true);
 
-                output.positionCS = TransformWorldToHClip(extrudedWS);
+                float2 norm2D = normVS.xy;
+                float len = length(norm2D);
+                norm2D = (len > 0.001) ? (norm2D / len) : float2(0.0, 1.0);
+
+                float dist = max(0.1, abs(posVS.z));
+                float outlineScale = _OutlineWidth * 0.0035f * clamp(sqrt(dist), 1.0, 6.0);
+
+                posVS.xy += norm2D * outlineScale;
+                posVS.z += (posVS.z < 0.0) ? 0.015 : -0.015;
+
+                output.positionCS = TransformWViewToHClip(posVS);
                 return output;
             }
 
