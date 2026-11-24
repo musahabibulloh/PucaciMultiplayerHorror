@@ -51,6 +51,11 @@ namespace Pucaci.Rendering
         {
             if (applyOnStart)
             {
+                var activeScene = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
+                if (activeScene.isLoaded && activeScene.name.ToLower().Contains("menu"))
+                {
+                    return; // Jangan buat outline di Main Menu (Pak Vincent dll bebas outline)
+                }
                 ApplyOutline();
             }
         }

@@ -38,6 +38,8 @@ namespace Pucaci.Player
         [Tooltip("Durasi jeda (cooldown) setelah wujud gaib berakhir sebelum bisa digunakan lagi (detik)")]
         [SerializeField] private float ghostCooldown = 8.0f;
 
+        private Material ghostWhiteMaterial;
+
         [Header("Casper Flight Boost")]
         [Tooltip("Kecepatan melayang saat dalam wujud arwah tanpa bobot (m/s)")]
         [SerializeField] private float ghostSpeed = 6.0f;
@@ -66,6 +68,7 @@ namespace Pucaci.Player
 
         private SkinnedMeshRenderer[] kuntiRenderers;
         private Material[] instanceMaterials;
+        private Material[][] originalSharedMaterials;
         private float currentGhostBlend = 0.0f;
         private bool isKuntilanakActive = false;
 
@@ -102,12 +105,28 @@ namespace Pucaci.Player
             exitGhostClip = CreateSpectralSound(isEnter: false);
         }
 
+        private void EnsureGhostMaterial()
+        {
+            if (ghostWhiteMaterial == null)
+            {
+                ghostWhiteMaterial = Resources.Load<Material>("M_Kuntilanak_GhostWhite");
+                if (ghostWhiteMaterial == null)
+                {
+#if UNITY_EDITOR
+                    ghostWhiteMaterial = UnityEditor.AssetDatabase.LoadAssetAtPath<Material>("Assets/_Game/Materials/M_Kuntilanak_GhostWhite.mat");
+#endif
+                }
+            }
+        }
+
         public void SetKuntilanakActive(bool active, Transform kuntiModelTransform)
         {
             isKuntilanakActive = active;
 
             if (active && kuntiModelTransform != null)
             {
+                EnsureGhostMaterial();
+
                 // Kondisi awal selalu full bentuk (padat / solid 100%, bukan transparan / menghilang)
                 isGhostForm = false;
                 ghostDurationTimer = 0.0f;
@@ -134,21 +153,18 @@ namespace Pucaci.Player
                 kuntiRenderers = validRenderers.ToArray();
                 if (kuntiRenderers != null && kuntiRenderers.Length > 0)
                 {
-                    instanceMaterials = new Material[kuntiRenderers.Length];
+                    originalSharedMaterials = new Material[kuntiRenderers.Length][];
                     for (int i = 0; i < kuntiRenderers.Length; i++)
                     {
-                        var origMat = kuntiRenderers[i].sharedMaterial;
-                        if (origMat != null)
+                        var mats = kuntiRenderers[i].sharedMaterials;
+                        if (mats != null && mats.Length > 0)
                         {
-                            instanceMaterials[i] = new Material(origMat);
-                            instanceMaterials[i].name = origMat.name + "_GhostInstance";
-                            kuntiRenderers[i].material = instanceMaterials[i];
+                            originalSharedMaterials[i] = (Material[])mats.Clone();
                         }
                     }
                 }
 
                 // Langsung inisialisasi material ke status padat (full bentuk) di awal
-                ApplyMaterialPropertiesImmediate(0.0f, false);
                 ApplyGhostVisibility(isGhostForm);
             }
             else
@@ -330,46 +346,59 @@ namespace Pucaci.Player
         }
 
         /// <summary>
-        /// Mengatur visibilitas Kuntilanak saat mode menghilang.
-        /// Pada layar pemain lain (survivor): Kuntilanak HILANG TOTAL (Invisible 100% dari vision).
-        /// Pada layar pemain lokal (Kuntilanak): Menjadi arwah transparan Casper agar tetap bisa melihat arah navigasi.
+        /// Mengatur visibilitas Kuntilanak saat mode menghilang:
+        /// Tubuh berubah menjadi arwah putih bercahaya (Casper White Ghost) yang seragam di Editor maupun Build Standalone,
+        /// serta outline hitam disembunyikan agar tidak ada garis hitam di badan putih.
         /// </summary>
         public void ApplyGhostVisibility(bool isGhost)
         {
-            bool isLocal = false;
-            try { isLocal = isLocalPlayer; } catch { isLocal = true; }
+            EnsureGhostMaterial();
 
-            if (!isLocal)
+            if (kuntiRenderers != null && kuntiRenderers.Length > 0)
             {
-                // Sembunyikan semua mesh renderer (tubuh, rambut, baju, outline) pada vision pemain lain
-                var allRenderers = GetComponentsInChildren<Renderer>(true);
-                foreach (var r in allRenderers)
+                for (int i = 0; i < kuntiRenderers.Length; i++)
                 {
-                    if (r != null)
-                    {
-                        if (r.transform.name == "OverheadNameTag") continue;
-                        r.enabled = !isGhost;
-                    }
-                }
+                    var rend = kuntiRenderers[i];
+                    if (rend == null) continue;
 
-                // Sembunyikan nametag melayang di atas kepala agar tidak membocorkan posisi
-                var nameTag = transform.Find("OverheadNameTag");
-                if (nameTag != null)
-                {
-                    nameTag.gameObject.SetActive(!isGhost);
+                    rend.enabled = true;
+
+                    if (isGhost)
+                    {
+                        if (ghostWhiteMaterial != null)
+                        {
+                            int matCount = Mathf.Max(1, rend.sharedMaterials != null ? rend.sharedMaterials.Length : 1);
+                            var mats = new Material[matCount];
+                            for (int m = 0; m < matCount; m++) mats[m] = ghostWhiteMaterial;
+                            rend.sharedMaterials = mats;
+                        }
+                    }
+                    else
+                    {
+                        if (originalSharedMaterials != null && i < originalSharedMaterials.Length && originalSharedMaterials[i] != null)
+                        {
+                            rend.sharedMaterials = originalSharedMaterials[i];
+                        }
+                    }
+
+                    // Sembunyikan outline hitam saat dalam wujud gaib putih agar arwah putih tampak bersih
+                    var outlineChild = rend.transform.Find("ToonOutline_Backface");
+                    if (outlineChild != null)
+                    {
+                        var outlineRend = outlineChild.GetComponent<Renderer>();
+                        if (outlineRend != null)
+                        {
+                            outlineRend.enabled = !isGhost;
+                        }
+                    }
                 }
             }
-            else
+
+            // Sembunyikan nametag melayang di atas kepala saat mode hilang agar tidak membocorkan posisi
+            var nameTag = transform.Find("OverheadNameTag");
+            if (nameTag != null)
             {
-                // Pemain Kuntilanak lokal: tetap melihat wujud dirinya, sembunyikan outline hitam saja
-                var outlines = GetComponentsInChildren<SkinnedMeshRenderer>(true);
-                foreach (var smr in outlines)
-                {
-                    if (smr != null && smr.name.Contains("ToonOutline"))
-                    {
-                        smr.enabled = !isGhost;
-                    }
-                }
+                nameTag.gameObject.SetActive(!isGhost);
             }
         }
 

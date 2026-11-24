@@ -76,13 +76,39 @@ namespace Pucaci.Rendering
             UnityEngine.SceneManagement.SceneManager.sceneLoaded -= OnSceneLoaded;
         }
 
+        public static bool IsGameplayScene()
+        {
+            var activeScene = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
+            if (!activeScene.isLoaded) return false;
+            string sceneName = activeScene.name.ToLower();
+            // Hanya aktif di scene gameplay (desa), JANGAN di Main Menu!
+            return sceneName.Contains("gameplay") || (!sceneName.Contains("menu") && !sceneName.Contains("lobby"));
+        }
+
         private void Start()
         {
-            AutoApplyOutlineToSceneProps();
+            if (IsGameplayScene())
+            {
+                AutoApplyOutlineToSceneProps();
+            }
         }
 
         private void OnSceneLoaded(UnityEngine.SceneManagement.Scene scene, UnityEngine.SceneManagement.LoadSceneMode mode)
         {
+            if (!IsGameplayScene())
+            {
+                // Bersihkan dan matikan semua outline jika berada di Main Menu (agar Pak Vincent dll bebas outline)
+                var allRenderers = FindObjectsOfType<Renderer>(true);
+                foreach (var r in allRenderers)
+                {
+                    if (r != null && r.name.Contains("ToonOutline"))
+                    {
+                        r.enabled = false;
+                    }
+                }
+                return;
+            }
+
             AutoApplyOutlineToSceneProps();
         }
 
@@ -91,6 +117,8 @@ namespace Pucaci.Rendering
         /// </summary>
         public void AutoApplyOutlineToSceneProps()
         {
+            if (!IsGameplayScene()) return;
+
             var activeScene = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
             if (!activeScene.isLoaded) return;
 
@@ -128,6 +156,8 @@ namespace Pucaci.Rendering
 
         private void Update()
         {
+            if (!IsGameplayScene()) return;
+
             // Toggle perbandingan sebelum/sesudah dengan F6
             bool togglePressed = false;
 #if ENABLE_INPUT_SYSTEM
@@ -182,10 +212,20 @@ namespace Pucaci.Rendering
 
         public void ScanAndApplyToNewPlayers()
         {
+            if (!IsGameplayScene()) return;
+
             var modelManagers = FindObjectsOfType<Pucaci.Player.CharacterModelManager>();
             foreach (var mgr in modelManagers)
             {
                 if (mgr == null) continue;
+
+                // Jika Kuntilanak sedang dalam wujud gaib (Ghost Form), jangan nyalakan outline hitam
+                var ghostVanish = mgr.GetComponent<Pucaci.Player.KuntilanakGhostVanish>();
+                if (ghostVanish != null && ghostVanish.IsGhostForm)
+                {
+                    continue;
+                }
+
                 var activeModel = mgr.ActiveModel;
                 if (activeModel != null && activeModel.activeInHierarchy)
                 {
@@ -244,6 +284,13 @@ namespace Pucaci.Rendering
             {
                 if (r != null && r.name.Contains("ToonOutline"))
                 {
+                    // Jika parent adalah Kuntilanak yang sedang dalam mode wujud gaib, jangan nyalakan outline hitam
+                    var ghostVanish = r.GetComponentInParent<Pucaci.Player.KuntilanakGhostVanish>();
+                    if (ghostVanish != null && ghostVanish.IsGhostForm)
+                    {
+                        r.enabled = false;
+                        continue;
+                    }
                     r.enabled = outlineEnabled;
                 }
             }
