@@ -383,15 +383,30 @@ namespace Pucaci.Player
 
             if (playEffects)
             {
-                SpawnTransformFX(isKunti);
-                PlayTransformAudio(isKunti);
+                Vector3 fxPos = transform.position + Vector3.up * 0.9f;
+                if (isServer || NetworkServer.active)
+                {
+                    RpcPlayTransformFX(isKunti, fxPos);
+                }
+                else
+                {
+                    SpawnTransformFX(isKunti, fxPos);
+                    PlayTransformAudio(isKunti);
+                }
             }
         }
 
-        private void SpawnTransformFX(bool toKuntilanak)
+        [ClientRpc]
+        private void RpcPlayTransformFX(bool toKuntilanak, Vector3 fxPosition)
+        {
+            SpawnTransformFX(toKuntilanak, fxPosition);
+            PlayTransformAudio(toKuntilanak);
+        }
+
+        private void SpawnTransformFX(bool toKuntilanak, Vector3 fxPosition)
         {
             var fxObj = new GameObject("TransformSmokeFX");
-            fxObj.transform.position = transform.position + Vector3.up * 0.9f;
+            fxObj.transform.position = fxPosition;
 
             var ps = fxObj.AddComponent<ParticleSystem>();
             ps.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
@@ -417,7 +432,16 @@ namespace Pucaci.Player
             shape.radius = 0.5f;
 
             var renderer = fxObj.GetComponent<ParticleSystemRenderer>();
-            renderer.material = new Material(Shader.Find("Legacy Shaders/Particles/Alpha Blended Premultiply"));
+            Shader particleShader = Shader.Find("Universal Render Pipeline/Particles/Unlit");
+            if (particleShader == null) particleShader = Shader.Find("Universal Render Pipeline/Unlit");
+            if (particleShader == null) particleShader = Shader.Find("Particles/Standard Unlit");
+            if (particleShader == null) particleShader = Shader.Find("Legacy Shaders/Particles/Alpha Blended Premultiply");
+
+            if (particleShader != null)
+            {
+                var mat = new Material(particleShader);
+                renderer.material = mat;
+            }
 
             ps.Play();
         }

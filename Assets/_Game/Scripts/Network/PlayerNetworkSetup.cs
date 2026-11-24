@@ -35,6 +35,21 @@ namespace Pucaci.Network
                 unityCharacterController = GetComponent<CharacterController>();
             }
 
+            // Inisialisasi CapsuleCollider fisik tubuh (untuk blocking collision antar pemain di multiplayer)
+            var bodyCol = GetComponent<CapsuleCollider>();
+            if (bodyCol == null)
+            {
+                bodyCol = gameObject.AddComponent<CapsuleCollider>();
+            }
+            if (bodyCol != null && unityCharacterController != null)
+            {
+                bodyCol.height = unityCharacterController.height;
+                bodyCol.radius = unityCharacterController.radius;
+                bodyCol.center = unityCharacterController.center;
+                bodyCol.isTrigger = false;
+                bodyCol.enabled = false;
+            }
+
             if (cameraRoot == null)
             {
                 Transform camRootTransform = transform.Find("CameraRoot");
@@ -73,6 +88,13 @@ namespace Pucaci.Network
             if (unityCharacterController != null)
             {
                 unityCharacterController.enabled = true;
+            }
+
+            // Pada pemain lokal, matikan CapsuleCollider agar tidak ganda dengan CharacterController lokal
+            var localBodyCol = GetComponent<CapsuleCollider>();
+            if (localBodyCol != null)
+            {
+                localBodyCol.enabled = false;
             }
 
             if (characterController != null)
@@ -204,6 +226,21 @@ namespace Pucaci.Network
             if (unityCharacterController == null)
             {
                 unityCharacterController = GetComponent<CharacterController>();
+            }
+
+            // Pada remote player, aktifkan CapsuleCollider solid agar pemain lokal tidak bisa menembus tubuh pemain lain
+            var remoteBodyCol = GetComponent<CapsuleCollider>();
+            if (remoteBodyCol == null)
+            {
+                remoteBodyCol = gameObject.AddComponent<CapsuleCollider>();
+            }
+            if (remoteBodyCol != null && unityCharacterController != null)
+            {
+                remoteBodyCol.height = unityCharacterController.height;
+                remoteBodyCol.radius = unityCharacterController.radius;
+                remoteBodyCol.center = unityCharacterController.center;
+                remoteBodyCol.isTrigger = false;
+                remoteBodyCol.enabled = true;
             }
             if (unityCharacterController != null)
             {

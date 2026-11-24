@@ -80,12 +80,12 @@ namespace Pucaci.Player
             {
                 return true;
             }
-#endif
+#else
             if (Input.GetKeyDown(legacySabotageKey))
             {
                 return true;
             }
-
+#endif
             return false;
         }
 

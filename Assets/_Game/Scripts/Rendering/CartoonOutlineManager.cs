@@ -75,11 +75,12 @@ namespace Pucaci.Rendering
             {
                 togglePressed = true;
             }
-#endif
-            if (!togglePressed && Input.GetKeyDown(toggleKey))
+#else
+            if (Input.GetKeyDown(toggleKey))
             {
                 togglePressed = true;
             }
+#endif
 
             if (togglePressed)
             {

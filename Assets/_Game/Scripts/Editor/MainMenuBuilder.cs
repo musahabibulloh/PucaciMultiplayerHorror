@@ -490,6 +490,7 @@ namespace Pucaci.Editor
             vel.enabled = true;
             vel.space = ParticleSystemSimulationSpace.World;
             vel.x = new ParticleSystem.MinMaxCurve(-0.25f, 0.25f);
+            vel.y = new ParticleSystem.MinMaxCurve(0.0f, 0.0f);
             vel.z = new ParticleSystem.MinMaxCurve(0.05f, 0.35f);
 
             var colorOverLifetime = ps.colorOverLifetime;

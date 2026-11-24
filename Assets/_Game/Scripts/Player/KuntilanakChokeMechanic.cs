@@ -170,19 +170,21 @@ namespace Pucaci.Player
                 return;
             }
 
-            // 2. Logika hanya berjalan jika karakter aktif adalah Kuntilanak
-            bool isKunti = (ModelMgr != null) && (ModelMgr.ActiveCharacterType == CharacterType.Kuntilanak);
+            // 2. Logika hanya berjalan jika karakter aktif adalah Kuntilanak (berdasarkan Role atau Model)
+            var roleMgr = GetComponent<PlayerRoleManager>();
+            bool isKunti = (roleMgr != null && roleMgr.IsKuntilanakForm) ||
+                           (ModelMgr != null && ModelMgr.ActiveCharacterType == CharacterType.Kuntilanak);
             if (!isKunti)
             {
                 if (isChoking) StopChokingInternal("not Kuntilanak anymore");
                 return;
             }
 
-            // Kuntilanak yang sedang dalam wujud gaib (ghost form) tidak bisa mencekik fisik
+            // Kuntilanak yang sedang aktif mencekik tidak boleh masuk ke wujud gaib (ghost form)
             bool isGhost = (GhostVanish != null) && GhostVanish.IsGhostForm;
-            if (isGhost)
+            if (isGhost && isChoking)
             {
-                if (isChoking) StopChokingInternal("Kuntilanak entered ghost form");
+                StopChokingInternal("Kuntilanak entered ghost form");
                 return;
             }
 
@@ -217,6 +219,11 @@ namespace Pucaci.Player
                 {
                     if (!IsOnCooldown)
                     {
+                        // Jika sedang dalam ghost form saat menekan cekik, kembalikan ke wujud padat seketika
+                        if (GhostVanish != null && GhostVanish.IsGhostForm)
+                        {
+                            GhostVanish.ToggleGhostForm();
+                        }
                         StartChokingTarget(aimTarget);
                     }
                 }
@@ -227,33 +234,63 @@ namespace Pucaci.Player
         {
             aimTarget = null;
             Vector3 origin = transform.position + Vector3.up * 1.2f;
-
-            Collider[] hits = Physics.OverlapSphere(origin, chokeRange);
+            float scanDistance = Mathf.Max(chokeRange, 2.6f);
             float closestDist = float.MaxValue;
 
+            // 1. Scan fisik via colliders
+            Collider[] hits = Physics.OverlapSphere(origin, scanDistance);
             foreach (var col in hits)
             {
                 if (col.transform == transform || col.transform.IsChildOf(transform)) continue;
 
                 var targetPcc = col.GetComponentInParent<PlayerCharacterController>();
-                if (targetPcc == null || targetPcc == pcc) continue;
-
-                var targetHealth = targetPcc.GetComponent<PlayerHealth>();
-                if (targetHealth != null && targetHealth.IsDead) continue;
-
-                var targetModel = targetPcc.GetComponent<CharacterModelManager>();
-                if (targetModel != null && targetModel.ActiveCharacterType == CharacterType.Kuntilanak) continue;
-
-                var targetGhost = targetPcc.GetComponent<KuntilanakGhostVanish>();
-                if (targetGhost != null && targetGhost.IsGhostForm) continue;
-
-                float dist = Vector3.Distance(transform.position, targetPcc.transform.position);
-                if (dist < closestDist)
+                if (IsValidChokeVictim(targetPcc))
                 {
-                    closestDist = dist;
-                    aimTarget = targetPcc;
+                    float dist = Vector3.Distance(transform.position, targetPcc.transform.position);
+                    if (dist < closestDist)
+                    {
+                        closestDist = dist;
+                        aimTarget = targetPcc;
+                    }
                 }
             }
+
+            // 2. Backup direct scan jika collider physics belum terdeteksi di frame ini
+            if (aimTarget == null)
+            {
+                var allPlayers = FindObjectsOfType<PlayerCharacterController>();
+                foreach (var candidate in allPlayers)
+                {
+                    if (candidate == pcc || candidate.transform == transform) continue;
+
+                    float dist = Vector3.Distance(transform.position, candidate.transform.position);
+                    if (dist <= scanDistance && dist < closestDist)
+                    {
+                        if (IsValidChokeVictim(candidate))
+                        {
+                            closestDist = dist;
+                            aimTarget = candidate;
+                        }
+                    }
+                }
+            }
+        }
+
+        private bool IsValidChokeVictim(PlayerCharacterController targetPcc)
+        {
+            if (targetPcc == null || targetPcc == pcc) return false;
+
+            var targetHealth = targetPcc.GetComponent<PlayerHealth>();
+            if (targetHealth != null && targetHealth.IsDead) return false;
+
+            // Kuntilanak tidak bisa mencekik sesama Kuntilanak
+            var targetRole = targetPcc.GetComponent<PlayerRoleManager>();
+            if (targetRole != null && targetRole.IsKuntilanakForm) return false;
+
+            var targetModel = targetPcc.GetComponent<CharacterModelManager>();
+            if (targetModel != null && targetModel.ActiveCharacterType == CharacterType.Kuntilanak) return false;
+
+            return true;
         }
 
         private bool IsChokeInputDown()
