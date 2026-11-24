@@ -731,10 +731,11 @@ namespace Pucaci.Player
 
         private void LateUpdate()
         {
-            // Kunci posisi model agar tidak bergeser dari pivot controller
+            // Kunci posisi model agar tidak bergeser dari pivot controller, namun jika dicekik angkat ke atas (kaki melayang)
             if (modelTransform != null)
             {
-                modelTransform.localPosition = modelOffset;
+                Vector3 chokeLift = isChokeLifted ? Vector3.up * 0.45f : Vector3.zero;
+                modelTransform.localPosition = modelOffset + chokeLift;
             }
 
             // Kunci posisi X dan Z lokal Hips agar animasi Mixamo yang memiliki perpindahan translasi (seperti Running Jump dan Slide)
@@ -1339,10 +1340,11 @@ namespace Pucaci.Player
             if (animator == null) return;
             if (isDead) return;
 
-            // Kunci posisi model agar tidak bergeser dari pivot controller
+            // Kunci posisi model agar tidak bergeser dari pivot controller, namun jika dicekik angkat ke atas (kaki melayang)
             if (modelTransform != null)
             {
-                modelTransform.localPosition = modelOffset;
+                Vector3 chokeLift = isChokeLifted ? Vector3.up * 0.45f : Vector3.zero;
+                modelTransform.localPosition = modelOffset + chokeLift;
             }
 
             if (hipsTransform != null)

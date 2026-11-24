@@ -415,32 +415,43 @@ namespace Pucaci.Player
             main.duration = 0.8f;
             main.loop = false;
             main.startLifetime = 1.4f;
-            main.startSpeed = 2.0f;
-            main.startSize = 0.6f;
+            main.startSpeed = 2.4f;
+            main.startSize = 0.75f;
 
-            Color c1 = toKuntilanak ? new Color(0.6f, 0.05f, 0.1f, 0.9f) : new Color(0.85f, 0.85f, 0.9f, 0.8f);
-            Color c2 = toKuntilanak ? new Color(0.1f, 0.02f, 0.02f, 0.7f) : new Color(0.4f, 0.4f, 0.45f, 0.5f);
+            // Warna merah darah pekat kental ala horor saat berubah ke Kuntilanak (tidak akan ungu/magenta)
+            Color c1 = toKuntilanak ? new Color(0.92f, 0.03f, 0.05f, 0.98f) : new Color(0.85f, 0.85f, 0.9f, 0.8f);
+            Color c2 = toKuntilanak ? new Color(0.38f, 0.01f, 0.02f, 0.95f) : new Color(0.4f, 0.4f, 0.45f, 0.5f);
             main.startColor = new ParticleSystem.MinMaxGradient(c1, c2);
             main.stopAction = ParticleSystemStopAction.Destroy;
 
             var emission = ps.emission;
             emission.rateOverTime = 0;
-            emission.SetBursts(new ParticleSystem.Burst[] { new ParticleSystem.Burst(0.0f, 35) });
+            emission.SetBursts(new ParticleSystem.Burst[] { new ParticleSystem.Burst(0.0f, 45) });
 
             var shape = ps.shape;
             shape.shapeType = ParticleSystemShapeType.Sphere;
-            shape.radius = 0.5f;
+            shape.radius = 0.6f;
 
             var renderer = fxObj.GetComponent<ParticleSystemRenderer>();
-            Shader particleShader = Shader.Find("Universal Render Pipeline/Particles/Unlit");
-            if (particleShader == null) particleShader = Shader.Find("Universal Render Pipeline/Unlit");
-            if (particleShader == null) particleShader = Shader.Find("Particles/Standard Unlit");
-            if (particleShader == null) particleShader = Shader.Find("Legacy Shaders/Particles/Alpha Blended Premultiply");
 
-            if (particleShader != null)
+            // Prioritas 1: Load material darah resmi dari Resources (100% selalu disertakan di build standalone)
+            Material bloodMat = Resources.Load<Material>("Materials/M_TransformBloodFX");
+            if (bloodMat != null)
             {
-                var mat = new Material(particleShader);
-                renderer.material = mat;
+                var inst = new Material(bloodMat);
+                inst.SetColor("_BaseColor", toKuntilanak ? new Color(0.85f, 0.03f, 0.04f, 0.95f) : new Color(0.8f, 0.8f, 0.85f, 0.8f));
+                renderer.material = inst;
+            }
+            else
+            {
+                // Prioritas 2: Sprites/Default yang selalu terintegrasi dalam engine Unity
+                Shader fallbackShader = Shader.Find("Sprites/Default") ?? Shader.Find("Universal Render Pipeline/Particles/Unlit") ?? Shader.Find("Universal Render Pipeline/Unlit");
+                if (fallbackShader != null)
+                {
+                    var fallbackMat = new Material(fallbackShader);
+                    fallbackMat.color = toKuntilanak ? new Color(0.9f, 0.04f, 0.05f, 0.95f) : Color.white;
+                    renderer.material = fallbackMat;
+                }
             }
 
             ps.Play();

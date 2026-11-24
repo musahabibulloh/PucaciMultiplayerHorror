@@ -142,12 +142,13 @@ namespace Pucaci.Player
 
         private void Update()
         {
-            // 1. Jika sedang dicekik oleh Kuntilanak: kunci pergerakan
+            // 1. Jika sedang dicekik oleh Kuntilanak: kunci pergerakan dan posisikan korban melayang di depan tangan Kuntilanak
             if (isBeingChoked)
             {
-                if (PCC != null && !PCC.IsImmobilized)
+                if (PCC != null)
                 {
-                    PCC.SetImmobilized(true);
+                    if (!PCC.IsImmobilized) PCC.SetImmobilized(true);
+                    if (!PCC.IsChokeLifted) PCC.SetChokeLifted(true, 0.50f);
                 }
 
                 // Cek apakah attacker masih ada & valid
@@ -159,12 +160,35 @@ namespace Pucaci.Player
                         chokeTimer = attackerChoke.ChokeTimer;
                     }
 
-                    // Menghadap ke arah Kuntilanak yang mencekik
+                    // 1. Menghadap langsung ke arah Kuntilanak yang mencekik
                     Vector3 lookDir = (activeAttacker.transform.position - transform.position);
                     lookDir.y = 0f;
                     if (lookDir.sqrMagnitude > 0.01f)
                     {
-                        transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(lookDir), Time.deltaTime * 5f);
+                        transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(lookDir), Time.deltaTime * 15f);
+                    }
+
+                    // 2. Posisikan tubuh korban tepat di depan tangan Kuntilanak dan gantung di udara (kaki melayang)
+                    float holdDist = 0.72f;
+                    Vector3 targetPos = activeAttacker.transform.position + activeAttacker.transform.forward * holdDist;
+                    targetPos.y = activeAttacker.transform.position.y + 0.45f;
+
+                    // Menggerakkan posisi korban dari otoritas client korban sendiri agar tersinkronkan via NetworkTransform
+                    if (isLocalPlayer)
+                    {
+                        if (PCC != null && PCC.Controller != null && PCC.Controller.enabled)
+                        {
+                            Vector3 moveDelta = targetPos - transform.position;
+                            PCC.Controller.Move(moveDelta);
+                        }
+                        else
+                        {
+                            transform.position = Vector3.Lerp(transform.position, targetPos, Time.deltaTime * 12f);
+                        }
+                    }
+                    else
+                    {
+                        transform.position = Vector3.Lerp(transform.position, targetPos, Time.deltaTime * 12f);
                     }
                 }
                 return;
@@ -376,6 +400,10 @@ namespace Pucaci.Player
             {
                 var victimPcc = victimIdentity.GetComponent<PlayerCharacterController>();
                 activeVictim = victimPcc;
+                if (activeVictim != null)
+                {
+                    activeVictim.SetChokeLifted(true, 0.50f);
+                }
 
                 var victimChoke = victimIdentity.GetComponent<KuntilanakChokeMechanic>();
                 if (victimChoke != null)
@@ -397,6 +425,10 @@ namespace Pucaci.Player
             if (NetworkClient.spawned.TryGetValue(victimId, out var vIdentity))
             {
                 activeVictim = vIdentity.GetComponent<PlayerCharacterController>();
+                if (activeVictim != null)
+                {
+                    activeVictim.SetChokeLifted(true, 0.50f);
+                }
             }
         }
 
@@ -477,24 +509,17 @@ namespace Pucaci.Player
                 transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(toVictim), Time.deltaTime * 15f);
             }
 
-            // 2. Tarik korban ke depan Kuntilanak dan angkat sedikit ke atas (kaki menggantung di udara)
-            float chokeHoldDist = 0.58f;
+            // 2. Tarik korban ke depan Kuntilanak dan angkat ke atas (kaki menggantung di udara)
+            float chokeHoldDist = 0.72f;
             Vector3 targetVictimPos = transform.position + transform.forward * chokeHoldDist;
 
-            // Angkat halus tubuh korban ke atas
+            // Angkat tubuh korban ke atas
             float liftProgress = Mathf.Clamp01(chokeTimer / Mathf.Max(0.05f, liftDuration));
-            float currentLift = Mathf.SmoothStep(0f, victimLiftHeight, liftProgress);
+            float currentLift = Mathf.SmoothStep(0f, 0.45f, liftProgress);
             targetVictimPos.y = transform.position.y + currentLift;
 
-            Vector3 posDelta = targetVictimPos - activeVictim.transform.position;
-            if (activeVictim.Controller != null && activeVictim.Controller.enabled)
-            {
-                activeVictim.Controller.Move(posDelta);
-            }
-            if (Vector3.Distance(activeVictim.transform.position, targetVictimPos) > 0.05f)
-            {
-                activeVictim.transform.position = targetVictimPos;
-            }
+            activeVictim.SetChokeLifted(true, 0.50f);
+            activeVictim.transform.position = Vector3.Lerp(activeVictim.transform.position, targetVictimPos, Time.deltaTime * 15f);
 
             // 3. Korban menghadap ke arah Kuntilanak yang mencekiknya
             Vector3 toKunti = (transform.position - activeVictim.transform.position);
@@ -634,7 +659,13 @@ namespace Pucaci.Player
             isChoking = false;
             chokeTimer = 0f;
             PlayChokeAudio(false);
-            activeVictim = null;
+
+            if (activeVictim != null)
+            {
+                activeVictim.SetChokeLifted(false);
+                activeVictim.SnapToGround();
+                activeVictim = null;
+            }
 
             if (PCC != null)
             {
