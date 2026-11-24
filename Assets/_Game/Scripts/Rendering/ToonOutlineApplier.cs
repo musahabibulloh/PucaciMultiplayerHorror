@@ -51,11 +51,6 @@ namespace Pucaci.Rendering
         {
             if (applyOnStart)
             {
-                var activeScene = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
-                if (activeScene.isLoaded && activeScene.name.ToLower().Contains("menu"))
-                {
-                    return; // Jangan buat outline di Main Menu (Pak Vincent dll bebas outline)
-                }
                 ApplyOutline();
             }
         }
@@ -80,14 +75,22 @@ namespace Pucaci.Rendering
         {
             if (materialInstance == null)
             {
-                Shader uShader = Shader.Find("Universal Render Pipeline/Unlit") ?? Shader.Find("Universal Render Pipeline/Lit");
-                if (uShader != null)
+                var resMat = Resources.Load<Material>("M_ToonOutline_Solid");
+                if (resMat != null)
                 {
-                    materialInstance = new Material(uShader);
+                    materialInstance = new Material(resMat);
                 }
-                else if (sourceRenderer != null && sourceRenderer.sharedMaterial != null)
+                else
                 {
-                    materialInstance = new Material(sourceRenderer.sharedMaterial);
+                    Shader uShader = Shader.Find("Universal Render Pipeline/Unlit") ?? Shader.Find("Universal Render Pipeline/Lit");
+                    if (uShader != null)
+                    {
+                        materialInstance = new Material(uShader);
+                    }
+                    else if (sourceRenderer != null && sourceRenderer.sharedMaterial != null)
+                    {
+                        materialInstance = new Material(sourceRenderer.sharedMaterial);
+                    }
                 }
             }
 
@@ -102,7 +105,7 @@ namespace Pucaci.Rendering
                 
                 // Cull Front agar hanya poligon belakang (backface) yang tampak melebar mengelilingi karakter
                 materialInstance.SetInt("_Cull", (int)UnityEngine.Rendering.CullMode.Front);
-                materialInstance.SetFloat("_Cull", (float)UnityEngine.Rendering.CullMode.Front);
+                materialInstance.SetFloat("_Cull", 1f);
                 materialInstance.renderQueue = (int)UnityEngine.Rendering.RenderQueue.Geometry + 10;
             }
         }
@@ -173,10 +176,11 @@ namespace Pucaci.Rendering
 
                 if (outlineSmr != null)
                 {
-                    // Buat mesh outline terekstrusi dengan normalisasi skala transform
+                    // Buat mesh outline terekstrusi dengan normalisasi rasio mesh bounds vs world bounds
+                    // Selalu perbarui jika belum memiliki mesh atau ketebalan outline berubah
                     if (outlineSmr.sharedMesh == null || !outlineSmr.sharedMesh.name.EndsWith("_ToonOutline") || Mathf.Abs(lastExtrudedWidth - outlineWidth) > 0.01f)
                     {
-                        outlineSmr.sharedMesh = CreateExtrudedMesh(smr.sharedMesh, outlineWidth, smr.transform);
+                        outlineSmr.sharedMesh = CreateExtrudedMesh(smr.sharedMesh, outlineWidth, smr);
                         lastExtrudedWidth = outlineWidth;
                     }
                     outlineSmr.bones = smr.bones;
@@ -234,7 +238,7 @@ namespace Pucaci.Rendering
             }
         }
 
-        private Mesh CreateExtrudedMesh(Mesh sourceMesh, float width, Transform meshTransform = null)
+        private Mesh CreateExtrudedMesh(Mesh sourceMesh, float width, Renderer sourceRenderer = null)
         {
             if (sourceMesh == null) return null;
 
@@ -256,22 +260,18 @@ namespace Pucaci.Rendering
                     norms = outlineMesh.normals;
                 }
 
-                // Normalisasi skala transform:
-                // Model Laras memiliki localScale 100 di child mesh, sedangkan Pak Mamat/Vincent berskala 1.
-                // Dengan membagi offset dunia dengan skala transform, ketebalan outline menjadi seragam di semua karakter.
-                float scaleFactor = 1.0f;
-                if (meshTransform != null)
-                {
-                    Vector3 ls = meshTransform.lossyScale;
-                    float avgScale = (Mathf.Abs(ls.x) + Mathf.Abs(ls.y) + Mathf.Abs(ls.z)) / 3.0f;
-                    if (avgScale > 0.001f)
-                    {
-                        scaleFactor = avgScale;
-                    }
-                }
+                // Hitung rasio ukuran dimensi mesh lokal terhadap ukuran dunia sebenarnya (Skinned Bounds).
+                // Setiap model FBX memiliki unit lokal berbeda (Laras ~0.05m, Pak Mamat ~2.5m, Pak Vincent ~2.6m, Kunti ~6.3m).
+                // Dengan mengalikan world offset dengan rasio (meshMag / worldMag), ketebalan outline di layar
+                // menjadi 100% konsisten, tegas, dan seragam di SEMUA karakter tanpa bug balon/meledak!
+                float worldMag = (sourceRenderer != null && sourceRenderer.bounds.size.magnitude > 0.05f) 
+                    ? sourceRenderer.bounds.size.magnitude 
+                    : 2.0f;
+                float meshMag = sourceMesh.bounds.size.magnitude;
+                float ratio = (meshMag > 0.0001f && worldMag > 0.01f) ? (meshMag / worldMag) : 1.0f;
 
-                float worldOffset = Mathf.Clamp(width, 1.0f, 15.0f) * 0.0035f;
-                float localOffset = worldOffset / scaleFactor;
+                float targetWorldThickness = Mathf.Clamp(width, 1.0f, 15.0f) * 0.007f; // ~0.0336m (3.4 cm) untuk width=4.8
+                float localOffset = targetWorldThickness * ratio;
 
                 for (int i = 0; i < verts.Length; i++)
                 {

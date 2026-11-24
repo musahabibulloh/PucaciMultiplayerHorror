@@ -1265,11 +1265,27 @@ namespace Pucaci.Player
                     }
                 }
 
-                var outlineApplier = GetComponentInChildren<Pucaci.Rendering.ToonOutlineApplier>();
-                if (outlineApplier != null)
+                var modelMgrOutline = GetComponent<CharacterModelManager>();
+                if (modelMgrOutline != null && modelMgrOutline.ActiveModel != null)
                 {
-                    outlineApplier.ApplyOutline();
-                    outlineApplier.SetOutlineEnabled(true);
+                    var activeApplier = Pucaci.Rendering.ToonOutlineApplier.ApplyTo(modelMgrOutline.ActiveModel, 4.8f);
+                    if (activeApplier != null)
+                    {
+                        activeApplier.ApplyOutline();
+                        activeApplier.SetOutlineEnabled(true);
+                    }
+                }
+                else
+                {
+                    var allAppliers = GetComponentsInChildren<Pucaci.Rendering.ToonOutlineApplier>(true);
+                    foreach (var applier in allAppliers)
+                    {
+                        if (applier != null && applier.gameObject.activeInHierarchy)
+                        {
+                            applier.ApplyOutline();
+                            applier.SetOutlineEnabled(true);
+                        }
+                    }
                 }
             }
 
