@@ -358,5 +358,93 @@ namespace Pucaci.Editor
                 Object.DestroyImmediate(go);
             }
         }
+
+        [MenuItem("Pucaci/Verify Disguise Selection Menu UI")]
+        public static void VerifyDisguiseSelectionMenu()
+        {
+            var go = new GameObject("Test_Disguise_Player");
+            try
+            {
+                var modelMgr = go.AddComponent<Pucaci.Player.CharacterModelManager>();
+                var roleMgr = go.AddComponent<Pucaci.Player.PlayerRoleManager>();
+                roleMgr.SetRole(Pucaci.Player.PlayerRole.Impostor, 4); // Rocky
+
+                var ui = Pucaci.UI.DisguiseSelectionUI.EnsureInstance();
+                bool instanceExists = (ui != null);
+                Debug.Log($"[DISGUISE TEST 1] DisguiseSelectionUI Instance created: {instanceExists}");
+
+                // Buka menu
+                ui.OpenMenu(roleMgr);
+                bool isOpen = ui.IsOpen;
+                Debug.Log($"[DISGUISE TEST 2] UI Open Menu: {isOpen}");
+
+                var cdField = typeof(Pucaci.Player.PlayerRoleManager).GetField("transformCooldownTimer", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+                var selectMethod = typeof(Pucaci.UI.DisguiseSelectionUI).GetMethod("SelectCharacter", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+
+                // Pilih Laras (0) lewat method reflection/panggilan
+                cdField?.SetValue(roleMgr, 0f);
+                selectMethod?.Invoke(ui, new object[] { 0 }); // Laras
+                bool pickedLaras = (roleMgr.HumanDisguise == Pucaci.Player.CharacterType.Laras) && (!ui.IsOpen);
+                Debug.Log($"[DISGUISE TEST 3] Picked Laras and Closed: {pickedLaras} (disguise={roleMgr.HumanDisguise})");
+
+                // Buka lagi dan pilih Pak Vincent (3)
+                ui.OpenMenu(roleMgr);
+                cdField?.SetValue(roleMgr, 0f);
+                selectMethod?.Invoke(ui, new object[] { 3 }); // Pak Vincent
+                bool pickedVincent = (roleMgr.HumanDisguise == Pucaci.Player.CharacterType.PakVincent) && (!ui.IsOpen);
+                Debug.Log($"[DISGUISE TEST 4] Picked Pak Vincent and Closed: {pickedVincent} (disguise={roleMgr.HumanDisguise})");
+
+                // Buka lagi dan pilih Pak Mamat (1)
+                ui.OpenMenu(roleMgr);
+                cdField?.SetValue(roleMgr, 0f);
+                selectMethod?.Invoke(ui, new object[] { 1 }); // Pak Mamat
+                bool pickedMamat = (roleMgr.HumanDisguise == Pucaci.Player.CharacterType.PakMamat) && (!ui.IsOpen);
+                Debug.Log($"[DISGUISE TEST 5] Picked Pak Mamat and Closed: {pickedMamat} (disguise={roleMgr.HumanDisguise})");
+
+                // Buka lagi dan pilih Mas Rocky (4)
+                ui.OpenMenu(roleMgr);
+                cdField?.SetValue(roleMgr, 0f);
+                selectMethod?.Invoke(ui, new object[] { 4 }); // Mas Rocky
+                bool pickedRocky = (roleMgr.HumanDisguise == Pucaci.Player.CharacterType.Rocky) && (!ui.IsOpen);
+                Debug.Log($"[DISGUISE TEST 6] Picked Mas Rocky and Closed: {pickedRocky} (disguise={roleMgr.HumanDisguise})");
+
+                // Tutup menu via CloseMenu
+                ui.OpenMenu(roleMgr);
+                ui.CloseMenu();
+                bool closedProperly = !ui.IsOpen;
+                Debug.Log($"[DISGUISE TEST 7] CloseMenu works: {closedProperly}");
+
+                bool allSuccess = instanceExists && isOpen && pickedLaras && pickedVincent && pickedMamat && pickedRocky && closedProperly;
+
+                string report = $"[TEST 1] UI Instance: {instanceExists}\n" +
+                                $"[TEST 2] UI Open Menu: {isOpen}\n" +
+                                $"[TEST 3] Picked Laras: {pickedLaras}\n" +
+                                $"[TEST 4] Picked Vincent: {pickedVincent}\n" +
+                                $"[TEST 5] Picked Mamat: {pickedMamat}\n" +
+                                $"[TEST 6] Picked Rocky: {pickedRocky}\n" +
+                                $"[TEST 7] Closed Properly: {closedProperly}\n" +
+                                $"ALL TESTS PASSED: {allSuccess}\n";
+
+                System.IO.File.WriteAllText("C:/Users/MUSA/.gemini/antigravity/brain/3104c68e-3988-4937-956a-544f03a4f729/disguise_menu_report.txt", report);
+
+                if (allSuccess)
+                {
+                    Debug.Log("<color=#00FFAA><b>[VERIFICATION SUCCESS] Menu Pemilihan Penyamaran [X] berfungsi sempurna untuk semua karakter!</b></color>");
+                }
+                else
+                {
+                    Debug.LogError("[VERIFICATION FAILED] Menu Pemilihan Penyamaran gagal verifikasi.");
+                }
+            }
+            catch (System.Exception ex)
+            {
+                System.IO.File.WriteAllText("C:/Users/MUSA/.gemini/antigravity/brain/3104c68e-3988-4937-956a-544f03a4f729/disguise_menu_report.txt", "EXCEPTION: " + ex.ToString());
+                Debug.LogException(ex);
+            }
+            finally
+            {
+                Object.DestroyImmediate(go);
+            }
+        }
     }
 }

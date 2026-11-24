@@ -870,7 +870,7 @@ namespace Pucaci.Player
             return false;
         }
 
-        private void SetCursorLock(bool locked)
+        public void SetCursorLock(bool locked)
         {
             isCursorLocked = locked;
             Cursor.lockState = locked ? CursorLockMode.Locked : CursorLockMode.None;

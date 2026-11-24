@@ -135,7 +135,7 @@ namespace Pucaci.UI
                 if (disguiseSubInfo != null)
                 {
                     string origName = roleManager.InitialHumanCharacter.ToString().ToUpper();
-                    disguiseSubInfo.text = $"Tekan <b>[T / 5]</b> untuk Kembali Menjadi <b>{origName}</b> | <b>[1-4]</b> Menyamar";
+                    disguiseSubInfo.text = $"Tekan <b>[T / 5]</b> Wujud Asli (<b>{origName}</b>) | <b>[X]</b> Menu Penyamaran";
                 }
             }
             else
@@ -144,7 +144,7 @@ namespace Pucaci.UI
                 hudHeaderTitle.text = $"<b><color=#99BBFF>PENYAMARAN: {disguiseName}</color></b>";
                 if (disguiseSubInfo != null)
                 {
-                    disguiseSubInfo.text = "Tekan <b>[T / 5]</b> wujud Kunti | <b>[Q]</b> Sabotase Lampu";
+                    disguiseSubInfo.text = "Tekan <b>[X]</b> Pilih Penyamaran | <b>[T / 5]</b> Wujud Kunti | <b>[Q]</b> Sabotase Lampu";
                 }
             }
         }
@@ -310,17 +310,17 @@ namespace Pucaci.UI
             }
             else if (isKunti)
             {
-                // Kuntilanak siap kembali menjadi wujud aslinya di awal [T / 5] atau memilih penyamaran [1-4]
+                // Kuntilanak siap kembali menjadi wujud aslinya di awal [T / 5] atau membuka menu penyamaran [X]
                 string origName = roleManager.InitialHumanCharacter.ToString().ToUpper();
                 SetCardState(disguiseCard, true, false, disguiseTheme, cardBgNormal,
-                    0f, "KEMBALI MANUSIA", "[T / 5]", $"<color=#DDAAFF>{origName}</color>");
+                    0f, "KEMBALI MANUSIA", "[T / 5]", $"<color=#DDAAFF>{origName}</color> | [X]");
                 ResetScale(disguiseCard.cardRect);
             }
             else
             {
-                // Sedang dalam wujud manusia: siap kembali ke Kuntilanak [T / 5]
-                SetCardState(disguiseCard, true, true, sabotageTheme, cardBgNormal,
-                    0f, "KUNTILANAK", "[T / 5]", "<color=#FF6666>WUJUD HANTU</color>");
+                // Sedang dalam wujud manusia: siap pilih penyamaran [X] atau berubah ke wujud Kuntilanak [T / 5]
+                SetCardState(disguiseCard, true, true, disguiseTheme, cardBgNormal,
+                    0f, "PILIH PENYAMARAN", "[X]", "<color=#DDAAFF>GANTI WUJUD</color>");
                 ApplyPulse(disguiseCard.cardRect, 1.03f, 4f);
             }
         }

@@ -139,32 +139,23 @@ namespace Pucaci.Player
 
         private void HandleMimicAndTransformInput()
         {
-            // Deteksi penekanan tombol
-            bool pressLaras = false;   // [1]
-            bool pressMamat = false;   // [2]
-            bool pressVincent = false; // [3]
-            bool pressRocky = false;   // [4]
-            bool pressKunti = false;   // [T] atau [5]
+            // Deteksi penekanan tombol: [X] Menu Pemilihan Penyamaran, [T / 5] Toggle Wujud Kunti
+            bool pressDisguiseMenu = false; // [X]
+            bool pressKunti = false;        // [T] atau [5]
 
 #if ENABLE_INPUT_SYSTEM
             var kb = Keyboard.current;
             if (kb != null)
             {
-                if (kb.digit1Key.wasPressedThisFrame || kb.numpad1Key.wasPressedThisFrame) pressLaras = true;
-                if (kb.digit2Key.wasPressedThisFrame || kb.numpad2Key.wasPressedThisFrame) pressMamat = true;
-                if (kb.digit3Key.wasPressedThisFrame || kb.numpad3Key.wasPressedThisFrame) pressVincent = true;
-                if (kb.digit4Key.wasPressedThisFrame || kb.numpad4Key.wasPressedThisFrame) pressRocky = true;
+                if (kb.xKey.wasPressedThisFrame) pressDisguiseMenu = true;
                 if (kb.tKey.wasPressedThisFrame || kb.digit5Key.wasPressedThisFrame || kb.numpad5Key.wasPressedThisFrame) pressKunti = true;
             }
 #else
-            if (Input.GetKeyDown(KeyCode.Alpha1) || Input.GetKeyDown(KeyCode.Keypad1)) pressLaras = true;
-            if (Input.GetKeyDown(KeyCode.Alpha2) || Input.GetKeyDown(KeyCode.Keypad2)) pressMamat = true;
-            if (Input.GetKeyDown(KeyCode.Alpha3) || Input.GetKeyDown(KeyCode.Keypad3)) pressVincent = true;
-            if (Input.GetKeyDown(KeyCode.Alpha4) || Input.GetKeyDown(KeyCode.Keypad4)) pressRocky = true;
+            if (Input.GetKeyDown(KeyCode.X)) pressDisguiseMenu = true;
             if (Input.GetKeyDown(KeyCode.T) || Input.GetKeyDown(KeyCode.Alpha5) || Input.GetKeyDown(KeyCode.Keypad5)) pressKunti = true;
 #endif
 
-            if (!pressLaras && !pressMamat && !pressVincent && !pressRocky && !pressKunti) return;
+            if (!pressDisguiseMenu && !pressKunti) return;
 
             // Jika sedang bermain sendiri/testing dan belum Impostor, otomatis jadikan Impostor
             if (!IsImpostor)
@@ -181,37 +172,28 @@ namespace Pucaci.Player
                 }
             }
 
-            if (transformCooldownTimer > 0.05f)
+            if (pressDisguiseMenu)
             {
-                Debug.Log($"[ROLE] Peniruan/Transformasi sedang cooldown! ({transformCooldownTimer:F1}s)");
+                // Buka atau tutup menu pemilihan penyamaran karakter [X]
+                var ui = Pucaci.UI.DisguiseSelectionUI.EnsureInstance();
+                ui.ToggleMenu(this);
                 return;
             }
 
-            if (chokeMechanic != null && chokeMechanic.IsChoking)
+            if (pressKunti)
             {
-                Debug.Log("[ROLE] Tidak bisa berganti wujud saat sedang mencekik mangsa!");
-                return;
-            }
+                if (transformCooldownTimer > 0.05f)
+                {
+                    Debug.Log($"[ROLE] Peniruan/Transformasi sedang cooldown! ({transformCooldownTimer:F1}s)");
+                    return;
+                }
 
-            // Eksekusi aksi peniruan wujud
-            if (pressLaras)
-            {
-                MimicHuman(0); // Laras
-            }
-            else if (pressMamat)
-            {
-                MimicHuman(1); // Pak Mamat
-            }
-            else if (pressVincent)
-            {
-                MimicHuman(3); // Pak Vincent
-            }
-            else if (pressRocky)
-            {
-                MimicHuman(4); // Rocky
-            }
-            else if (pressKunti)
-            {
+                if (chokeMechanic != null && chokeMechanic.IsChoking)
+                {
+                    Debug.Log("[ROLE] Tidak bisa berganti wujud saat sedang mencekik mangsa!");
+                    return;
+                }
+
                 ToggleKuntilanakForm();
             }
         }
