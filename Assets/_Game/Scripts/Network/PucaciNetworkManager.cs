@@ -35,7 +35,7 @@ namespace Pucaci.Network
         [SerializeField] private int targetPlayerCount = 3;
 
         [Tooltip("Durasi hitung mundur sebelum peran dibagikan setelah pemain lengkap (detik)")]
-        [SerializeField] private float countdownDuration = 3.0f;
+        [SerializeField] private float countdownDuration = 5.0f;
 
         [Header("Runtime State")]
         [SerializeField] private bool matchStarted = false;
@@ -270,12 +270,8 @@ namespace Pucaci.Network
         public void ForceStartMatch()
         {
             if (!NetworkServer.active || matchStarted) return;
-            if (startCountdownCoroutine != null)
-            {
-                StopCoroutine(startCountdownCoroutine);
-                startCountdownCoroutine = null;
-            }
-            StartMatchWithRoles();
+            if (startCountdownCoroutine != null) return;
+            startCountdownCoroutine = StartCoroutine(CountdownAndStartMatch());
         }
 
         private void StartMatchWithRoles()

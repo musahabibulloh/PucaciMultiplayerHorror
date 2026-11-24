@@ -80,11 +80,11 @@ namespace Pucaci.UI
             if (lobbyBannerRoot != null) lobbyBannerRoot.SetActive(true);
             if (statusTitleText != null)
             {
-                statusTitleText.text = "<color=#00FFAA><b>PEMAIN LENGKAP (3/3)!</b></color>";
+                statusTitleText.text = "<color=#00FFAA><b>MEMULAI PERMAINAN!</b></color>";
             }
             if (statusSubText != null)
             {
-                statusSubText.text = $"Mengundi peran hantu dalam <color=#FFB347><b>{Mathf.CeilToInt(remaining)}</b></color> detik...";
+                statusSubText.text = $"Permainan dimulai dalam <color=#FFB347><b>{Mathf.CeilToInt(remaining)}</b></color> detik...";
             }
         }
 

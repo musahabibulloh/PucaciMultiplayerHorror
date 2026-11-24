@@ -294,9 +294,15 @@ namespace Pucaci.Player
 
         /// <summary>
         /// Shortcut F1 untuk beralih role (Survivor <-> Impostor) secara instan saat testing.
+        /// Hanya dapat digunakan di pre-match lobby sebelum permainan dimulai.
         /// </summary>
         private void HandleDebugRoleToggle()
         {
+            if (Pucaci.Network.PucaciNetworkManager.singleton != null && Pucaci.Network.PucaciNetworkManager.singleton.IsMatchStarted)
+            {
+                return;
+            }
+
             bool pressedF1 = false;
 #if ENABLE_INPUT_SYSTEM
             if (Keyboard.current != null && Keyboard.current.f1Key.wasPressedThisFrame) pressedF1 = true;

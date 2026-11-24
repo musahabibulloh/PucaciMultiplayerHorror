@@ -82,8 +82,7 @@ namespace Pucaci.Rendering
                 }
                 else
                 {
-                    Shader uShader = Shader.Find("Pucaci/ToonMeshOutline") 
-                        ?? Shader.Find("Universal Render Pipeline/Unlit") 
+                    Shader uShader = Shader.Find("Universal Render Pipeline/Unlit") 
                         ?? Shader.Find("Universal Render Pipeline/Lit");
                     if (uShader != null)
                     {
@@ -179,21 +178,10 @@ namespace Pucaci.Rendering
 
                 if (outlineSmr != null)
                 {
-                    // Jika material menggunakan shader Pucaci/ToonMeshOutline, ekstrusi dilakukan 100% di GPU secara screen-space.
-                    // Gunakan langsung smr.sharedMesh: BEBAS bug bola/dome pada Laras, 100% konsisten di semua karakter, dan 0 CPU overhead!
-                    bool isGpuShader = (materialInstance != null && materialInstance.shader != null && materialInstance.shader.name == "Pucaci/ToonMeshOutline");
-
-                    if (isGpuShader)
+                    if (outlineSmr.sharedMesh == null || !outlineSmr.sharedMesh.name.EndsWith("_ToonOutline") || Mathf.Abs(lastExtrudedWidth - outlineWidth) > 0.01f)
                     {
-                        outlineSmr.sharedMesh = smr.sharedMesh;
-                    }
-                    else
-                    {
-                        if (outlineSmr.sharedMesh == null || !outlineSmr.sharedMesh.name.EndsWith("_ToonOutline") || Mathf.Abs(lastExtrudedWidth - outlineWidth) > 0.01f)
-                        {
-                            outlineSmr.sharedMesh = CreateExtrudedMesh(smr.sharedMesh, outlineWidth, smr);
-                            lastExtrudedWidth = outlineWidth;
-                        }
+                        outlineSmr.sharedMesh = CreateExtrudedMesh(smr.sharedMesh, outlineWidth, smr);
+                        lastExtrudedWidth = outlineWidth;
                     }
 
                     outlineSmr.bones = smr.bones;
@@ -281,7 +269,7 @@ namespace Pucaci.Rendering
                     if (avg > 0.001f) scaleFactor = avg;
                 }
 
-                float targetWorldThickness = Mathf.Clamp(width, 1.0f, 15.0f) * 0.003f;
+                float targetWorldThickness = Mathf.Clamp(width, 1.0f, 15.0f) * 0.0034f;
                 float localOffset = targetWorldThickness / scaleFactor;
 
                 for (int i = 0; i < verts.Length; i++)
