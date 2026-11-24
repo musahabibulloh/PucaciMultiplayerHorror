@@ -11,7 +11,7 @@ namespace Pucaci.Network
     /// - Pemain yang berdekatan (< 2m) terdengar jernih dan penuh.
     /// - Semakin jauh posisi antar pemain, suara memudar secara bertahap (linear rolloff).
     /// - Di luar jangkauan (25m), suara hilang sepenuhnya.
-    /// - Push-to-Talk eksklusif pada tombol [V] (Instant response per frame).
+    /// - Kontrol [V] Cerdas: Bisa DITAHAN (Push-to-Talk) atau DITEKAN/TAP SEKALI (Toggle On/Off).
     /// - Menampilkan Logo Sound murni (Sprite icon suara 🔊) di HUD dan di atas kepala pemain.
     /// - Sinkronisasi status bicara dan logo sound secara real-time via Mirror SyncVar.
     /// - Transmisi audio via Channels.Reliable dengan downsampling 16kHz hemat bandwidth & bebas packet drop.
@@ -40,7 +40,7 @@ namespace Pucaci.Network
         [Tooltip("Interval pengiriman paket suara ke server (detik)")]
         [SerializeField] private float packetInterval = 0.05f;
 
-        [Tooltip("Tombol Push-to-Talk (Default: V)")]
+        [Tooltip("Tombol Push-to-Talk / Toggle Voice (Default: V)")]
         [SerializeField] private KeyCode pushToTalkKey = KeyCode.V;
 
         [Header("Audio Monitoring (Loopback / Sidetone)")]
@@ -86,11 +86,15 @@ namespace Pucaci.Network
         private float[] sampleBuffer;
         private bool isLocalInitialized = false;
 
+        // Kontrol input cerdas (Tap to Toggle / Hold to Talk)
+        private bool isToggleActive = false;
+        private float keyPressStartTime = 0f;
+        private bool wasKeyPressedLastFrame = false;
+
         // Buffer pemutaran audio (Ring Buffer thread-safe)
         private const int RingBufferSize = 96000;
         private float[] ringBuffer = new float[RingBufferSize];
         private int writeIndex = 0;
-        private int readIndex = 0;
         private float playbackPosition = 0f;
         private readonly object ringLock = new object();
         private int remoteSampleRate = 16000;
@@ -100,7 +104,7 @@ namespace Pucaci.Network
         private static Sprite cachedSpeakerSprite;
         private GameObject overheadVoiceIndicator;
         private SpriteRenderer overheadVoiceRenderer;
-        private GameObject hudCanvasObj;
+        private static GameObject hudCanvasObj;
         private GameObject hudVoiceIndicator;
         private Image hudVoiceIcon;
         private TMPro.TextMeshProUGUI hudVoiceTmp;
@@ -304,6 +308,16 @@ namespace Pucaci.Network
             sampleBuffer = new float[hardwareSampleRate];
         }
 
+        /// <summary>
+        /// Dipanggil langsung oleh PlayerCharacterController saat tombol [V] ditekan.
+        /// Mengizinkan toggle on/off mic dengan sekali pencet.
+        /// </summary>
+        public void ToggleVoice()
+        {
+            isToggleActive = !isToggleActive;
+            Debug.Log($"<color=#00FFAA>[ProximityVoiceChat] Voice Toggled: {isToggleActive}</color>");
+        }
+
         private void Update()
         {
             bool isLocal = SafeIsLocalPlayer || (!NetworkClient.active && !NetworkServer.active);
@@ -315,9 +329,8 @@ namespace Pucaci.Network
                     InitializeLocalVoice();
                 }
 
-                // Cek tombol [V] LANGSUNG SETIAP FRAME (Instant Response)
-                bool pttPressed = IsPushToTalkPressed();
-                IsSpeaking = pttPressed;
+                // Cek input tombol [V] cerdas (Hold = PTT, Tap = Toggle)
+                CheckInputState();
 
                 // Sinkronisasi status bicara ke network jika ada perubahan
                 if (NetworkClient.active && syncIsSpeaking != IsSpeaking)
@@ -325,7 +338,7 @@ namespace Pucaci.Network
                     CmdSetSpeaking(IsSpeaking);
                 }
 
-                // Jalankan transmisi audio jika sedang menekan [V]
+                // Jalankan transmisi audio jika sedang berbicara
                 UpdateLocalVoiceTransmission();
 
                 // Perbarui tampilan visual lokal
@@ -340,7 +353,36 @@ namespace Pucaci.Network
             }
         }
 
-        private bool IsPushToTalkPressed()
+        private void CheckInputState()
+        {
+            bool isHeld = IsPushToTalkHeld();
+
+            // Deteksi transisi tombol:
+            if (isHeld && !wasKeyPressedLastFrame)
+            {
+                keyPressStartTime = Time.time;
+            }
+            else if (!isHeld && wasKeyPressedLastFrame)
+            {
+                float holdDuration = Time.time - keyPressStartTime;
+                // Jika ditekan sebentar (< 0.28s) = TAP -> Toggle On/Off
+                if (holdDuration < 0.28f)
+                {
+                    isToggleActive = !isToggleActive;
+                }
+                else
+                {
+                    // Jika ditahan lama (> 0.28s) dan dilepas = PTT selesai -> matikan
+                    isToggleActive = false;
+                }
+            }
+            wasKeyPressedLastFrame = isHeld;
+
+            // Aktif jika tombol sedang ditahan ATAU mode toggle sedang ON
+            IsSpeaking = isHeld || isToggleActive;
+        }
+
+        private bool IsPushToTalkHeld()
         {
 #if ENABLE_INPUT_SYSTEM
             try
@@ -371,6 +413,11 @@ namespace Pucaci.Network
         {
             if (!IsSpeaking)
             {
+                // Saat tidak bicara, sinkronkan posisi rekaman agar saat tombol ditekan audio tidak basi/tertunda
+                if (!string.IsNullOrEmpty(activeMicDevice))
+                {
+                    lastSamplePosition = Microphone.GetPosition(activeMicDevice);
+                }
                 CurrentMicLevel = 0f;
                 return;
             }
@@ -487,7 +534,6 @@ namespace Pucaci.Network
                 bool wasSilent = (Time.time - lastVoiceReceivedTime > 0.35f);
                 if (wasSilent)
                 {
-                    readIndex = writeIndex;
                     playbackPosition = writeIndex;
                 }
 
@@ -519,10 +565,7 @@ namespace Pucaci.Network
             bool isLocal = SafeIsLocalPlayer || (!NetworkClient.active && !NetworkServer.active);
             if (isLocal && !loopbackSelfAudio)
             {
-                for (int i = 0; i < data.Length; i++)
-                {
-                    data[i] = 0f;
-                }
+                for (int i = 0; i < data.Length; i++) data[i] = 0f;
                 return;
             }
 
@@ -532,49 +575,41 @@ namespace Pucaci.Network
 
             lock (ringLock)
             {
-                int availableSamples = (writeIndex >= readIndex)
-                    ? (writeIndex - readIndex)
-                    : (RingBufferSize - readIndex + writeIndex);
+                int currentPos = (int)playbackPosition % RingBufferSize;
+                int buffered = (writeIndex >= currentPos)
+                    ? (writeIndex - currentPos)
+                    : (RingBufferSize - currentPos + writeIndex);
 
-                if (availableSamples < 64 || (Time.time - lastVoiceReceivedTime > 0.35f))
+                // Jika audio hening > 0.35 detik atau buffer hampir kosong
+                if (buffered < 64 || (Time.time - lastVoiceReceivedTime > 0.35f))
                 {
-                    for (int i = 0; i < data.Length; i++)
-                    {
-                        data[i] = 0f;
-                    }
+                    for (int i = 0; i < data.Length; i++) data[i] = 0f;
                     return;
+                }
+
+                // Kompensasi latensi: jika tertumpuk lebih dari 0.2 detik, percepat playback
+                if (buffered > 9600)
+                {
+                    playbackPosition = (writeIndex - 3200 + RingBufferSize) % RingBufferSize;
                 }
 
                 for (int i = 0; i < data.Length; i += channels)
                 {
-                    if (availableSamples > 0)
+                    int curIdx = (int)playbackPosition % RingBufferSize;
+                    int nextIdx = (curIdx + 1) % RingBufferSize;
+                    float frac = playbackPosition - (int)playbackPosition;
+
+                    float sample = Mathf.Lerp(ringBuffer[curIdx], ringBuffer[nextIdx], frac);
+
+                    for (int c = 0; c < channels; c++)
                     {
-                        int curIdx = (int)playbackPosition % RingBufferSize;
-                        int nextIdx = (curIdx + 1) % RingBufferSize;
-                        float frac = playbackPosition - (int)playbackPosition;
-
-                        float sample = Mathf.Lerp(ringBuffer[curIdx], ringBuffer[nextIdx], frac);
-
-                        for (int c = 0; c < channels; c++)
-                        {
-                            data[i + c] = sample;
-                        }
-
-                        playbackPosition += resampleRatio;
-                        if (playbackPosition >= RingBufferSize)
-                        {
-                            playbackPosition -= RingBufferSize;
-                        }
-
-                        readIndex = (int)playbackPosition % RingBufferSize;
-                        availableSamples--;
+                        data[i + c] = sample;
                     }
-                    else
+
+                    playbackPosition += resampleRatio;
+                    if (playbackPosition >= RingBufferSize)
                     {
-                        for (int c = 0; c < channels; c++)
-                        {
-                            data[i + c] = 0f;
-                        }
+                        playbackPosition -= RingBufferSize;
                     }
                 }
             }
@@ -631,7 +666,7 @@ namespace Pucaci.Network
             overheadVoiceIndicator = new GameObject("OverheadVoiceIndicator");
             overheadVoiceIndicator.transform.SetParent(transform, false);
             overheadVoiceIndicator.transform.localPosition = new Vector3(0f, 2.3f, 0f);
-            overheadVoiceIndicator.transform.localScale = new Vector3(0.4f, 0.4f, 0.4f);
+            overheadVoiceIndicator.transform.localScale = new Vector3(0.45f, 0.45f, 0.45f);
 
             overheadVoiceRenderer = overheadVoiceIndicator.AddComponent<SpriteRenderer>();
             overheadVoiceRenderer.sprite = GetSpeakerSprite();
@@ -669,30 +704,27 @@ namespace Pucaci.Network
         {
             if (hudVoiceIndicator != null) return;
 
-            Canvas targetCanvas = null;
-            Canvas[] allCanvases = FindObjectsOfType<Canvas>();
-            foreach (var c in allCanvases)
+            // Selalu gunakan Canvas Overlay mandiri dengan DontDestroyOnLoad agar tidak pernah terpengaruh menu lain
+            if (hudCanvasObj == null)
             {
-                if (c.isActiveAndEnabled && c.renderMode == RenderMode.ScreenSpaceOverlay)
-                {
-                    targetCanvas = c;
-                    break;
-                }
+                hudCanvasObj = GameObject.Find("VoiceChatOverlayCanvas");
             }
 
-            if (targetCanvas == null)
+            if (hudCanvasObj == null)
             {
                 hudCanvasObj = new GameObject("VoiceChatOverlayCanvas", typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));
-                targetCanvas = hudCanvasObj.GetComponent<Canvas>();
+                var targetCanvas = hudCanvasObj.GetComponent<Canvas>();
                 targetCanvas.renderMode = RenderMode.ScreenSpaceOverlay;
-                targetCanvas.sortingOrder = 999;
+                targetCanvas.sortingOrder = 9999;
                 var scaler = hudCanvasObj.GetComponent<CanvasScaler>();
                 scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
                 scaler.referenceResolution = new Vector2(1920, 1080);
+                DontDestroyOnLoad(hudCanvasObj);
             }
 
+            Canvas overlayCanvas = hudCanvasObj.GetComponent<Canvas>();
             hudVoiceIndicator = new GameObject("HUDVoiceStatus", typeof(RectTransform), typeof(Image));
-            hudVoiceIndicator.transform.SetParent(targetCanvas.transform, false);
+            hudVoiceIndicator.transform.SetParent(overlayCanvas.transform, false);
 
             RectTransform rt = hudVoiceIndicator.GetComponent<RectTransform>();
             rt.anchorMin = new Vector2(1f, 0f);
@@ -704,7 +736,7 @@ namespace Pucaci.Network
             var bgImg = hudVoiceIndicator.GetComponent<Image>();
             bgImg.color = new Color(0.04f, 0.07f, 0.12f, 0.88f);
 
-            // Icon Image
+            // Icon Image (Logo Sound 🔊)
             GameObject iconObj = new GameObject("Icon", typeof(RectTransform), typeof(Image));
             iconObj.transform.SetParent(hudVoiceIndicator.transform, false);
             RectTransform irt = iconObj.GetComponent<RectTransform>();
@@ -775,11 +807,6 @@ namespace Pucaci.Network
             if (hudVoiceIndicator != null)
             {
                 Destroy(hudVoiceIndicator);
-            }
-
-            if (hudCanvasObj != null)
-            {
-                Destroy(hudCanvasObj);
             }
         }
     }
