@@ -100,13 +100,10 @@ namespace Pucaci.Network
         private int remoteSampleRate = 16000;
         private float lastVoiceReceivedTime = 0f;
 
-        // UI Indikator & Sprite Logo Suara
+        // Sprite Logo Suara & Overhead Indicator (Di atas kepala pemain)
         private static Sprite cachedSpeakerSprite;
         private GameObject overheadVoiceIndicator;
         private SpriteRenderer overheadVoiceRenderer;
-        private static GameObject hudCanvasObj;
-        private GameObject hudVoiceIndicator;
-        private Image hudVoiceIcon;
 
         public static Sprite GetSpeakerSprite()
         {
@@ -257,7 +254,6 @@ namespace Pucaci.Network
             }
 
             StartMicrophoneCapture();
-            CreateHUDVoiceIndicator();
         }
 
         private void StartMicrophoneCapture()
@@ -361,8 +357,7 @@ namespace Pucaci.Network
                 // Jalankan transmisi audio jika sedang berbicara
                 UpdateLocalVoiceTransmission();
 
-                // Perbarui tampilan visual lokal
-                UpdateHUDIndicator();
+                // Perbarui tampilan visual overhead di atas kepala pemain
                 UpdateOverheadVisuals(IsSpeaking);
             }
             else
@@ -702,14 +697,14 @@ namespace Pucaci.Network
         }
         #endregion
 
-        #region Visual Indicators (HUD & Overhead)
+        #region Visual Overhead Indicator (Di atas kepala pemain)
         private void CreateOverheadIndicator()
         {
             if (overheadVoiceIndicator != null) return;
             overheadVoiceIndicator = new GameObject("OverheadVoiceIndicator");
             overheadVoiceIndicator.transform.SetParent(transform, false);
             overheadVoiceIndicator.transform.localPosition = new Vector3(0f, 2.45f, 0f);
-            overheadVoiceIndicator.transform.localScale = new Vector3(0.55f, 0.55f, 0.55f);
+            overheadVoiceIndicator.transform.localScale = new Vector3(0.70f, 0.70f, 0.70f);
 
             overheadVoiceRenderer = overheadVoiceIndicator.AddComponent<SpriteRenderer>();
             overheadVoiceRenderer.sprite = GetSpeakerSprite();
@@ -734,7 +729,7 @@ namespace Pucaci.Network
                 if (isTalking)
                 {
                     overheadVoiceIndicator.transform.localPosition = new Vector3(0f, 2.45f, 0f);
-                    float pulse = 0.55f + Mathf.PingPong(Time.time * 2.5f, 0.08f);
+                    float pulse = 0.70f + Mathf.PingPong(Time.time * 2.5f, 0.10f);
                     overheadVoiceIndicator.transform.localScale = new Vector3(pulse, pulse, pulse);
 
                     Camera cam = Camera.main;
@@ -747,84 +742,6 @@ namespace Pucaci.Network
                 }
             }
         }
-
-        private void CreateHUDVoiceIndicator()
-        {
-            if (hudVoiceIndicator != null) return;
-
-            // Gunakan Canvas Overlay mandiri dengan DontDestroyOnLoad agar selalu tampil konsisten di semua scene
-            if (hudCanvasObj == null)
-            {
-                hudCanvasObj = GameObject.Find("VoiceChatOverlayCanvas");
-            }
-
-            if (hudCanvasObj == null)
-            {
-                hudCanvasObj = new GameObject("VoiceChatOverlayCanvas", typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));
-                var targetCanvas = hudCanvasObj.GetComponent<Canvas>();
-                targetCanvas.renderMode = RenderMode.ScreenSpaceOverlay;
-                targetCanvas.sortingOrder = 9999;
-                var scaler = hudCanvasObj.GetComponent<CanvasScaler>();
-                scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-                scaler.referenceResolution = new Vector2(1920, 1080);
-                DontDestroyOnLoad(hudCanvasObj);
-            }
-
-            Canvas overlayCanvas = hudCanvasObj.GetComponent<Canvas>();
-            hudVoiceIndicator = new GameObject("HUDVoiceStatus", typeof(RectTransform), typeof(Image), typeof(Button));
-            hudVoiceIndicator.transform.SetParent(overlayCanvas.transform, false);
-
-            var btn = hudVoiceIndicator.GetComponent<Button>();
-            if (btn != null)
-            {
-                btn.onClick.AddListener(ToggleVoice);
-            }
-
-            RectTransform rt = hudVoiceIndicator.GetComponent<RectTransform>();
-            // Posisi di tengah bawah (tepat di atas action skill bar)
-            rt.anchorMin = new Vector2(0.5f, 0f);
-            rt.anchorMax = new Vector2(0.5f, 0f);
-            rt.pivot = new Vector2(0.5f, 0.5f);
-            rt.anchoredPosition = new Vector2(0f, 210f);
-            rt.sizeDelta = new Vector2(64f, 64f);
-
-            var bgImg = hudVoiceIndicator.GetComponent<Image>();
-            bgImg.color = new Color(0.04f, 0.08f, 0.12f, 0.85f);
-
-            // Icon Image (Logo Sound murni 🔊 tanpa teks apa pun)
-            GameObject iconObj = new GameObject("Icon", typeof(RectTransform), typeof(Image));
-            iconObj.transform.SetParent(hudVoiceIndicator.transform, false);
-            RectTransform irt = iconObj.GetComponent<RectTransform>();
-            irt.anchorMin = new Vector2(0.5f, 0.5f);
-            irt.anchorMax = new Vector2(0.5f, 0.5f);
-            irt.pivot = new Vector2(0.5f, 0.5f);
-            irt.anchoredPosition = Vector2.zero;
-            irt.sizeDelta = new Vector2(48f, 48f);
-
-            hudVoiceIcon = iconObj.GetComponent<Image>();
-            hudVoiceIcon.sprite = GetSpeakerSprite();
-            hudVoiceIcon.color = new Color(0f, 1f, 0.65f, 1f);
-
-            // Sembunyikan saat awal (Hanya MUNCUL / KELUAR saat tombol V ditekan / aktif!)
-            hudVoiceIndicator.SetActive(false);
-        }
-
-        private void UpdateHUDIndicator()
-        {
-            if (hudVoiceIndicator == null || hudVoiceIcon == null) return;
-
-            // KELUAR (TAMPIL) SAAT BICARA, SEMBUNYI SAAT TIDAK BICARA
-            if (hudVoiceIndicator.activeSelf != IsSpeaking)
-            {
-                hudVoiceIndicator.SetActive(IsSpeaking);
-            }
-
-            if (IsSpeaking)
-            {
-                hudVoiceIcon.color = new Color(0f, 1f, 0.65f, 1f); // Neon green
-                hudVoiceIcon.transform.localScale = Vector3.one * (1f + Mathf.PingPong(Time.time * 3f, 0.18f));
-            }
-        }
         #endregion
 
         private void OnDestroy()
@@ -835,11 +752,6 @@ namespace Pucaci.Network
                 {
                     Microphone.End(activeMicDevice);
                 }
-            }
-
-            if (hudVoiceIndicator != null)
-            {
-                Destroy(hudVoiceIndicator);
             }
         }
     }
