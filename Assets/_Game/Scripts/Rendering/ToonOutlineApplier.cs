@@ -28,6 +28,7 @@ namespace Pucaci.Rendering
 
         private Material materialInstance;
         private bool isApplied;
+        private float lastExtrudedWidth = -1f;
         private readonly List<Renderer> outlineRenderers = new List<Renderer>();
         private readonly List<Mesh> generatedMeshes = new List<Mesh>();
 
@@ -121,13 +122,17 @@ namespace Pucaci.Rendering
                 if (rend is ParticleSystemRenderer || rend is TrailRenderer || rend is LineRenderer)
                     continue;
 
-                // Abaikan tanah, air, langit agar tidak ada garis kotak di tanah desa
-                string nameLower = rend.gameObject.name.ToLower();
-                if (nameLower.Contains("plane") || nameLower.Contains("terrain") || nameLower.Contains("ground") || nameLower.Contains("water") || nameLower.Contains("sky"))
-                    continue;
+                // Hanya abaikan tanah, air, langit pada objek lingkungan statis (MeshRenderer).
+                // Karakter (SkinnedMeshRenderer) TIDAK BOLEH difilter nama karena model Pak Vincent bernama Plane.001!
+                if (rend is MeshRenderer)
+                {
+                    string nameLower = rend.gameObject.name.ToLower();
+                    if (nameLower.Contains("terrain") || nameLower.Contains("ground") || nameLower.Contains("water") || nameLower.Contains("sky"))
+                        continue;
 
-                if (rend.CompareTag("Ground"))
-                    continue;
+                    if (rend.CompareTag("Ground"))
+                        continue;
+                }
 
                 CreateOrUpdateOutlineForRenderer(rend);
             }
@@ -163,10 +168,11 @@ namespace Pucaci.Rendering
 
                 if (outlineSmr != null)
                 {
-                    // Buat mesh outline terekstrusi
-                    if (outlineSmr.sharedMesh == null || !outlineSmr.sharedMesh.name.EndsWith("_ToonOutline"))
+                    // Buat mesh outline terekstrusi dengan normalisasi skala transform
+                    if (outlineSmr.sharedMesh == null || !outlineSmr.sharedMesh.name.EndsWith("_ToonOutline") || Mathf.Abs(lastExtrudedWidth - outlineWidth) > 0.01f)
                     {
-                        outlineSmr.sharedMesh = CreateExtrudedMesh(smr.sharedMesh, outlineWidth);
+                        outlineSmr.sharedMesh = CreateExtrudedMesh(smr.sharedMesh, outlineWidth, smr.transform);
+                        lastExtrudedWidth = outlineWidth;
                     }
                     outlineSmr.bones = smr.bones;
                     outlineSmr.rootBone = smr.rootBone;
@@ -223,7 +229,7 @@ namespace Pucaci.Rendering
             }
         }
 
-        private Mesh CreateExtrudedMesh(Mesh sourceMesh, float width)
+        private Mesh CreateExtrudedMesh(Mesh sourceMesh, float width, Transform meshTransform = null)
         {
             if (sourceMesh == null) return null;
 
@@ -245,10 +251,26 @@ namespace Pucaci.Rendering
                     norms = outlineMesh.normals;
                 }
 
-                float offset = Mathf.Clamp(width, 1.0f, 15.0f) * 0.0035f;
+                // Normalisasi skala transform:
+                // Model Laras memiliki localScale 100 di child mesh, sedangkan Pak Mamat/Vincent berskala 1.
+                // Dengan membagi offset dunia dengan skala transform, ketebalan outline menjadi seragam di semua karakter.
+                float scaleFactor = 1.0f;
+                if (meshTransform != null)
+                {
+                    Vector3 ls = meshTransform.lossyScale;
+                    float avgScale = (Mathf.Abs(ls.x) + Mathf.Abs(ls.y) + Mathf.Abs(ls.z)) / 3.0f;
+                    if (avgScale > 0.001f)
+                    {
+                        scaleFactor = avgScale;
+                    }
+                }
+
+                float worldOffset = Mathf.Clamp(width, 1.0f, 15.0f) * 0.0035f;
+                float localOffset = worldOffset / scaleFactor;
+
                 for (int i = 0; i < verts.Length; i++)
                 {
-                    verts[i] += norms[i] * offset;
+                    verts[i] += norms[i] * localOffset;
                 }
 
                 outlineMesh.vertices = verts;
