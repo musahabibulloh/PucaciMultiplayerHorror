@@ -192,19 +192,52 @@ namespace Pucaci.Player
         private void OnSyncDeadChanged(bool oldDead, bool newDead)
         {
             isDead = newDead;
-            if (newDead && PCC != null)
+            if (newDead)
             {
-                PCC.TriggerDeath();
+                if (PCC != null)
+                {
+                    PCC.TriggerDeath();
+                }
+
                 var choke = GetComponent<KuntilanakChokeMechanic>();
                 if (choke != null)
                 {
                     choke.SetBeingChoked(false, null);
                 }
+
+                var bodyCol = GetComponent<CapsuleCollider>();
+                if (bodyCol != null)
+                {
+                    bodyCol.enabled = false;
+                }
+
+                var nt = GetComponent<Mirror.NetworkTransformBase>();
+                if (nt != null)
+                {
+                    nt.enabled = false;
+                }
+
                 OnDeathEvent?.Invoke();
             }
-            else if (!newDead && PCC != null)
+            else if (!newDead)
             {
-                PCC.TriggerGetUp();
+                if (PCC != null)
+                {
+                    PCC.TriggerGetUp();
+                }
+
+                var bodyCol = GetComponent<CapsuleCollider>();
+                if (bodyCol != null && !isLocalPlayer)
+                {
+                    bodyCol.enabled = true;
+                }
+
+                var nt = GetComponent<Mirror.NetworkTransformBase>();
+                if (nt != null)
+                {
+                    nt.enabled = true;
+                }
+
                 OnReviveEvent?.Invoke();
             }
         }

@@ -1408,6 +1408,12 @@ namespace Pucaci.Player
             chokeLiftAmount = 0f;
             verticalVelocity = 0f;
 
+            // Reset posisi model ke offset kematian (menempel tanah)
+            if (modelTransform != null)
+            {
+                modelTransform.localPosition = modelOffset + Vector3.down * 0.08f;
+            }
+
             // Putuskan status cekik sepenuhnya jika sedang dicekik
             var choke = GetComponent<KuntilanakChokeMechanic>();
             if (choke != null)
@@ -1423,6 +1429,13 @@ namespace Pucaci.Player
             if (controller != null)
             {
                 controller.enabled = false;
+            }
+
+            // Nonaktifkan CapsuleCollider fisik agar pemain lain tidak tersangkut/menabrak mayat
+            var bodyCol = GetComponent<CapsuleCollider>();
+            if (bodyCol != null)
+            {
+                bodyCol.enabled = false;
             }
 
             // Matikan NetworkTransform agar tidak menimpa posisi mayat dengan posisi mengambang lama dari buffer jaringan!
@@ -1480,6 +1493,7 @@ namespace Pucaci.Player
                 if (hit.collider == null) continue;
                 if (hit.collider == controller || hit.collider.transform.IsChildOf(transform)) continue;
                 if (hit.collider is CharacterController) continue;
+                if (hit.collider is CapsuleCollider) continue;
                 if (hit.collider.GetComponentInParent<PlayerCharacterController>() != null) continue;
                 if (hit.collider.GetComponentInParent<Mirror.NetworkIdentity>() != null) continue;
 
@@ -1506,6 +1520,7 @@ namespace Pucaci.Player
                 if (hit.collider == null) continue;
                 if (hit.collider == controller || hit.collider.transform.IsChildOf(transform)) continue;
                 if (hit.collider is CharacterController) continue;
+                if (hit.collider is CapsuleCollider) continue;
                 if (hit.collider.GetComponentInParent<PlayerCharacterController>() != null) continue;
                 if (hit.collider.GetComponentInParent<Mirror.NetworkIdentity>() != null) continue;
 

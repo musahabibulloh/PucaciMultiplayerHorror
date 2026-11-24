@@ -594,10 +594,22 @@ namespace Pucaci.Player
             PlayChokeAudio(false);
             PlaySnapAudio();
 
+            uint victimId = 0;
+            Vector3 deadGroundPos = transform.position;
+
             if (activeVictim != null)
             {
+                if (activeVictim.TryGetComponent<NetworkIdentity>(out var vNet))
+                {
+                    victimId = vNet.netId;
+                }
+
+                float groundY = activeVictim.GetGroundHeight(activeVictim.transform.position);
+                deadGroundPos = new Vector3(activeVictim.transform.position.x, groundY, activeVictim.transform.position.z);
+
+                // Langsung tempelkan korban ke tanah di layar pembunuh saat ini juga!
+                activeVictim.transform.position = deadGroundPos;
                 activeVictim.SetChokeLifted(false);
-                activeVictim.SnapToGround();
                 activeVictim.TriggerDeath();
 
                 var victimChoke = activeVictim.GetComponent<KuntilanakChokeMechanic>();
@@ -606,16 +618,26 @@ namespace Pucaci.Player
                     victimChoke.SetBeingChoked(false, null);
                 }
 
+                var victimBodyCol = activeVictim.GetComponent<CapsuleCollider>();
+                if (victimBodyCol != null)
+                {
+                    victimBodyCol.enabled = false;
+                }
+
                 var nt = activeVictim.GetComponent<Mirror.NetworkTransformBase>();
                 if (nt != null)
                 {
                     nt.enabled = false;
                 }
             }
+            else if (syncVictimNetId != 0)
+            {
+                victimId = syncVictimNetId;
+            }
 
             if (NetworkClient.active || NetworkServer.active)
             {
-                CmdExecuteLethalChoke();
+                CmdExecuteLethalChoke(victimId, deadGroundPos);
                 activeVictim = null;
             }
             else
@@ -633,30 +655,25 @@ namespace Pucaci.Player
         }
 
         [Command]
-        private void CmdExecuteLethalChoke()
+        private void CmdExecuteLethalChoke(uint victimId, Vector3 groundPos)
         {
             RpcPlaySnapAudio();
 
-            uint victimId = 0;
-            if (activeVictim != null && activeVictim.TryGetComponent<NetworkIdentity>(out var vNet))
-            {
-                victimId = vNet.netId;
-            }
-            else if (syncVictimNetId != 0)
+            if (victimId == 0 && syncVictimNetId != 0)
             {
                 victimId = syncVictimNetId;
             }
 
             if (victimId != 0 && NetworkServer.spawned.TryGetValue(victimId, out var victimIdentity))
             {
+                // Posisikan korban di tanah pada server
+                victimIdentity.transform.position = groundPos;
+
                 var victimPcc = victimIdentity.GetComponent<PlayerCharacterController>();
-                Vector3 groundPos = victimIdentity.transform.position;
                 if (victimPcc != null)
                 {
                     victimPcc.SetChokeLifted(false);
-                    victimPcc.SnapToGround();
                     victimPcc.TriggerDeath();
-                    groundPos = victimIdentity.transform.position;
                 }
 
                 var victimHealth = victimIdentity.GetComponent<PlayerHealth>();
@@ -669,6 +686,12 @@ namespace Pucaci.Player
                 if (victimChoke != null)
                 {
                     victimChoke.RpcSetBeingChoked(false, 0);
+                }
+
+                var bodyCol = victimIdentity.GetComponent<CapsuleCollider>();
+                if (bodyCol != null)
+                {
+                    bodyCol.enabled = false;
                 }
 
                 var nt = victimIdentity.GetComponent<Mirror.NetworkTransformBase>();
@@ -689,14 +712,21 @@ namespace Pucaci.Player
             if (victimId == 0) return;
             if (NetworkClient.spawned.TryGetValue(victimId, out var victimIdentity))
             {
+                victimIdentity.transform.position = groundPos;
+
                 var victimPcc = victimIdentity.GetComponent<PlayerCharacterController>();
                 if (victimPcc != null)
                 {
                     victimPcc.SetChokeLifted(false);
-                    victimPcc.SnapToGround();
                     victimPcc.TriggerDeath();
                 }
-                victimIdentity.transform.position = groundPos;
+
+                var bodyCol = victimIdentity.GetComponent<CapsuleCollider>();
+                if (bodyCol != null)
+                {
+                    bodyCol.enabled = false;
+                }
+
                 var nt = victimIdentity.GetComponent<Mirror.NetworkTransformBase>();
                 if (nt != null)
                 {
