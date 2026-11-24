@@ -461,8 +461,22 @@ namespace Pucaci.Player
         {
             if (audioSource != null)
             {
-                AudioClip clip = toKuntilanak ? CreateKuntiTransformSound() : CreateHumanTransformSound();
-                audioSource.PlayOneShot(clip, 0.85f);
+                AudioClip clip = null;
+                if (toKuntilanak)
+                {
+                    clip = Resources.Load<AudioClip>("Audio/Screech_Monster");
+                    if (clip == null) clip = CreateKuntiTransformSound();
+                }
+                else
+                {
+                    clip = Resources.Load<AudioClip>("Audio/Death_Gasp");
+                    if (clip == null) clip = CreateHumanTransformSound();
+                }
+
+                if (clip != null)
+                {
+                    audioSource.PlayOneShot(clip, 0.95f);
+                }
             }
         }
 

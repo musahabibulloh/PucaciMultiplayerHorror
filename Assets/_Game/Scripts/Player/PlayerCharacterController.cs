@@ -691,8 +691,7 @@ namespace Pucaci.Player
 
             if (isDead)
             {
-                CheckGrounded();
-                ApplyGravityOnly();
+                SnapToGround();
                 return;
             }
 
@@ -737,12 +736,14 @@ namespace Pucaci.Player
             if (modelTransform != null)
             {
                 Vector3 chokeLift = (!isDead && isChokeLifted) ? Vector3.up * 0.45f : Vector3.zero;
-                modelTransform.localPosition = modelOffset + chokeLift;
+                Vector3 deathOffset = isDead ? Vector3.down * 0.05f : Vector3.zero;
+                modelTransform.localPosition = modelOffset + chokeLift + deathOffset;
             }
 
-            // Kunci posisi X dan Z lokal Hips agar animasi Mixamo yang memiliki perpindahan translasi (seperti Running Jump dan Slide)
-            // tidak membuat model tubuh bergeser atau melesat jauh keluar dari collider CharacterController
-            if (hipsTransform != null)
+            // Kunci posisi X dan Z lokal Hips hanya saat MASIH HIDUP agar animasi Mixamo yang memiliki perpindahan translasi (seperti Running Jump dan Slide)
+            // tidak membuat model tubuh bergeser atau melesat jauh keluar dari collider CharacterController.
+            // Saat MATI, jangan kunci agar animasi roboh ke tanah (Mutant Dying) bebas tergeletak datar di lantai!
+            if (!isDead && hipsTransform != null)
             {
                 Vector3 current = hipsTransform.localPosition;
                 hipsTransform.localPosition = new Vector3(initialHipsLocalX, current.y, initialHipsLocalZ);
@@ -1405,21 +1406,11 @@ namespace Pucaci.Player
             // Turunkan langsung ke permukaan tanah seketika agar tidak tergeletak mengambang di udara
             SnapToGround();
 
-            // Perkecil ukuran kapsul CharacterController saat mati dan abaikan tabrakan antar pemain
-            // agar mayat tergeletak di tanah dan tidak nyangkut / terseret oleh pemain lain atau hantu yang lewat
+            // Saat mati, nonaktifkan CharacterController agar mayat murni menempel di lantai
+            // dan tidak menjadi penghalang ataupun tersangkut dengan collider pemain lain
             if (controller != null)
             {
-                controller.height = 0.1f;
-                controller.radius = 0.1f;
-                controller.center = new Vector3(originalControllerCenter.x, 0.05f, originalControllerCenter.z);
-
-                foreach (var otherPcc in FindObjectsOfType<PlayerCharacterController>())
-                {
-                    if (otherPcc != this && otherPcc.Controller != null)
-                    {
-                        Physics.IgnoreCollision(controller, otherPcc.Controller, true);
-                    }
-                }
+                controller.enabled = false;
             }
 
             SetSafeTrigger(DeathHash);
@@ -1433,20 +1424,13 @@ namespace Pucaci.Player
                 isDead = false;
                 isImmobilized = false;
 
-                // Kembalikan ukuran normal CharacterController dan kembalikan deteksi tabrakan saat bangkit kembali
+                // Kembalikan ukuran normal CharacterController dan aktifkan kembali saat bangkit
                 if (controller != null)
                 {
                     controller.height = originalControllerHeight;
                     controller.radius = originalControllerRadius;
                     controller.center = originalControllerCenter;
-
-                    foreach (var otherPcc in FindObjectsOfType<PlayerCharacterController>())
-                    {
-                        if (otherPcc != this && otherPcc.Controller != null)
-                        {
-                            Physics.IgnoreCollision(controller, otherPcc.Controller, false);
-                        }
-                    }
+                    controller.enabled = true;
                 }
 
                 SetSafeTrigger(GetUpHash);
@@ -1463,42 +1447,39 @@ namespace Pucaci.Player
             chokeLiftAmount = 0f;
             verticalVelocity = 0f;
 
-            Vector3 rayStart = transform.position + Vector3.up * 0.5f;
-            float rayDistance = 15f;
+            Vector3 rayStart = transform.position + Vector3.up * 1.5f;
+            float rayDistance = 25f;
 
-            RaycastHit[] hits = Physics.RaycastAll(rayStart, Vector3.down, rayDistance, groundLayers, QueryTriggerInteraction.Ignore);
+            RaycastHit[] hits = Physics.RaycastAll(rayStart, Vector3.down, rayDistance, ~0, QueryTriggerInteraction.Ignore);
             RaycastHit? bestHit = null;
             float closestDist = float.MaxValue;
 
             foreach (var hit in hits)
             {
-                if (hit.collider != null && hit.collider != controller && !hit.collider.transform.IsChildOf(transform))
-                {
-                    // Abaikan collider milik karakter lain (misalnya CharacterController Kuntilanak)
-                    if (hit.collider is CharacterController) continue;
+                if (hit.collider == null) continue;
+                if (hit.collider == controller || hit.collider.transform.IsChildOf(transform)) continue;
+                // Abaikan SEMUA collider milik pemain lain maupun karakter hantu (CapsuleCollider / CharacterController)
+                if (hit.collider is CharacterController) continue;
+                if (hit.collider.GetComponentInParent<PlayerCharacterController>() != null) continue;
+                if (hit.collider.GetComponentInParent<Mirror.NetworkIdentity>() != null) continue;
 
-                    if (hit.distance < closestDist)
-                    {
-                        closestDist = hit.distance;
-                        bestHit = hit;
-                    }
+                if (hit.distance < closestDist)
+                {
+                    closestDist = hit.distance;
+                    bestHit = hit;
                 }
             }
 
             if (bestHit.HasValue)
             {
-                Vector3 targetPos = transform.position;
-                targetPos.y = bestHit.Value.point.y;
-                Vector3 delta = targetPos - transform.position;
+                Vector3 targetPos = new Vector3(transform.position.x, bestHit.Value.point.y, transform.position.z);
 
-                if (controller != null && controller.enabled)
-                {
-                    controller.Move(delta);
-                }
-                if (Vector3.Distance(transform.position, targetPos) > 0.05f)
-                {
-                    transform.position = targetPos;
-                }
+                // Matikan CharacterController sejenak agar teleportasi posisi instan diterima Unity tanpa revert!
+                bool wasEnabled = (controller != null && controller.enabled);
+                if (controller != null) controller.enabled = false;
+                transform.position = targetPos;
+                if (wasEnabled && !isDead) controller.enabled = true;
+
                 isGrounded = true;
             }
         }

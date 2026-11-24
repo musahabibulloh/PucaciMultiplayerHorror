@@ -80,6 +80,15 @@ namespace Pucaci.Gameplay
                 audioSource.volume = 0.85f;
             }
 
+            if (sabotageSound == null)
+            {
+                sabotageSound = Resources.Load<AudioClip>("Audio/Sabotage_Spark");
+            }
+            if (powerRestoredSound == null)
+            {
+                powerRestoredSound = Resources.Load<AudioClip>("Audio/Light_Switch");
+            }
+
 #if UNITY_EDITOR
             if (sabotageSound == null)
             {

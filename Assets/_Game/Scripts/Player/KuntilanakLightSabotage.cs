@@ -47,6 +47,10 @@ namespace Pucaci.Player
                 audioSource.maxDistance = 35.0f;
             }
 
+            if (kuntiSabotageScreech == null)
+            {
+                kuntiSabotageScreech = Resources.Load<AudioClip>("Audio/Screech_Monster");
+            }
 #if UNITY_EDITOR
             if (kuntiSabotageScreech == null)
             {

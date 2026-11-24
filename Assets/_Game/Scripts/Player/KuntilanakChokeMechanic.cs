@@ -75,6 +75,7 @@ namespace Pucaci.Player
         private AudioSource audioSource;
         private AudioClip chokeLoopClip;
         private AudioClip chokeSnapClip;
+        private AudioClip deathGaspClip;
 
         private PlayerCharacterController aimTarget;
         private PlayerCharacterController activeVictim;
@@ -102,8 +103,13 @@ namespace Pucaci.Player
                 audioSource.maxDistance = 25f;
             }
 
-            chokeLoopClip = CreateChokeLoopSound();
-            chokeSnapClip = CreateNeckSnapSound();
+            chokeLoopClip = Resources.Load<AudioClip>("Audio/Choke_Grunt");
+            if (chokeLoopClip == null) chokeLoopClip = CreateChokeLoopSound();
+
+            chokeSnapClip = Resources.Load<AudioClip>("Audio/Neck_Snap");
+            if (chokeSnapClip == null) chokeSnapClip = CreateNeckSnapSound();
+
+            deathGaspClip = Resources.Load<AudioClip>("Audio/Death_Gasp");
 
             CacheArmBones();
         }
@@ -664,6 +670,14 @@ namespace Pucaci.Player
         private void RpcPlaySnapAudio()
         {
             PlaySnapAudio();
+            if (activeVictim != null)
+            {
+                var victimChoke = activeVictim.GetComponent<KuntilanakChokeMechanic>();
+                if (victimChoke != null)
+                {
+                    victimChoke.PlaySnapAudio();
+                }
+            }
         }
 
         private void StopChokingInternal(string reason = "")
@@ -920,11 +934,18 @@ namespace Pucaci.Player
             }
         }
 
-        private void PlaySnapAudio()
+        public void PlaySnapAudio()
         {
-            if (audioSource != null && chokeSnapClip != null)
+            if (audioSource != null)
             {
-                audioSource.PlayOneShot(chokeSnapClip, 1.0f);
+                if (chokeSnapClip != null)
+                {
+                    audioSource.PlayOneShot(chokeSnapClip, 1.0f);
+                }
+                if (deathGaspClip != null)
+                {
+                    audioSource.PlayOneShot(deathGaspClip, 0.95f);
+                }
             }
         }
 
