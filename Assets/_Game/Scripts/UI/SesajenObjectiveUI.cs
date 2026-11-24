@@ -56,6 +56,11 @@ namespace Pucaci.UI
             if (Instance == null) Instance = this;
             BuildUIHierarchyIfNeeded();
             EnsureCrosshairRadialRing();
+
+            if (objectivePanel != null && objectivePanel.TryGetComponent<RectTransform>(out var panelRt))
+            {
+                panelRt.sizeDelta = new Vector2(480f, 48f);
+            }
         }
 
         private void Start()
@@ -116,8 +121,17 @@ namespace Pucaci.UI
                     localModelManager = p.GetComponent<CharacterModelManager>();
                     if (localRoleManager != null)
                     {
+                        localRoleManager.OnRoleAssignedEvent -= OnRoleAssigned;
                         localRoleManager.OnRoleAssignedEvent += OnRoleAssigned;
                         ShowRoleAnnouncement(localRoleManager.CurrentRole);
+                    }
+                    if (SesajenManager.Instance != null)
+                    {
+                        UpdateObjectiveDisplay(SesajenManager.Instance.DestroyedCount, SesajenManager.Instance.TotalSesajen);
+                    }
+                    else
+                    {
+                        UpdateObjectiveDisplay(0, 5);
                     }
                     break;
                 }
@@ -130,6 +144,10 @@ namespace Pucaci.UI
             if (SesajenManager.Instance != null)
             {
                 UpdateObjectiveDisplay(SesajenManager.Instance.DestroyedCount, SesajenManager.Instance.TotalSesajen);
+            }
+            else
+            {
+                UpdateObjectiveDisplay(0, 5);
             }
         }
 
@@ -150,7 +168,7 @@ namespace Pucaci.UI
                 }
                 if (roleSplashDesc != null)
                 {
-                    roleSplashDesc.text = $"Kamu menyamar sebagai <b>{disguise}</b> di antara 3 manusia (Laras, Mamat, Vincent)!\n<b>[1] Tiru Laras | [2] Tiru Mamat | [3] Tiru Vincent | [T] Kuntilanak</b>\nPerbaiki sesajen <b>[E]</b> saat wujud manusia. Habisi seluruh player!";
+                    roleSplashDesc.text = $"Kamu menyamar sebagai <b>{disguise}</b>!\n<b>[X] Menu Penyamaran | [T] Wujud Kuntilanak</b>\nBunuh semua karakter sebelum seluruh sesajen dihancurkan!";
                 }
             }
             else
@@ -162,7 +180,7 @@ namespace Pucaci.UI
                 }
                 if (roleSplashDesc != null)
                 {
-                    roleSplashDesc.text = "Salah satu dari 3 manusia (Laras, Mamat, Vincent) adalah Hantu Peniru Wujud!\nCari & hancurkan <b>5 sesajen</b> di Desa Pucaci! Waspadai temanmu!";
+                    roleSplashDesc.text = "Salah satu warga desa adalah Hantu Peniru Wujud!\nCari & hancurkan <b>5 sesajen</b> di Desa Pucaci! Waspadai temanmu!";
                 }
             }
         }
@@ -333,7 +351,7 @@ namespace Pucaci.UI
             return Sprite.Create(tex, new Rect(0, 0, size, size), new Vector2(0.5f, 0.5f));
         }
 
-        private void UpdateObjectiveDisplay(int destroyed, int total)
+        public void UpdateObjectiveDisplay(int destroyed, int total)
         {
             if (objectiveText == null) return;
 
@@ -341,21 +359,20 @@ namespace Pucaci.UI
 
             if (isImpostor)
             {
-                objectiveText.text = $"<color=#FF2244><b>MISI IMPOSTOR:</b> Habisi Semua Survivor!</color>\n<size=12><color=#FFCC00>Sesajen Hancur: ({destroyed} / {total}) - Perbaiki [E] dalam wujud manusia</color></size>";
+                // Misi khusus Impostor
+                objectiveText.text = "<b><color=#FF3344>MISI:</color></b> Bunuh semua karakter, berubah wujud pencet T";
             }
             else
             {
-                if (total <= 0)
-                {
-                    objectiveText.text = "<b>MISI:</b> Menemukan Sesajen...";
-                }
-                else if (destroyed >= total)
+                // Misi Survivor / Player
+                int targetTotal = total > 0 ? total : 5;
+                if (destroyed >= targetTotal && targetTotal > 0)
                 {
                     objectiveText.text = "<color=#00FF66><b>MISI SELESAI:</b> SEMUA SESAJEN HANCUR!</color>";
                 }
                 else
                 {
-                    objectiveText.text = $"<b>MISI:</b> Hancurkan Sesajen <b>({destroyed} / {total})</b>";
+                    objectiveText.text = $"<b>MISI:</b> Hancurkan Sesajen <b>({destroyed}/{targetTotal})</b>";
                 }
             }
         }
@@ -524,7 +541,7 @@ namespace Pucaci.UI
                     rt.anchorMax = new Vector2(0f, 1f);
                     rt.pivot = new Vector2(0f, 1f);
                     rt.anchoredPosition = new Vector2(25f, -25f);
-                    rt.sizeDelta = new Vector2(360f, 48f);
+                    rt.sizeDelta = new Vector2(480f, 48f);
 
                     var img = panelObj.GetComponent<Image>();
                     img.color = new Color(0.08f, 0.08f, 0.10f, 0.80f);

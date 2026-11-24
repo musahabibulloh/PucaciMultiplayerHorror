@@ -446,5 +446,74 @@ namespace Pucaci.Editor
                 Object.DestroyImmediate(go);
             }
         }
+
+        [MenuItem("Pucaci/Verify Objective Mission UI")]
+        public static void VerifyObjectiveMissionUI()
+        {
+            var goPlayer = new GameObject("Test_Mission_Player");
+            var goUI = new GameObject("Test_Mission_UI");
+            try
+            {
+                var roleMgr = goPlayer.AddComponent<Pucaci.Player.PlayerRoleManager>();
+                var objectiveUI = goUI.AddComponent<Pucaci.UI.SesajenObjectiveUI>();
+
+                var textObj = new GameObject("TestText", typeof(TMPro.TextMeshProUGUI));
+                textObj.transform.SetParent(goUI.transform, false);
+                var tmp = textObj.GetComponent<TMPro.TextMeshProUGUI>();
+
+                var textField = typeof(Pucaci.UI.SesajenObjectiveUI).GetField("objectiveText", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+                textField?.SetValue(objectiveUI, tmp);
+
+                var roleField = typeof(Pucaci.UI.SesajenObjectiveUI).GetField("localRoleManager", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+                roleField?.SetValue(objectiveUI, roleMgr);
+
+                // 1. Test Survivor (Player Biasa)
+                roleMgr.SetRole(Pucaci.Player.PlayerRole.Survivor, 0); // Laras
+                objectiveUI.UpdateObjectiveDisplay(0, 5);
+                string survivorText = tmp.text;
+                bool survivorCheck = survivorText.Contains("Hancurkan Sesajen") && survivorText.Contains("(0/5)");
+                Debug.Log($"[MISSION TEST 1] Survivor Mission UI: {survivorCheck} -> {survivorText}");
+
+                objectiveUI.UpdateObjectiveDisplay(2, 5);
+                string survivorProgressText = tmp.text;
+                bool survivorProgressCheck = survivorProgressText.Contains("Hancurkan Sesajen") && survivorProgressText.Contains("(2/5)");
+                Debug.Log($"[MISSION TEST 2] Survivor Progress UI: {survivorProgressCheck} -> {survivorProgressText}");
+
+                // 2. Test Impostor (Hantu Kuntilanak)
+                roleMgr.SetRole(Pucaci.Player.PlayerRole.Impostor, 4); // Rocky
+                objectiveUI.UpdateObjectiveDisplay(0, 5);
+                string impostorText = tmp.text;
+                bool impostorCheck = impostorText.Contains("Bunuh semua karakter") && impostorText.Contains("berubah wujud pencet T");
+                Debug.Log($"[MISSION TEST 3] Impostor Mission UI: {impostorCheck} -> {impostorText}");
+
+                bool allSuccess = survivorCheck && survivorProgressCheck && impostorCheck;
+
+                string report = $"[TEST 1] Survivor Mission: {survivorCheck} ({survivorText})\n" +
+                                $"[TEST 2] Survivor Progress: {survivorProgressCheck} ({survivorProgressText})\n" +
+                                $"[TEST 3] Impostor Mission: {impostorCheck} ({impostorText})\n" +
+                                $"ALL TESTS PASSED: {allSuccess}\n";
+
+                System.IO.File.WriteAllText("C:/Users/MUSA/.gemini/antigravity/brain/3104c68e-3988-4937-956a-544f03a4f729/mission_ui_report.txt", report);
+
+                if (allSuccess)
+                {
+                    Debug.Log("<color=#00FFAA><b>[VERIFICATION SUCCESS] UI Misi Survivor & Impostor sesuai instruksi!</b></color>");
+                }
+                else
+                {
+                    Debug.LogError("[VERIFICATION FAILED] UI Misi tidak sesuai.");
+                }
+            }
+            catch (System.Exception ex)
+            {
+                System.IO.File.WriteAllText("C:/Users/MUSA/.gemini/antigravity/brain/3104c68e-3988-4937-956a-544f03a4f729/mission_ui_report.txt", "EXCEPTION: " + ex.ToString());
+                Debug.LogException(ex);
+            }
+            finally
+            {
+                Object.DestroyImmediate(goPlayer);
+                Object.DestroyImmediate(goUI);
+            }
+        }
     }
 }
