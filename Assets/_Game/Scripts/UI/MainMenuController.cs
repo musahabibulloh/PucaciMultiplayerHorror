@@ -42,14 +42,17 @@ namespace Pucaci.UI
         [SerializeField] private Button selectMamatCardButton;
         [SerializeField] private Button selectKuntiCardButton;
         [SerializeField] private Button selectVincentCardButton;
+        [SerializeField] private Button selectRockyCardButton;
         [SerializeField] private Image larasCardBorder;
         [SerializeField] private Image mamatCardBorder;
         [SerializeField] private Image kuntiCardBorder;
         [SerializeField] private Image vincentCardBorder;
+        [SerializeField] private Image rockyCardBorder;
         [SerializeField] private TMP_Text larasStatusBadge;
         [SerializeField] private TMP_Text mamatStatusBadge;
         [SerializeField] private TMP_Text kuntiStatusBadge;
         [SerializeField] private TMP_Text vincentStatusBadge;
+        [SerializeField] private TMP_Text rockyStatusBadge;
         [SerializeField] private Button startPlayWithCharacterButton;
         [SerializeField] private Button characterSelectBackButton;
 
@@ -124,6 +127,7 @@ namespace Pucaci.UI
             if (selectMamatCardButton != null) selectMamatCardButton.onClick.AddListener(() => OnCharacterSelected(CharacterType.PakMamat));
             if (selectKuntiCardButton != null) selectKuntiCardButton.onClick.AddListener(() => OnCharacterSelected(CharacterType.Kuntilanak));
             if (selectVincentCardButton != null) selectVincentCardButton.onClick.AddListener(() => OnCharacterSelected(CharacterType.PakVincent));
+            if (selectRockyCardButton != null) selectRockyCardButton.onClick.AddListener(() => OnCharacterSelected(CharacterType.Rocky));
             if (startPlayWithCharacterButton != null) startPlayWithCharacterButton.onClick.AddListener(OnSoloPracticeClicked);
             if (characterSelectBackButton != null) characterSelectBackButton.onClick.AddListener(ReturnToPreviousPanel);
 
@@ -273,6 +277,7 @@ namespace Pucaci.UI
             bool isMamat = (current == CharacterType.PakMamat);
             bool isKunti = (current == CharacterType.Kuntilanak);
             bool isVincent = (current == CharacterType.PakVincent);
+            bool isRocky = (current == CharacterType.Rocky);
 
             Color accentColor = new Color(255f / 255f, 179f / 255f, 71f / 255f, 1f); // #FFB347
             Color normalBorderColor = new Color(0.18f, 0.22f, 0.32f, 1f);
@@ -318,9 +323,19 @@ namespace Pucaci.UI
                 vincentStatusBadge.color = isVincent ? accentColor : normalTextColor;
             }
 
+            if (rockyCardBorder != null)
+            {
+                rockyCardBorder.color = isRocky ? accentColor : normalBorderColor;
+            }
+            if (rockyStatusBadge != null)
+            {
+                rockyStatusBadge.text = isRocky ? "[V] TERPILIH" : "PILIH MAS ROCKY";
+                rockyStatusBadge.color = isRocky ? accentColor : normalTextColor;
+            }
+
             if (mabarCharacterText != null)
             {
-                mabarCharacterText.text = "Karakter: <color=#00FFAA><b>Acak Otomatis</b></color> (Laras / Pak Mamat / Pak Vincent)\n<size=12><color=#FF8899>1 dari 3 pemain terpilih acak sebagai Hantu (Impostor)</color></size>";
+                mabarCharacterText.text = "Karakter: <color=#00FFAA><b>Acak Otomatis</b></color> (Laras / Pak Mamat / Pak Vincent / Mas Rocky)\n<size=12><color=#FF8899>1 dari 4 pemain terpilih acak sebagai Hantu (Impostor)</color></size>";
             }
         }
         #endregion

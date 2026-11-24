@@ -122,8 +122,8 @@ namespace Pucaci.Gameplay
 
             rolesAssigned = true;
 
-            // 3 Manusia Desa Pucaci: Laras (0), Pak Mamat (1), Pak Vincent (3)
-            List<int> humanPool = new List<int> { 0, 1, 3 };
+            // 4 Manusia Desa Pucaci: Laras (0), Pak Mamat (1), Pak Vincent (3), Rocky (4)
+            List<int> humanPool = new List<int> { 0, 1, 3, 4 };
 
             // Acak urutan 3 manusia
             for (int i = 0; i < humanPool.Count; i++)

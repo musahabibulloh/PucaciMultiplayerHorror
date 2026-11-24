@@ -309,8 +309,8 @@ namespace Pucaci.Network
 
             Debug.Log($"<color=#00FFAA><b>[PucaciNetworkManager] MEMULAI PERMAINAN! Jumlah Pemain: {connectedPlayers.Count}</b></color>");
 
-            // Pool 3 model manusia: 0 = Laras, 1 = Pak Mamat, 3 = Pak Vincent
-            List<int> disguisePool = new List<int> { 0, 1, 3 };
+            // Pool 4 model manusia: 0 = Laras, 1 = Pak Mamat, 3 = Pak Vincent, 4 = Rocky
+            List<int> disguisePool = new List<int> { 0, 1, 3, 4 };
 
             // Acak urutan model manusia
             for (int i = 0; i < disguisePool.Count; i++)
