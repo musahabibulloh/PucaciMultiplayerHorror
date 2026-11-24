@@ -1265,10 +1265,10 @@ namespace Pucaci.Player
                     }
                 }
 
-                var childOutline = characterRenderer.transform.Find("ToonOutline_Backface")?.GetComponent<SkinnedMeshRenderer>();
-                if (childOutline != null)
+                var outlineApplier = GetComponentInChildren<Pucaci.Rendering.ToonOutlineApplier>();
+                if (outlineApplier != null)
                 {
-                    childOutline.sharedMesh = characterRenderer.sharedMesh;
+                    outlineApplier.ApplyOutline();
                 }
             }
 
