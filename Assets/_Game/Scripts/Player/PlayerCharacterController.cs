@@ -1269,6 +1269,7 @@ namespace Pucaci.Player
                 if (outlineApplier != null)
                 {
                     outlineApplier.ApplyOutline();
+                    outlineApplier.SetOutlineEnabled(true);
                 }
             }
 

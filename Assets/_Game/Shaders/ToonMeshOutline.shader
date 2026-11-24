@@ -3,32 +3,38 @@ Shader "Pucaci/ToonMeshOutline"
     Properties
     {
         _OutlineColor ("Outline Color", Color) = (0.0, 0.0, 0.0, 1.0)
-        _OutlineWidth ("Outline Width (Fortnite Style)", Range(1.0, 25.0)) = 6.0
+        _OutlineWidth ("Outline Width", Range(1.0, 20.0)) = 6.0
     }
 
     SubShader
     {
-        Tags 
-        { 
-            "RenderType" = "Opaque" 
+        Tags
+        {
+            "RenderType" = "Opaque"
+            "IgnoreProjector" = "True"
+            "UniversalMaterialType" = "Unlit"
             "RenderPipeline" = "UniversalPipeline"
             "Queue" = "Geometry+10"
         }
-
         LOD 100
+
         Cull Front
         ZWrite On
         ZTest LEqual
-        Offset -0.5, -0.5
+        Offset -1, -1
 
         Pass
         {
-            Name "UniversalForward"
-            Tags { "LightMode" = "UniversalForward" }
+            Name "Unlit"
 
             HLSLPROGRAM
+            #pragma target 2.0
             #pragma vertex Vert
             #pragma fragment Frag
+
+            #pragma multi_compile_fog
+            #pragma multi_compile_instancing
+            #include_with_pragmas "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DOTS.hlsl"
 
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
 
@@ -41,48 +47,41 @@ Shader "Pucaci/ToonMeshOutline"
             {
                 float4 positionOS : POSITION;
                 float3 normalOS : NORMAL;
+                float2 uv : TEXCOORD0;
                 UNITY_VERTEX_INPUT_INSTANCE_ID
             };
 
             struct Varyings
             {
                 float4 positionCS : SV_POSITION;
+                UNITY_VERTEX_INPUT_INSTANCE_ID
                 UNITY_VERTEX_OUTPUT_STEREO
             };
 
             Varyings Vert(Attributes input)
             {
-                Varyings output;
+                Varyings output = (Varyings)0;
                 UNITY_SETUP_INSTANCE_ID(input);
+                UNITY_TRANSFER_INSTANCE_ID(input, output);
                 UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(output);
 
-                VertexPositionInputs posInputs = GetVertexPositionInputs(input.positionOS.xyz);
-                VertexNormalInputs normInputs = GetVertexNormalInputs(input.normalOS);
+                // Object-space extrusion along normal
+                float3 normal = (length(input.normalOS) > 0.001) ? normalize(input.normalOS) : float3(0, 1, 0);
+                float3 extrudedOS = input.positionOS.xyz + normal * (_OutlineWidth * 0.004f);
 
-                float3 posVS = TransformWorldToView(posInputs.positionWS);
-                float3 normVS = TransformWorldToViewNormal(normInputs.normalWS, true);
+                VertexPositionInputs vertexInput = GetVertexPositionInputs(extrudedOS);
+                output.positionCS = vertexInput.positionCS;
 
-                float2 norm2D = normVS.xy;
-                float len = length(norm2D);
-                norm2D = (len > 0.001) ? (norm2D / len) : float2(0.0, 1.0);
-
-                float dist = max(0.1, abs(posVS.z));
-                float outlineScale = _OutlineWidth * 0.0035f * clamp(sqrt(dist), 1.0, 6.0);
-
-                posVS.xy += norm2D * outlineScale;
-                posVS.z += (posVS.z < 0.0) ? 0.015 : -0.015;
-
-                output.positionCS = TransformWViewToHClip(posVS);
                 return output;
             }
 
             half4 Frag(Varyings input) : SV_Target
             {
+                UNITY_SETUP_INSTANCE_ID(input);
                 UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(input);
                 return _OutlineColor;
             }
             ENDHLSL
         }
     }
-    FallBack Off
 }

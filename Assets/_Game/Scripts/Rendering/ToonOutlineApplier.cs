@@ -74,18 +74,14 @@ namespace Pucaci.Rendering
         {
             if (materialInstance == null)
             {
-                // Gunakan shader URP Lit/Unlit bawaan yang dijamin tidak akan pernah hilang/distrip di Player Build
-                if (sourceRenderer != null && sourceRenderer.sharedMaterial != null)
+                Shader uShader = Shader.Find("Universal Render Pipeline/Unlit") ?? Shader.Find("Universal Render Pipeline/Lit");
+                if (uShader != null)
+                {
+                    materialInstance = new Material(uShader);
+                }
+                else if (sourceRenderer != null && sourceRenderer.sharedMaterial != null)
                 {
                     materialInstance = new Material(sourceRenderer.sharedMaterial);
-                }
-                else
-                {
-                    Shader uShader = Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Universal Render Pipeline/Unlit");
-                    if (uShader != null)
-                    {
-                        materialInstance = new Material(uShader);
-                    }
                 }
             }
 
@@ -100,6 +96,7 @@ namespace Pucaci.Rendering
                 
                 // Cull Front agar hanya poligon belakang (backface) yang tampak melebar mengelilingi karakter
                 materialInstance.SetInt("_Cull", (int)UnityEngine.Rendering.CullMode.Front);
+                materialInstance.SetFloat("_Cull", (float)UnityEngine.Rendering.CullMode.Front);
                 materialInstance.renderQueue = (int)UnityEngine.Rendering.RenderQueue.Geometry + 10;
             }
         }
@@ -173,7 +170,12 @@ namespace Pucaci.Rendering
                     }
                     outlineSmr.bones = smr.bones;
                     outlineSmr.rootBone = smr.rootBone;
-                    outlineSmr.sharedMaterial = materialInstance;
+
+                    int matCount = Mathf.Max(1, smr.sharedMaterials != null ? smr.sharedMaterials.Length : 1);
+                    var mats = new Material[matCount];
+                    for (int m = 0; m < matCount; m++) mats[m] = materialInstance;
+                    outlineSmr.sharedMaterials = mats;
+
                     outlineSmr.updateWhenOffscreen = smr.updateWhenOffscreen;
                     outlineSmr.enabled = true;
                     if (!outlineRenderers.Contains(outlineSmr)) outlineRenderers.Add(outlineSmr);
@@ -197,20 +199,24 @@ namespace Pucaci.Rendering
                     outlineGo.transform.SetParent(mr.transform, false);
                     outlineGo.transform.localPosition = Vector3.zero;
                     outlineGo.transform.localRotation = Quaternion.identity;
-                    outlineGo.transform.localScale = Vector3.one;
+                    // Skala sedikit melebar untuk props statis desa (tanpa butuh CPU vertex extrusion, 100% aman di build)
+                    outlineGo.transform.localScale = Vector3.one * (1.0f + Mathf.Clamp(outlineWidth, 1.0f, 15.0f) * 0.003f);
 
                     childMf = outlineGo.AddComponent<MeshFilter>();
                     childMr = outlineGo.AddComponent<MeshRenderer>();
                 }
 
-                if (childMf != null && (childMf.sharedMesh == null || !childMf.sharedMesh.name.EndsWith("_ToonOutline")))
+                if (childMf != null)
                 {
-                    childMf.sharedMesh = CreateExtrudedMesh(mf.sharedMesh, outlineWidth);
+                    childMf.sharedMesh = mf.sharedMesh;
                 }
 
                 if (childMr != null)
                 {
-                    childMr.sharedMaterial = materialInstance;
+                    int matCount = Mathf.Max(1, mr.sharedMaterials != null ? mr.sharedMaterials.Length : 1);
+                    var mats = new Material[matCount];
+                    for (int m = 0; m < matCount; m++) mats[m] = materialInstance;
+                    childMr.sharedMaterials = mats;
                     childMr.enabled = true;
                     if (!outlineRenderers.Contains(childMr)) outlineRenderers.Add(childMr);
                 }
@@ -221,30 +227,43 @@ namespace Pucaci.Rendering
         {
             if (sourceMesh == null) return null;
 
-            var outlineMesh = Instantiate(sourceMesh);
-            outlineMesh.name = sourceMesh.name + "_ToonOutline";
-
-            var verts = outlineMesh.vertices;
-            var norms = outlineMesh.normals;
-            if (norms == null || norms.Length != verts.Length)
+            try
             {
-                outlineMesh.RecalculateNormals();
-                norms = outlineMesh.normals;
-            }
+                if (!sourceMesh.isReadable)
+                {
+                    return sourceMesh;
+                }
 
-            float offset = Mathf.Clamp(width, 1.0f, 15.0f) * 0.0035f;
-            for (int i = 0; i < verts.Length; i++)
+                var outlineMesh = Instantiate(sourceMesh);
+                outlineMesh.name = sourceMesh.name + "_ToonOutline";
+
+                var verts = outlineMesh.vertices;
+                var norms = outlineMesh.normals;
+                if (norms == null || norms.Length != verts.Length)
+                {
+                    outlineMesh.RecalculateNormals();
+                    norms = outlineMesh.normals;
+                }
+
+                float offset = Mathf.Clamp(width, 1.0f, 15.0f) * 0.0035f;
+                for (int i = 0; i < verts.Length; i++)
+                {
+                    verts[i] += norms[i] * offset;
+                }
+
+                outlineMesh.vertices = verts;
+                outlineMesh.boneWeights = sourceMesh.boneWeights;
+                outlineMesh.bindposes = sourceMesh.bindposes;
+                outlineMesh.RecalculateBounds();
+
+                generatedMeshes.Add(outlineMesh);
+                return outlineMesh;
+            }
+            catch (System.Exception ex)
             {
-                verts[i] += norms[i] * offset;
+                Debug.LogWarning($"[ToonOutline] Failed to extrude mesh {sourceMesh.name}: {ex.Message}");
+                return sourceMesh;
             }
-
-            outlineMesh.vertices = verts;
-            outlineMesh.boneWeights = sourceMesh.boneWeights;
-            outlineMesh.bindposes = sourceMesh.bindposes;
-            outlineMesh.RecalculateBounds();
-
-            generatedMeshes.Add(outlineMesh);
-            return outlineMesh;
         }
 
         public void SetOutlineEnabled(bool enabledState)

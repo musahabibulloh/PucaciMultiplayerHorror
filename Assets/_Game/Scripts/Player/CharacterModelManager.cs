@@ -248,7 +248,12 @@ namespace Pucaci.Player
             }
 
             SkinnedMeshRenderer targetRenderer = targetModelObj.GetComponentInChildren<SkinnedMeshRenderer>();
-            Pucaci.Rendering.ToonOutlineApplier.ApplyTo(targetModelObj, 7.5f);
+            var applier = Pucaci.Rendering.ToonOutlineApplier.ApplyTo(targetModelObj, 7.5f);
+            if (applier != null)
+            {
+                applier.ApplyOutline();
+                applier.SetOutlineEnabled(true);
+            }
 
             bool isLocal = true;
             try { isLocal = isLocalPlayer; } catch {}

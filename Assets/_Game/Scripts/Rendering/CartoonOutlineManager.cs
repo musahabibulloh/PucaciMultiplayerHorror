@@ -123,6 +123,9 @@ namespace Pucaci.Rendering
             ApplyToAllAppliers();
         }
 
+        private float scanTimer = 0f;
+        private const float SCAN_INTERVAL = 1.0f;
+
         private void Update()
         {
             // Toggle perbandingan sebelum/sesudah dengan F6
@@ -142,6 +145,36 @@ namespace Pucaci.Rendering
             if (togglePressed)
             {
                 ToggleOutline();
+            }
+
+            // Periodic scan untuk memastikan pemain jaringan (Mirror) yang baru spawn / berganti wujud selalu mendapatkan outline
+            scanTimer += Time.deltaTime;
+            if (scanTimer >= SCAN_INTERVAL)
+            {
+                scanTimer = 0f;
+                ScanAndApplyToNewPlayers();
+            }
+        }
+
+        public void ScanAndApplyToNewPlayers()
+        {
+            var modelManagers = FindObjectsOfType<Pucaci.Player.CharacterModelManager>();
+            foreach (var mgr in modelManagers)
+            {
+                if (mgr == null) continue;
+                var activeModel = mgr.ActiveModel;
+                if (activeModel != null && activeModel.activeInHierarchy)
+                {
+                    var smr = activeModel.GetComponentInChildren<SkinnedMeshRenderer>();
+                    if (smr != null)
+                    {
+                        var outlineChild = smr.transform.Find("ToonOutline_Backface");
+                        if (outlineChild == null || !outlineChild.gameObject.activeInHierarchy)
+                        {
+                            ToonOutlineApplier.ApplyTo(activeModel, thickness);
+                        }
+                    }
+                }
             }
         }
 

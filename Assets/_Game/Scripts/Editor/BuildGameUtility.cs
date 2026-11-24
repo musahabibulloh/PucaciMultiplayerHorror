@@ -7,6 +7,15 @@ namespace Pucaci.EditorTools
 {
     public static class BuildGameUtility
     {
+        [MenuItem("Pucaci/Build Windows Standalone Async")]
+        public static void BuildWindowsPlayerAsync()
+        {
+            EditorApplication.delayCall += () =>
+            {
+                BuildWindowsPlayer();
+            };
+        }
+
         [MenuItem("Pucaci/Build Windows Standalone")]
         public static string BuildWindowsPlayer()
         {

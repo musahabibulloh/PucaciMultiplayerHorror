@@ -370,6 +370,15 @@ namespace Pucaci.Player
             }
 
             modelManager.ApplyCharacter(targetIndex);
+            if (modelManager.ActiveModel != null)
+            {
+                var applier = Pucaci.Rendering.ToonOutlineApplier.ApplyTo(modelManager.ActiveModel, 7.5f);
+                if (applier != null)
+                {
+                    applier.ApplyOutline();
+                    applier.SetOutlineEnabled(true);
+                }
+            }
             if (isServer || NetworkServer.active)
             {
                 modelManager.SetServerCharacter(targetIndex);
