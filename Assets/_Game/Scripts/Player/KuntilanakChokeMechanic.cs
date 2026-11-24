@@ -605,11 +605,18 @@ namespace Pucaci.Player
                 {
                     victimChoke.SetBeingChoked(false, null);
                 }
+
+                var nt = activeVictim.GetComponent<Mirror.NetworkTransformBase>();
+                if (nt != null)
+                {
+                    nt.enabled = false;
+                }
             }
 
             if (NetworkClient.active || NetworkServer.active)
             {
                 CmdExecuteLethalChoke();
+                activeVictim = null;
             }
             else
             {
@@ -643,11 +650,13 @@ namespace Pucaci.Player
             if (victimId != 0 && NetworkServer.spawned.TryGetValue(victimId, out var victimIdentity))
             {
                 var victimPcc = victimIdentity.GetComponent<PlayerCharacterController>();
+                Vector3 groundPos = victimIdentity.transform.position;
                 if (victimPcc != null)
                 {
                     victimPcc.SetChokeLifted(false);
                     victimPcc.SnapToGround();
                     victimPcc.TriggerDeath();
+                    groundPos = victimIdentity.transform.position;
                 }
 
                 var victimHealth = victimIdentity.GetComponent<PlayerHealth>();
@@ -661,9 +670,39 @@ namespace Pucaci.Player
                 {
                     victimChoke.RpcSetBeingChoked(false, 0);
                 }
+
+                var nt = victimIdentity.GetComponent<Mirror.NetworkTransformBase>();
+                if (nt != null)
+                {
+                    nt.enabled = false;
+                }
+
+                RpcSyncVictimDeathSnap(victimId, groundPos);
             }
 
             StopChokingServerInternal("lethal choke executed");
+        }
+
+        [ClientRpc]
+        private void RpcSyncVictimDeathSnap(uint victimId, Vector3 groundPos)
+        {
+            if (victimId == 0) return;
+            if (NetworkClient.spawned.TryGetValue(victimId, out var victimIdentity))
+            {
+                var victimPcc = victimIdentity.GetComponent<PlayerCharacterController>();
+                if (victimPcc != null)
+                {
+                    victimPcc.SetChokeLifted(false);
+                    victimPcc.SnapToGround();
+                    victimPcc.TriggerDeath();
+                }
+                victimIdentity.transform.position = groundPos;
+                var nt = victimIdentity.GetComponent<Mirror.NetworkTransformBase>();
+                if (nt != null)
+                {
+                    nt.enabled = false;
+                }
+            }
         }
 
         [ClientRpc]

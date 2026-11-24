@@ -292,6 +292,11 @@ namespace Pucaci.Network
             // lalu update animasi (jalan/lari/idle/mundur/strafe) secara mulus
             if (!isLocalPlayer)
             {
+                if (characterController != null && characterController.IsDead)
+                {
+                    return;
+                }
+
                 if (!hasRecordedRemotePos)
                 {
                     lastRemotePosition = transform.position;
