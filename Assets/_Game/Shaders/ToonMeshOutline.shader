@@ -3,7 +3,8 @@ Shader "Pucaci/ToonMeshOutline"
     Properties
     {
         _OutlineColor ("Outline Color", Color) = (0.0, 0.0, 0.0, 1.0)
-        _OutlineWidth ("Outline Width", Range(1.0, 20.0)) = 6.0
+        _OutlineWidth ("Outline Width", Range(0.5, 15.0)) = 3.5
+        _ZOffset ("Z Offset", Range(0.0, 0.01)) = 0.0002
     }
 
     SubShader
@@ -21,11 +22,11 @@ Shader "Pucaci/ToonMeshOutline"
         Cull Front
         ZWrite On
         ZTest LEqual
-        Offset -1, -1
+        Offset 1, 1
 
         Pass
         {
-            Name "Unlit"
+            Name "Outline"
 
             HLSLPROGRAM
             #pragma target 2.0
@@ -35,19 +36,18 @@ Shader "Pucaci/ToonMeshOutline"
             #pragma multi_compile_fog
             #pragma multi_compile_instancing
             #include_with_pragmas "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DOTS.hlsl"
-
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
 
             CBUFFER_START(UnityPerMaterial)
                 float4 _OutlineColor;
                 float _OutlineWidth;
+                float _ZOffset;
             CBUFFER_END
 
             struct Attributes
             {
                 float4 positionOS : POSITION;
                 float3 normalOS : NORMAL;
-                float2 uv : TEXCOORD0;
                 UNITY_VERTEX_INPUT_INSTANCE_ID
             };
 
@@ -65,12 +65,36 @@ Shader "Pucaci/ToonMeshOutline"
                 UNITY_TRANSFER_INSTANCE_ID(input, output);
                 UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(output);
 
-                // Object-space extrusion along normal
-                float3 normal = (length(input.normalOS) > 0.001) ? normalize(input.normalOS) : float3(0, 1, 0);
-                float3 extrudedOS = input.positionOS.xyz + normal * (_OutlineWidth * 0.004f);
+                VertexPositionInputs vertexInput = GetVertexPositionInputs(input.positionOS.xyz);
+                VertexNormalInputs normalInput = GetVertexNormalInputs(input.normalOS);
 
-                VertexPositionInputs vertexInput = GetVertexPositionInputs(extrudedOS);
                 output.positionCS = vertexInput.positionCS;
+
+                // Screen-space extrusion along world normal projected to clip space
+                float3 normalCS = TransformWorldToHClipDir(normalInput.normalWS);
+                float2 screenNormal = normalCS.xy;
+                float len = length(screenNormal);
+                if (len > 0.0001)
+                {
+                    screenNormal /= len;
+
+                    // Aspect ratio compensation so thickness is uniform horizontally and vertically
+                    float aspect = (_ScreenParams.y > 1.0) ? (_ScreenParams.x / _ScreenParams.y) : 1.7778;
+                    screenNormal.x /= aspect;
+                    screenNormal = normalize(screenNormal);
+                    screenNormal.x /= aspect;
+
+                    // Screen outline thickness: ~2.5 pixels for clean comic cartoon silhouette (Image 2)
+                    float outlineAmount = _OutlineWidth * 0.0011f;
+                    output.positionCS.xy += screenNormal * outlineAmount * output.positionCS.w;
+                }
+
+                // Push depth slightly backward so front-faces always cleanly occlude back-faces
+                #if UNITY_REVERSED_Z
+                    output.positionCS.z -= _ZOffset * output.positionCS.w;
+                #else
+                    output.positionCS.z += _ZOffset * output.positionCS.w;
+                #endif
 
                 return output;
             }

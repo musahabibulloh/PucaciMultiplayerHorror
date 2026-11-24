@@ -82,7 +82,9 @@ namespace Pucaci.Rendering
                 }
                 else
                 {
-                    Shader uShader = Shader.Find("Universal Render Pipeline/Unlit") ?? Shader.Find("Universal Render Pipeline/Lit");
+                    Shader uShader = Shader.Find("Pucaci/ToonMeshOutline") 
+                        ?? Shader.Find("Universal Render Pipeline/Unlit") 
+                        ?? Shader.Find("Universal Render Pipeline/Lit");
                     if (uShader != null)
                     {
                         materialInstance = new Material(uShader);
@@ -97,7 +99,8 @@ namespace Pucaci.Rendering
             if (materialInstance != null)
             {
                 materialInstance.name = "M_ToonOutline_Solid";
-                // Hilangkan tekstur diffuse agar outline hitam solid
+                if (materialInstance.HasProperty("_OutlineColor")) materialInstance.SetColor("_OutlineColor", outlineColor);
+                if (materialInstance.HasProperty("_OutlineWidth")) materialInstance.SetFloat("_OutlineWidth", outlineWidth);
                 if (materialInstance.HasProperty("_BaseMap")) materialInstance.SetTexture("_BaseMap", null);
                 if (materialInstance.HasProperty("_MainTex")) materialInstance.SetTexture("_MainTex", null);
                 if (materialInstance.HasProperty("_BaseColor")) materialInstance.SetColor("_BaseColor", outlineColor);
@@ -176,13 +179,23 @@ namespace Pucaci.Rendering
 
                 if (outlineSmr != null)
                 {
-                    // Buat mesh outline terekstrusi dengan normalisasi rasio mesh bounds vs world bounds
-                    // Selalu perbarui jika belum memiliki mesh atau ketebalan outline berubah
-                    if (outlineSmr.sharedMesh == null || !outlineSmr.sharedMesh.name.EndsWith("_ToonOutline") || Mathf.Abs(lastExtrudedWidth - outlineWidth) > 0.01f)
+                    // Jika material menggunakan shader Pucaci/ToonMeshOutline, ekstrusi dilakukan 100% di GPU secara screen-space.
+                    // Gunakan langsung smr.sharedMesh: BEBAS bug bola/dome pada Laras, 100% konsisten di semua karakter, dan 0 CPU overhead!
+                    bool isGpuShader = (materialInstance != null && materialInstance.shader != null && materialInstance.shader.name == "Pucaci/ToonMeshOutline");
+
+                    if (isGpuShader)
                     {
-                        outlineSmr.sharedMesh = CreateExtrudedMesh(smr.sharedMesh, outlineWidth, smr);
-                        lastExtrudedWidth = outlineWidth;
+                        outlineSmr.sharedMesh = smr.sharedMesh;
                     }
+                    else
+                    {
+                        if (outlineSmr.sharedMesh == null || !outlineSmr.sharedMesh.name.EndsWith("_ToonOutline") || Mathf.Abs(lastExtrudedWidth - outlineWidth) > 0.01f)
+                        {
+                            outlineSmr.sharedMesh = CreateExtrudedMesh(smr.sharedMesh, outlineWidth, smr);
+                            lastExtrudedWidth = outlineWidth;
+                        }
+                    }
+
                     outlineSmr.bones = smr.bones;
                     outlineSmr.rootBone = smr.rootBone;
 
@@ -260,18 +273,16 @@ namespace Pucaci.Rendering
                     norms = outlineMesh.normals;
                 }
 
-                // Hitung rasio ukuran dimensi mesh lokal terhadap ukuran dunia sebenarnya (Skinned Bounds).
-                // Setiap model FBX memiliki unit lokal berbeda (Laras ~0.05m, Pak Mamat ~2.5m, Pak Vincent ~2.6m, Kunti ~6.3m).
-                // Dengan mengalikan world offset dengan rasio (meshMag / worldMag), ketebalan outline di layar
-                // menjadi 100% konsisten, tegas, dan seragam di SEMUA karakter tanpa bug balon/meledak!
-                float worldMag = (sourceRenderer != null && sourceRenderer.bounds.size.magnitude > 0.05f) 
-                    ? sourceRenderer.bounds.size.magnitude 
-                    : 2.0f;
-                float meshMag = sourceMesh.bounds.size.magnitude;
-                float ratio = (meshMag > 0.0001f && worldMag > 0.01f) ? (meshMag / worldMag) : 1.0f;
+                float scaleFactor = 1.0f;
+                if (sourceRenderer != null)
+                {
+                    Vector3 ls = sourceRenderer.transform.lossyScale;
+                    float avg = (Mathf.Abs(ls.x) + Mathf.Abs(ls.y) + Mathf.Abs(ls.z)) / 3.0f;
+                    if (avg > 0.001f) scaleFactor = avg;
+                }
 
-                float targetWorldThickness = Mathf.Clamp(width, 1.0f, 15.0f) * 0.0035f; // ~0.0133m (1.3 cm) untuk width=3.8
-                float localOffset = targetWorldThickness * ratio;
+                float targetWorldThickness = Mathf.Clamp(width, 1.0f, 15.0f) * 0.003f;
+                float localOffset = targetWorldThickness / scaleFactor;
 
                 for (int i = 0; i < verts.Length; i++)
                 {
@@ -338,7 +349,11 @@ namespace Pucaci.Rendering
 
         public void SetOutlineWidth(float width)
         {
-            outlineWidth = Mathf.Clamp(width, 1.0f, 15.0f);
+            outlineWidth = Mathf.Clamp(width, 0.5f, 15.0f);
+            if (materialInstance != null && materialInstance.HasProperty("_OutlineWidth"))
+            {
+                materialInstance.SetFloat("_OutlineWidth", outlineWidth);
+            }
             ApplyOutline();
         }
 
@@ -347,6 +362,7 @@ namespace Pucaci.Rendering
             outlineColor = color;
             if (materialInstance != null)
             {
+                if (materialInstance.HasProperty("_OutlineColor")) materialInstance.SetColor("_OutlineColor", outlineColor);
                 if (materialInstance.HasProperty("_BaseColor")) materialInstance.SetColor("_BaseColor", outlineColor);
                 if (materialInstance.HasProperty("_Color")) materialInstance.SetColor("_Color", outlineColor);
             }

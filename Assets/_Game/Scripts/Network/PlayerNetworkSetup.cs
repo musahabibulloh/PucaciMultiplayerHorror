@@ -333,11 +333,12 @@ namespace Pucaci.Network
             nameTagText.alignment = TextAlignment.Center;
             nameTagText.color = new Color(1f, 0.9f, 0.2f, 1f); // Kuning terang agar mudah dibaca di malam hari
 
-            // Jika diri sendiri atau pertandingan sudah dimulai, sembunyikan nametag
+            // Jika diri sendiri, mode offline, atau pertandingan sudah dimulai, sembunyikan nametag
             bool isLocal = false;
             try { isLocal = isLocalPlayer; } catch { isLocal = true; }
             bool matchStarted = (PucaciNetworkManager.singleton != null && PucaciNetworkManager.singleton.IsMatchStarted);
-            if (isLocal || matchStarted)
+            bool isOffline = (!NetworkClient.active && !NetworkServer.active);
+            if (isLocal || matchStarted || isOffline)
             {
                 nameTagObject.SetActive(false);
             }
@@ -349,8 +350,9 @@ namespace Pucaci.Network
             bool isLocal = false;
             try { isLocal = isLocalPlayer; } catch { isLocal = true; }
             bool matchStarted = (PucaciNetworkManager.singleton != null && PucaciNetworkManager.singleton.IsMatchStarted);
+            bool isOffline = (!NetworkClient.active && !NetworkServer.active);
 
-            if (isLocal || matchStarted)
+            if (isLocal || matchStarted || isOffline)
             {
                 if (nameTagObject != null && nameTagObject.activeSelf)
                 {
@@ -393,11 +395,12 @@ namespace Pucaci.Network
                 nameTagText.text = newText;
             }
 
-            // Sembunyikan jika diri sendiri atau pertandingan sudah dimulai
+            // Sembunyikan jika diri sendiri, mode offline, atau pertandingan sudah dimulai
             bool isLocal = false;
             try { isLocal = isLocalPlayer; } catch { isLocal = true; }
             bool matchStarted = (PucaciNetworkManager.singleton != null && PucaciNetworkManager.singleton.IsMatchStarted);
-            if (isLocal || matchStarted)
+            bool isOffline = (!NetworkClient.active && !NetworkServer.active);
+            if (isLocal || matchStarted || isOffline)
             {
                 if (nameTagObject != null) nameTagObject.SetActive(false);
             }
