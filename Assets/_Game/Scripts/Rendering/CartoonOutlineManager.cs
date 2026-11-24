@@ -39,8 +39,8 @@ namespace Pucaci.Rendering
         [SerializeField] private bool outlineEnabled = true;
         [SerializeField] private Color outlineColor = Color.black;
         [Range(1.0f, 15.0f)]
-        [Tooltip("Ketebalan garis di layar (3.5 - 5.5 adalah standar tegas ala comic cartoon)")]
-        [SerializeField] private float thickness = 4.8f;
+        [Tooltip("Ketebalan garis di layar (2.5 - 4.0 adalah standar ramping & tegas ala comic cartoon)")]
+        [SerializeField] private float thickness = 3.8f;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         private static void InitializeRuntime()

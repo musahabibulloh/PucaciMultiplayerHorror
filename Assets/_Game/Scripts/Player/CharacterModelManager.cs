@@ -168,11 +168,11 @@ namespace Pucaci.Player
 #endif
             }
 
-            // Pasang Toon Outline kartunis tegas ala comic cartoon (Inverted Hull) ke setiap model
-            if (modelLaras != null) Pucaci.Rendering.ToonOutlineApplier.ApplyTo(modelLaras, 4.8f);
-            if (modelPakMamat != null) Pucaci.Rendering.ToonOutlineApplier.ApplyTo(modelPakMamat, 4.8f);
-            if (modelKuntilanak != null) Pucaci.Rendering.ToonOutlineApplier.ApplyTo(modelKuntilanak, 4.8f);
-            if (modelPakVincent != null) Pucaci.Rendering.ToonOutlineApplier.ApplyTo(modelPakVincent, 4.8f);
+            // Pasang Toon Outline kartunis ramping & tegas ala comic cartoon (Inverted Hull) ke setiap model
+            if (modelLaras != null) Pucaci.Rendering.ToonOutlineApplier.ApplyTo(modelLaras, 3.8f);
+            if (modelPakMamat != null) Pucaci.Rendering.ToonOutlineApplier.ApplyTo(modelPakMamat, 3.8f);
+            if (modelKuntilanak != null) Pucaci.Rendering.ToonOutlineApplier.ApplyTo(modelKuntilanak, 3.8f);
+            if (modelPakVincent != null) Pucaci.Rendering.ToonOutlineApplier.ApplyTo(modelPakVincent, 3.8f);
         }
 
         public Mesh GetOriginalFullBodyMesh(CharacterType type)
@@ -248,7 +248,7 @@ namespace Pucaci.Player
             }
 
             SkinnedMeshRenderer targetRenderer = targetModelObj.GetComponentInChildren<SkinnedMeshRenderer>();
-            var applier = Pucaci.Rendering.ToonOutlineApplier.ApplyTo(targetModelObj, 4.8f);
+            var applier = Pucaci.Rendering.ToonOutlineApplier.ApplyTo(targetModelObj, 3.8f);
             if (applier != null)
             {
                 applier.ApplyOutline();

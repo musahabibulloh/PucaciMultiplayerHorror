@@ -17,8 +17,8 @@ namespace Pucaci.Rendering
 
         [Header("Pengaturan Outline (Fortnite / Comic Style)")]
         [Range(1.0f, 15.0f)]
-        [Tooltip("Ketebalan garis di layar (3.5 - 5.5 adalah standar tegas ala comic anime / cartoon)")]
-        [SerializeField] private float outlineWidth = 4.8f;
+        [Tooltip("Ketebalan garis di layar (2.5 - 4.0 adalah standar ramping & tegas ala comic anime / cartoon)")]
+        [SerializeField] private float outlineWidth = 3.8f;
 
         [Tooltip("Warna outline (hitam pekat kartunis)")]
         [SerializeField] private Color outlineColor = Color.black;
@@ -270,7 +270,7 @@ namespace Pucaci.Rendering
                 float meshMag = sourceMesh.bounds.size.magnitude;
                 float ratio = (meshMag > 0.0001f && worldMag > 0.01f) ? (meshMag / worldMag) : 1.0f;
 
-                float targetWorldThickness = Mathf.Clamp(width, 1.0f, 15.0f) * 0.007f; // ~0.0336m (3.4 cm) untuk width=4.8
+                float targetWorldThickness = Mathf.Clamp(width, 1.0f, 15.0f) * 0.0035f; // ~0.0133m (1.3 cm) untuk width=3.8
                 float localOffset = targetWorldThickness * ratio;
 
                 for (int i = 0; i < verts.Length; i++)
@@ -367,7 +367,7 @@ namespace Pucaci.Rendering
         /// <summary>
         /// Helper statis untuk menambahkan ToonOutline tegas ke GameObject apapun (karakter atau props).
         /// </summary>
-        public static ToonOutlineApplier ApplyTo(GameObject target, float width = 4.8f)
+        public static ToonOutlineApplier ApplyTo(GameObject target, float width = 3.8f)
         {
             if (target == null) return null;
 

@@ -1268,7 +1268,7 @@ namespace Pucaci.Player
                 var modelMgrOutline = GetComponent<CharacterModelManager>();
                 if (modelMgrOutline != null && modelMgrOutline.ActiveModel != null)
                 {
-                    var activeApplier = Pucaci.Rendering.ToonOutlineApplier.ApplyTo(modelMgrOutline.ActiveModel, 4.8f);
+                    var activeApplier = Pucaci.Rendering.ToonOutlineApplier.ApplyTo(modelMgrOutline.ActiveModel, 3.8f);
                     if (activeApplier != null)
                     {
                         activeApplier.ApplyOutline();
