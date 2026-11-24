@@ -1,5 +1,7 @@
 using System.Collections.Generic;
+using Mirror;
 using Pucaci.Core;
+using Pucaci.Network;
 using Pucaci.UI;
 using TMPro;
 using UnityEditor;
@@ -82,7 +84,24 @@ namespace Pucaci.Editor
 
             // Main Menu Controller on Canvas
             MainMenuController controller = canvasObj.AddComponent<MainMenuController>();
-            canvasObj.AddComponent<StubMultiplayerLauncher>();
+            var launcher = canvasObj.AddComponent<PucaciMultiplayerLauncher>();
+
+            // Setup NetworkManager persisten di MainMenu
+            GameObject playerPrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/_Game/Prefabs/Player/PlayerCharacter.prefab");
+            GameObject netManagerObj = new GameObject("NetworkManager");
+            var kcp = netManagerObj.AddComponent<kcp2k.KcpTransport>();
+            kcp.Port = 7777;
+
+            var pucaciNet = netManagerObj.AddComponent<PucaciNetworkManager>();
+            pucaciNet.transport = kcp;
+            pucaciNet.playerPrefab = playerPrefab;
+            pucaciNet.autoCreatePlayer = true;
+            pucaciNet.playerSpawnMethod = PlayerSpawnMethod.RoundRobin;
+            pucaciNet.maxConnections = 4;
+            pucaciNet.dontDestroyOnLoad = true;
+            pucaciNet.runInBackground = true;
+            pucaciNet.offlineScene = "MainMenu";
+            pucaciNet.onlineScene = "Gameplay";
 
             // 6. UI readability gradient (behind panels)
             BuildLeftVignette(canvasObj.transform);
@@ -115,6 +134,7 @@ namespace Pucaci.Editor
             so.FindProperty("creditsPanel").objectReferenceValue = creditsPanel;
             so.FindProperty("quitConfirmDialog").objectReferenceValue = quitDialog;
             so.FindProperty("gameSceneName").stringValue = "Gameplay";
+            so.FindProperty("multiplayerLauncherComponent").objectReferenceValue = launcher;
             if (verTMP != null) so.FindProperty("versionText").objectReferenceValue = verTMP;
             so.ApplyModifiedPropertiesWithoutUndo();
 
