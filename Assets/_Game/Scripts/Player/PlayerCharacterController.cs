@@ -1160,18 +1160,8 @@ namespace Pucaci.Player
             bool lookBack = GetLookBackInput();
             SetSafeBool(LookBackHash, lookBack);
 
-            // Toggle Sudut Pandang Kamera (V)
-#if ENABLE_INPUT_SYSTEM
-            if (Keyboard.current != null && Keyboard.current.vKey.wasPressedThisFrame)
-            {
-                ToggleCameraPerspective();
-            }
-#else
-            if (Input.GetKeyDown(KeyCode.V))
-            {
-                ToggleCameraPerspective();
-            }
-#endif
+            // Catatan: Mode FPP telah dihapus dan diganti Full TPP permanen.
+            // Tombol [V] sekarang dialihkan khusus untuk Proximity Voice Chat (Push-to-Talk / Open Mic).
 
             // Toggle Senter (F)
 #if ENABLE_INPUT_SYSTEM
@@ -1203,21 +1193,23 @@ namespace Pucaci.Player
 
         public void ToggleCameraPerspective()
         {
-            cameraPerspective = (cameraPerspective == CameraPerspective.ThirdPerson)
-                ? CameraPerspective.FirstPerson
-                : CameraPerspective.ThirdPerson;
-
+            // Mode FPP dinonaktifkan, selalu kunci di Third-Person (Full TPP)
+            cameraPerspective = CameraPerspective.ThirdPerson;
             ApplyCameraPerspective();
         }
 
         public void SetCameraPerspective(CameraPerspective perspective)
         {
-            cameraPerspective = perspective;
+            // Mode FPP dinonaktifkan, selalu kunci di Third-Person (Full TPP)
+            cameraPerspective = CameraPerspective.ThirdPerson;
             ApplyCameraPerspective();
         }
 
         private void ApplyCameraPerspective()
         {
+            // Pastikan perspektif selalu Third-Person (Full TPP)
+            cameraPerspective = CameraPerspective.ThirdPerson;
+
             if (actualCameraTransform == null && cameraRoot != null)
             {
                 actualCameraTransform = cameraRoot.Find("FirstPersonCamera");
@@ -1225,44 +1217,24 @@ namespace Pucaci.Player
 
             if (actualCameraTransform == null) return;
 
-            if (cameraPerspective == CameraPerspective.ThirdPerson)
-            {
-                actualCameraTransform.localPosition = thirdPersonOffset;
-            }
-            else
-            {
-                Vector3 targetFppOffset = firstPersonOffset;
-                var modelMgr = GetComponent<CharacterModelManager>();
-                if (modelMgr != null && modelMgr.ActiveCharacterType == CharacterType.PakMamat)
-                {
-                    targetFppOffset = pakMamatFirstPersonOffset;
-                }
-                actualCameraTransform.localPosition = targetFppOffset;
-            }
+            // Kamera selalu berada di posisi ThirdPerson
+            actualCameraTransform.localPosition = thirdPersonOffset;
 
-            // Perbarui mesh sesuai sudut pandang kamera (misal: Pak Mamat hanya menampilkan tangan di FPP)
+            // Perbarui mesh: selalu gunakan full-body mesh utuh di mode Third-Person
             if (characterRenderer != null)
             {
-                if (cameraPerspective == CameraPerspective.FirstPerson && fppCustomMesh != null)
+                if (fullBodyMesh == null || (fppCustomMesh != null && fullBodyMesh == fppCustomMesh))
                 {
-                    characterRenderer.sharedMesh = fppCustomMesh;
+                    var modelMgr = GetComponent<CharacterModelManager>();
+                    if (modelMgr != null)
+                    {
+                        fullBodyMesh = modelMgr.GetOriginalFullBodyMesh(modelMgr.ActiveCharacterType);
+                    }
                 }
-                else
-                {
-                    // Di mode Third-Person, pastikan selalu menggunakan full-body mesh utuh
-                    if (fullBodyMesh == null || (fppCustomMesh != null && fullBodyMesh == fppCustomMesh))
-                    {
-                        var modelMgr = GetComponent<CharacterModelManager>();
-                        if (modelMgr != null)
-                        {
-                            fullBodyMesh = modelMgr.GetOriginalFullBodyMesh(modelMgr.ActiveCharacterType);
-                        }
-                    }
 
-                    if (fullBodyMesh != null && (fppCustomMesh == null || fullBodyMesh != fppCustomMesh))
-                    {
-                        characterRenderer.sharedMesh = fullBodyMesh;
-                    }
+                if (fullBodyMesh != null && (fppCustomMesh == null || fullBodyMesh != fppCustomMesh))
+                {
+                    characterRenderer.sharedMesh = fullBodyMesh;
                 }
 
                 var modelMgrOutline = GetComponent<CharacterModelManager>();

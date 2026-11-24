@@ -2,18 +2,19 @@ using System;
 using System.Collections;
 using Mirror;
 using UnityEngine;
-using Pucaci.UI;
+using UnityEngine.UI;
 
 namespace Pucaci.Network
 {
     /// <summary>
     /// Sistem Proximity Voice Chat (Obrolan Suara 3D Spasial dengan Attenuasi Jarak).
     /// - Mengizinkan semua pemain berbicara langsung secara real-time via mikrofon.
-    /// - Pemain yang berdekatan (< 2m) terdengar jernih dan jelas.
+    /// - Pemain yang berdekatan (< 2m) terdengar jernih dan penuh.
     /// - Semakin jauh posisi antar pemain, suara memudar secara bertahap (linear rolloff).
     /// - Jika pemain berada di luar jangkauan (> 20m), suara hilang sepenuhnya.
-    /// - Dilengkapi Voice Activity Detection (VAD) otomatis dan tombol Push-to-Talk opsional [V].
-    /// - Dilengkapi indikator berbicara di HUD lokal dan billboard di atas kepala pemain.
+    /// - Push-to-Talk didedikasikan pada tombol [V] (atau berbicara langsung via Voice Activity Detection).
+    /// - Dilengkapi fitur Loopback / Sidetone (dapat mendengar suara sendiri saat tes mandiri / solo).
+    /// - Dilengkapi indikator berbicara di HUD lokal dan billboard neon di atas kepala pemain.
     /// </summary>
     [DisallowMultipleComponent]
     [RequireComponent(typeof(NetworkIdentity))]
@@ -32,37 +33,59 @@ namespace Pucaci.Network
         [SerializeField] private AudioRolloffMode rolloffMode = AudioRolloffMode.Linear;
 
         [Header("Pengaturan Mikrofon & Transmisi")]
-        [Tooltip("Frekuensi sampling suara (16000 Hz adalah standar VoIP jernih & hemat bandwidth)")]
+        [Tooltip("Frekuensi sampling suara standar VoIP")]
         [SerializeField] private int captureSampleRate = 16000;
 
         [Tooltip("Interval pengiriman paket suara ke server (detik)")]
-        [SerializeField] private float packetInterval = 0.08f;
+        [SerializeField] private float packetInterval = 0.06f;
 
         [Tooltip("Threshold sensitivitas VAD untuk mendeteksi suara bicara")]
-        [SerializeField] private float voiceDetectionThreshold = 0.012f;
+        [SerializeField] private float voiceDetectionThreshold = 0.003f;
 
-        [Tooltip("Tombol Push-to-Talk")]
+        [Tooltip("Tombol Push-to-Talk (Default: V)")]
         [SerializeField] private KeyCode pushToTalkKey = KeyCode.V;
 
-        [Tooltip("Gunakan Push-to-Talk (True = harus tahan tombol V, False = Open Mic dengan VAD)")]
-        [SerializeField] private bool usePushToTalk = false;
+        [Header("Audio Monitoring (Loopback / Sidetone)")]
+        [Tooltip("Mendengar suara sendiri untuk verifikasi / tes mandiri bahwa mikrofon & audio 3D berfungsi")]
+        [SerializeField] private bool loopbackSelfAudio = true;
 
         [Header("Komponen Audio 3D")]
         [SerializeField] private AudioSource spatialAudioSource;
 
-        // Status bicara
+        // Status bicara publik
         public bool IsSpeaking { get; private set; }
         public float CurrentMicLevel { get; private set; }
+
+        // Variabel Network Identity yang aman (menghindari NullReference jika netIdentity Mirror belum diset)
+        private NetworkIdentity cachedNetIdentity;
+
+        public bool SafeIsLocalPlayer
+        {
+            get
+            {
+                if (cachedNetIdentity == null)
+                {
+                    cachedNetIdentity = GetComponent<NetworkIdentity>();
+                }
+                if (cachedNetIdentity != null)
+                {
+                    return cachedNetIdentity.isLocalPlayer || cachedNetIdentity.isOwned;
+                }
+                return false;
+            }
+        }
 
         // Variabel perekaman lokal
         private AudioClip micClip;
         private string activeMicDevice;
+        private int actualSampleRate = 16000;
         private int lastSamplePosition;
         private float nextPacketTime;
         private float[] sampleBuffer;
+        private bool isLocalInitialized = false;
 
-        // Buffer pemutaran audio jarak jauh (Ring Buffer thread-safe)
-        private const int RingBufferSize = 65536;
+        // Buffer pemutaran audio (Ring Buffer thread-safe)
+        private const int RingBufferSize = 96000;
         private float[] ringBuffer = new float[RingBufferSize];
         private int writeIndex = 0;
         private int readIndex = 0;
@@ -74,13 +97,46 @@ namespace Pucaci.Network
         // UI Indikator
         private GameObject overheadVoiceIndicator;
         private TextMesh overheadVoiceText;
+        private GameObject hudCanvasObj;
         private GameObject hudVoiceIndicator;
         private TMPro.TextMeshProUGUI hudVoiceTmp;
 
         private void Awake()
         {
+            cachedNetIdentity = GetComponent<NetworkIdentity>();
             SetupSpatialAudioSource();
             CreateOverheadIndicator();
+        }
+
+        private void Start()
+        {
+            // Jika dalam mode offline/singleplayer atau belum terhubung ke Mirror,
+            // inisialisasi sebagai local player agar pemain dapat langsung menguji mikrofon
+            bool isOffline = !NetworkClient.active && !NetworkServer.active;
+            if (SafeIsLocalPlayer || isOffline)
+            {
+                InitializeLocalVoice();
+            }
+        }
+
+        public override void OnStartLocalPlayer()
+        {
+            base.OnStartLocalPlayer();
+            InitializeLocalVoice();
+        }
+
+        public override void OnStartClient()
+        {
+            base.OnStartClient();
+
+            if (!SafeIsLocalPlayer && spatialAudioSource != null)
+            {
+                spatialAudioSource.mute = false;
+                if (!spatialAudioSource.isPlaying)
+                {
+                    spatialAudioSource.Play();
+                }
+            }
         }
 
         private void SetupSpatialAudioSource()
@@ -99,40 +155,32 @@ namespace Pucaci.Network
             spatialAudioSource.minDistance = minVoiceDistance;
             spatialAudioSource.maxDistance = maxVoiceDistance;
             spatialAudioSource.rolloffMode = rolloffMode;
-            spatialAudioSource.dopplerLevel = 0f; // Hindari efek distorsi nada saat lari
+            spatialAudioSource.dopplerLevel = 0f; // Tanpa distorsi Doppler saat berlari
             spatialAudioSource.spread = 0f;
             spatialAudioSource.playOnAwake = false;
             spatialAudioSource.loop = true;
-            spatialAudioSource.priority = 10; // Prioritas tinggi agar tidak terputus audio SFX lain
+            spatialAudioSource.priority = 10;
+            spatialAudioSource.mute = false;
 
-            // Buat clip kosong 1 detik yang looping agar OnAudioFilterRead selalu dipanggil oleh Unity
+            // Clip looping silent agar thread DSP OnAudioFilterRead selalu dipanggil
             if (spatialAudioSource.clip == null)
             {
                 spatialAudioSource.clip = AudioClip.Create("VoiceLoopSilent", 48000, 1, 48000, false);
             }
+
+            if (!spatialAudioSource.isPlaying)
+            {
+                spatialAudioSource.Play();
+            }
         }
 
-        public override void OnStartLocalPlayer()
+        private void InitializeLocalVoice()
         {
-            base.OnStartLocalPlayer();
+            if (isLocalInitialized) return;
+            isLocalInitialized = true;
             LocalInstance = this;
 
-            // Di pemain lokal, kita tidak perlu mendengar diri sendiri dari AudioSource lokal
             if (spatialAudioSource != null)
-            {
-                spatialAudioSource.mute = true;
-            }
-
-            StartMicrophoneCapture();
-            CreateHUDVoiceIndicator();
-        }
-
-        public override void OnStartClient()
-        {
-            base.OnStartClient();
-
-            // Pada remote client, pastikan AudioSource mulai berjalan untuk menerima filter read
-            if (!isLocalPlayer && spatialAudioSource != null)
             {
                 spatialAudioSource.mute = false;
                 if (!spatialAudioSource.isPlaying)
@@ -140,6 +188,9 @@ namespace Pucaci.Network
                     spatialAudioSource.Play();
                 }
             }
+
+            StartMicrophoneCapture();
+            CreateHUDVoiceIndicator();
         }
 
         private void StartMicrophoneCapture()
@@ -151,11 +202,11 @@ namespace Pucaci.Network
             }
 
             activeMicDevice = null;
-            if (SettingsManager.Instance != null && !string.IsNullOrEmpty(SettingsManager.Instance.MicDevice))
+            if (Pucaci.UI.SettingsManager.Instance != null && !string.IsNullOrEmpty(Pucaci.UI.SettingsManager.Instance.MicDevice))
             {
                 foreach (var d in Microphone.devices)
                 {
-                    if (d == SettingsManager.Instance.MicDevice)
+                    if (d == Pucaci.UI.SettingsManager.Instance.MicDevice)
                     {
                         activeMicDevice = d;
                         break;
@@ -168,22 +219,68 @@ namespace Pucaci.Network
                 activeMicDevice = Microphone.devices[0];
             }
 
-            Debug.Log($"<color=#00FFAA>[ProximityVoiceChat] Memulai perekaman mikrofon: {activeMicDevice} ({captureSampleRate} Hz)</color>");
-            micClip = Microphone.Start(activeMicDevice, true, 10, captureSampleRate);
+            // Sesuaikan sample rate dengan kemampuan hardware mic
+            int minFreq, maxFreq;
+            Microphone.GetDeviceCaps(activeMicDevice, out minFreq, out maxFreq);
+            actualSampleRate = captureSampleRate;
+            if (maxFreq > 0)
+            {
+                if (minFreq == maxFreq)
+                {
+                    actualSampleRate = minFreq;
+                }
+                else
+                {
+                    actualSampleRate = Mathf.Clamp(actualSampleRate, minFreq, maxFreq);
+                }
+            }
+
+            Debug.Log($"<color=#00FFAA>[ProximityVoiceChat] Memulai perekaman mikrofon: {activeMicDevice} ({actualSampleRate} Hz)</color>");
+            micClip = Microphone.Start(activeMicDevice, true, 10, actualSampleRate);
             lastSamplePosition = 0;
-            sampleBuffer = new float[captureSampleRate]; // 1 detik buffer penampung
+            sampleBuffer = new float[actualSampleRate];
         }
 
         private void Update()
         {
-            if (isLocalPlayer)
+            bool isLocal = SafeIsLocalPlayer || (!NetworkClient.active && !NetworkServer.active);
+
+            if (isLocal)
             {
+                if (!isLocalInitialized)
+                {
+                    InitializeLocalVoice();
+                }
+
                 UpdateLocalVoiceTransmission();
                 UpdateHUDIndicator();
+                UpdateOverheadVisuals(IsSpeaking);
             }
             else
             {
-                UpdateRemoteVoiceVisuals();
+                bool isRemoteTalking = (Time.time - lastVoiceReceivedTime < 0.25f);
+                UpdateOverheadVisuals(isRemoteTalking);
+            }
+        }
+
+        private bool IsPushToTalkPressed()
+        {
+#if ENABLE_INPUT_SYSTEM
+            if (UnityEngine.InputSystem.Keyboard.current != null)
+            {
+                if (UnityEngine.InputSystem.Keyboard.current.vKey.isPressed)
+                {
+                    return true;
+                }
+            }
+#endif
+            try
+            {
+                return Input.GetKey(pushToTalkKey);
+            }
+            catch
+            {
+                return false;
             }
         }
 
@@ -194,7 +291,6 @@ namespace Pucaci.Network
             int currentMicPos = Microphone.GetPosition(activeMicDevice);
             if (currentMicPos < 0 || currentMicPos == lastSamplePosition) return;
 
-            // Hitung berapa banyak sample baru yang telah terekam
             int samplesToRead = 0;
             if (currentMicPos > lastSamplePosition)
             {
@@ -202,7 +298,6 @@ namespace Pucaci.Network
             }
             else
             {
-                // Terjadi wrap-around circular buffer mikrofon
                 samplesToRead = (micClip.samples - lastSamplePosition) + currentMicPos;
             }
 
@@ -215,7 +310,6 @@ namespace Pucaci.Network
                     samplesToRead = sampleBuffer.Length;
                 }
 
-                // Ambil sample audio baru
                 float[] chunk = new float[samplesToRead];
                 if (currentMicPos > lastSamplePosition)
                 {
@@ -239,7 +333,7 @@ namespace Pucaci.Network
 
                 lastSamplePosition = currentMicPos;
 
-                // Hitung volume RMS
+                // Hitung level volume RMS
                 float sum = 0f;
                 for (int i = 0; i < chunk.Length; i++)
                 {
@@ -248,23 +342,34 @@ namespace Pucaci.Network
                 float rms = Mathf.Sqrt(sum / chunk.Length);
                 CurrentMicLevel = rms;
 
-                // Cek sensitivitas dari SettingsManager jika ada
+                // Cek sensitivitas threshold VAD
                 float threshold = voiceDetectionThreshold;
-                if (SettingsManager.Instance != null)
+                if (Pucaci.UI.SettingsManager.Instance != null)
                 {
-                    // Sensitivitas slider 0..1 (semakin tinggi slider, semakin rendah threshold = semakin sensitif)
-                    threshold = Mathf.Lerp(0.04f, 0.003f, SettingsManager.Instance.MicSensitivity);
+                    threshold = Mathf.Lerp(0.02f, 0.001f, Pucaci.UI.SettingsManager.Instance.MicSensitivity);
                 }
 
-                bool pttPressed = Input.GetKey(pushToTalkKey);
-                bool vadActive = (!usePushToTalk && rms > threshold);
-                IsSpeaking = vadActive || pttPressed;
+                bool pttPressed = IsPushToTalkPressed();
+                bool vadActive = (rms > threshold);
+
+                // Tombol [V] atau berbicara langsung memicu transmisi suara
+                IsSpeaking = pttPressed || vadActive;
 
                 if (IsSpeaking)
                 {
-                    // Kompresi float[] ke 16-bit PCM bytes (hemat bandwidth & kompatibel di Mirror)
                     byte[] pcmBytes = FloatToPcm16(chunk);
-                    CmdSendVoice(pcmBytes, captureSampleRate);
+
+                    // Kirim ke server jika terhubung di multiplayer Mirror
+                    if (NetworkClient.active)
+                    {
+                        CmdSendVoice(pcmBytes, actualSampleRate);
+                    }
+
+                    // Loopback sidetone lokal agar pemain mendengar suara sendiri saat tes
+                    if (loopbackSelfAudio)
+                    {
+                        ReceiveVoicePacket(pcmBytes, actualSampleRate);
+                    }
                 }
             }
         }
@@ -274,16 +379,13 @@ namespace Pucaci.Network
         private void CmdSendVoice(byte[] pcmData, int sampleRate)
         {
             if (pcmData == null || pcmData.Length == 0) return;
-
-            // Broadcast ke semua client di sekitarnya via ClientRpc
             RpcReceiveVoice(pcmData, sampleRate);
         }
 
         [ClientRpc(channel = Channels.Unreliable, includeOwner = false)]
         private void RpcReceiveVoice(byte[] pcmData, int sampleRate)
         {
-            if (isLocalPlayer) return;
-
+            if (SafeIsLocalPlayer) return;
             ReceiveVoicePacket(pcmData, sampleRate);
         }
         #endregion
@@ -294,11 +396,17 @@ namespace Pucaci.Network
             if (samples == null || samples.Length == 0) return;
 
             remoteSampleRate = sampleRate;
-            lastVoiceReceivedTime = Time.time;
 
             lock (ringLock)
             {
-                // Tambahkan samples ke circular ring buffer
+                bool wasSilent = (Time.time - lastVoiceReceivedTime > 0.35f);
+                if (wasSilent)
+                {
+                    // Reset buffer agar tidak ada latensi penumpukan
+                    readIndex = writeIndex;
+                    playbackPosition = writeIndex;
+                }
+
                 for (int i = 0; i < samples.Length; i++)
                 {
                     ringBuffer[writeIndex] = samples[i];
@@ -306,7 +414,8 @@ namespace Pucaci.Network
                 }
             }
 
-            // Pastikan audio source sedang aktif memutar agar DSP OnAudioFilterRead berjalan
+            lastVoiceReceivedTime = Time.time;
+
             if (spatialAudioSource != null && !spatialAudioSource.isPlaying)
             {
                 spatialAudioSource.Play();
@@ -319,7 +428,15 @@ namespace Pucaci.Network
         /// </summary>
         private void OnAudioFilterRead(float[] data, int channels)
         {
-            if (isLocalPlayer) return;
+            bool isLocal = SafeIsLocalPlayer || (!NetworkClient.active && !NetworkServer.active);
+            if (isLocal && !loopbackSelfAudio)
+            {
+                for (int i = 0; i < data.Length; i++)
+                {
+                    data[i] = 0f;
+                }
+                return;
+            }
 
             int outputRate = AudioSettings.outputSampleRate;
             if (outputRate <= 0) outputRate = 48000;
@@ -331,8 +448,7 @@ namespace Pucaci.Network
                     ? (writeIndex - readIndex)
                     : (RingBufferSize - readIndex + writeIndex);
 
-                // Jika buffer hampir kosong atau audio sudah berhenti > 0.3s, output hening
-                if (availableSamples < 64 || (Time.time - lastVoiceReceivedTime > 0.4f))
+                if (availableSamples < 64 || (Time.time - lastVoiceReceivedTime > 0.35f))
                 {
                     for (int i = 0; i < data.Length; i++)
                     {
@@ -345,9 +461,9 @@ namespace Pucaci.Network
                 {
                     if (availableSamples > 0)
                     {
-                        int curIdx = (int)playbackPosition;
+                        int curIdx = (int)playbackPosition % RingBufferSize;
                         int nextIdx = (curIdx + 1) % RingBufferSize;
-                        float frac = playbackPosition - curIdx;
+                        float frac = playbackPosition - (int)playbackPosition;
 
                         float sample = Mathf.Lerp(ringBuffer[curIdx], ringBuffer[nextIdx], frac);
 
@@ -362,7 +478,7 @@ namespace Pucaci.Network
                             playbackPosition -= RingBufferSize;
                         }
 
-                        readIndex = (int)playbackPosition;
+                        readIndex = (int)playbackPosition % RingBufferSize;
                         availableSamples--;
                     }
                     else
@@ -412,17 +528,17 @@ namespace Pucaci.Network
             overheadVoiceText = overheadVoiceIndicator.AddComponent<TextMesh>();
             overheadVoiceText.text = "🔊 [BICARA]";
             overheadVoiceText.characterSize = 0.075f;
-            overheadVoiceText.fontSize = 24;
+            overheadVoiceText.fontSize = 26;
+            overheadVoiceText.fontStyle = FontStyle.Bold;
             overheadVoiceText.anchor = TextAnchor.MiddleCenter;
             overheadVoiceText.alignment = TextAlignment.Center;
-            overheadVoiceText.color = new Color(0.2f, 1f, 0.4f, 1f); // Hijau neon
+            overheadVoiceText.color = new Color(0.2f, 1f, 0.45f, 1f); // Neon green
 
             overheadVoiceIndicator.SetActive(false);
         }
 
-        private void UpdateRemoteVoiceVisuals()
+        private void UpdateOverheadVisuals(bool isTalking)
         {
-            bool isTalking = (Time.time - lastVoiceReceivedTime < 0.25f);
             if (overheadVoiceIndicator != null)
             {
                 if (overheadVoiceIndicator.activeSelf != isTalking)
@@ -432,7 +548,6 @@ namespace Pucaci.Network
 
                 if (isTalking)
                 {
-                    // Hadapkan teks ke kamera pemain lokal
                     Camera cam = Camera.main;
                     if (cam != null)
                     {
@@ -444,21 +559,43 @@ namespace Pucaci.Network
 
         private void CreateHUDVoiceIndicator()
         {
-            Canvas canvas = FindObjectOfType<Canvas>();
-            if (canvas == null) return;
+            if (hudVoiceIndicator != null) return;
 
-            hudVoiceIndicator = new GameObject("HUDVoiceStatus", typeof(RectTransform), typeof(UnityEngine.UI.Image));
-            hudVoiceIndicator.transform.SetParent(canvas.transform, false);
+            // Cari Canvas aktif atau buat Canvas Overlay khusus berprioritas tinggi
+            Canvas targetCanvas = null;
+            Canvas[] allCanvases = FindObjectsOfType<Canvas>();
+            foreach (var c in allCanvases)
+            {
+                if (c.isActiveAndEnabled && c.renderMode == RenderMode.ScreenSpaceOverlay)
+                {
+                    targetCanvas = c;
+                    break;
+                }
+            }
+
+            if (targetCanvas == null)
+            {
+                hudCanvasObj = new GameObject("VoiceChatOverlayCanvas", typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));
+                targetCanvas = hudCanvasObj.GetComponent<Canvas>();
+                targetCanvas.renderMode = RenderMode.ScreenSpaceOverlay;
+                targetCanvas.sortingOrder = 999;
+                var scaler = hudCanvasObj.GetComponent<CanvasScaler>();
+                scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+                scaler.referenceResolution = new Vector2(1920, 1080);
+            }
+
+            hudVoiceIndicator = new GameObject("HUDVoiceStatus", typeof(RectTransform), typeof(Image));
+            hudVoiceIndicator.transform.SetParent(targetCanvas.transform, false);
 
             RectTransform rt = hudVoiceIndicator.GetComponent<RectTransform>();
             rt.anchorMin = new Vector2(1f, 0f);
             rt.anchorMax = new Vector2(1f, 0f);
             rt.pivot = new Vector2(1f, 0f);
             rt.anchoredPosition = new Vector2(-20f, 25f);
-            rt.sizeDelta = new Vector2(250f, 38f);
+            rt.sizeDelta = new Vector2(280f, 40f);
 
-            var bgImg = hudVoiceIndicator.GetComponent<UnityEngine.UI.Image>();
-            bgImg.color = new Color(0.04f, 0.07f, 0.11f, 0.88f);
+            var bgImg = hudVoiceIndicator.GetComponent<Image>();
+            bgImg.color = new Color(0.04f, 0.07f, 0.12f, 0.88f);
 
             GameObject textObj = new GameObject("Text", typeof(RectTransform), typeof(TMPro.TextMeshProUGUI));
             textObj.transform.SetParent(hudVoiceIndicator.transform, false);
@@ -473,20 +610,28 @@ namespace Pucaci.Network
             hudVoiceTmp.fontStyle = TMPro.FontStyles.Bold;
             hudVoiceTmp.alignment = TMPro.TextAlignmentOptions.Center;
             hudVoiceTmp.color = new Color(0.85f, 0.85f, 0.85f, 1f);
-            hudVoiceTmp.text = "🎙️ MIC: SIAP (Tekan [V] / Bicara)";
+            hudVoiceTmp.text = "🎙️ VOICE: SIAP (Tahan [V] / Bicara)";
         }
 
         private void UpdateHUDIndicator()
         {
             if (hudVoiceTmp == null) return;
 
+            if (Microphone.devices == null || Microphone.devices.Length == 0)
+            {
+                hudVoiceTmp.text = "🎙️ <color=#FF4444>MIC: TIDAK TERDETEKSI</color>";
+                return;
+            }
+
             if (IsSpeaking)
             {
-                hudVoiceTmp.text = "🎙️ <color=#00FFAA><b>MIC: BICARA (AKTIF)</b></color>";
+                int barCount = Mathf.Clamp((int)(CurrentMicLevel * 100f), 1, 8);
+                string meter = new string('|', barCount);
+                hudVoiceTmp.text = $"🎙️ <color=#00FFAA><b>VOICE: AKTIF</b></color> <color=#FFDD00>[{meter}]</color> <size=11><color=#88FFAA>[V]</color></size>";
             }
             else
             {
-                hudVoiceTmp.text = "🎙️ <color=#AAAAAA>MIC: SIAP [V]</color>";
+                hudVoiceTmp.text = "🎙️ <color=#CCCCCC>VOICE: SIAP (Tahan [V] / Bicara)</color>";
             }
         }
         #endregion
@@ -504,6 +649,11 @@ namespace Pucaci.Network
             if (hudVoiceIndicator != null)
             {
                 Destroy(hudVoiceIndicator);
+            }
+
+            if (hudCanvasObj != null)
+            {
+                Destroy(hudCanvasObj);
             }
         }
     }
