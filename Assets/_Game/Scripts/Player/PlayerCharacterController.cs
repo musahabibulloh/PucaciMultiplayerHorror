@@ -6,6 +6,7 @@ using UnityEngine.InputSystem;
 namespace Pucaci.Player
 {
     [RequireComponent(typeof(CharacterController))]
+    [RequireComponent(typeof(Pucaci.Network.ProximityVoiceChat))]
     public class PlayerCharacterController : MonoBehaviour
     {
         [Header("Movement Speeds")]
@@ -456,6 +457,11 @@ namespace Pucaci.Player
 
         private void Awake()
         {
+            if (GetComponent<Pucaci.Network.ProximityVoiceChat>() == null)
+            {
+                gameObject.AddComponent<Pucaci.Network.ProximityVoiceChat>();
+            }
+
             controller = GetComponent<CharacterController>();
             originalControllerHeight = controller.height;
             originalControllerRadius = controller.radius;
@@ -1173,6 +1179,9 @@ namespace Pucaci.Player
             }
 #endif
 
+            // Obrolan Suara (Voice Chat 3D) via tombol [V]
+            HandleVoiceChatAction();
+
             // Tombol uji coba aksi khusus (Stumble = G, Death = H, GetUp = J)
 #if ENABLE_INPUT_SYSTEM
             if (Keyboard.current != null)
@@ -1186,6 +1195,11 @@ namespace Pucaci.Player
             if (Input.GetKeyDown(KeyCode.H)) TriggerDeath();
             if (Input.GetKeyDown(KeyCode.J)) TriggerGetUp();
 #endif
+        }
+
+        private void HandleVoiceChatAction()
+        {
+            // Input tombol [V] untuk voice chat ditangani langsung secara mandiri oleh ProximityVoiceChat
         }
 
         public void ToggleCameraPerspective()

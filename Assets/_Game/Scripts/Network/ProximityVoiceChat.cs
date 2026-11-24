@@ -107,7 +107,6 @@ namespace Pucaci.Network
         private static GameObject hudCanvasObj;
         private GameObject hudVoiceIndicator;
         private Image hudVoiceIcon;
-        private TMPro.TextMeshProUGUI hudVoiceTmp;
 
         public static Sprite GetSpeakerSprite()
         {
@@ -308,6 +307,33 @@ namespace Pucaci.Network
             sampleBuffer = new float[hardwareSampleRate];
         }
 
+        private float voiceKeyDownTime = 0f;
+
+        /// <summary>
+        /// Dipanggil saat tombol V mulai ditekan (Push-to-Talk & Tap Toggle).
+        /// </summary>
+        public void OnVoiceKeyDown()
+        {
+            voiceKeyDownTime = Time.time;
+            isToggleActive = !isToggleActive;
+            IsSpeaking = isToggleActive;
+            Debug.Log($"<color=#00FFAA>[ProximityVoiceChat] Voice Key Down! IsSpeaking={IsSpeaking}</color>");
+        }
+
+        /// <summary>
+        /// Dipanggil saat tombol V dilepas. Jika ditahan lama (> 0.25s) maka mode PTT selesai (mati).
+        /// </summary>
+        public void OnVoiceKeyUp()
+        {
+            float holdDuration = Time.time - voiceKeyDownTime;
+            if (holdDuration >= 0.25f)
+            {
+                isToggleActive = false;
+                IsSpeaking = false;
+                Debug.Log("<color=#FFAA00>[ProximityVoiceChat] Voice PTT Released -> Mute</color>");
+            }
+        }
+
         /// <summary>
         /// Dipanggil langsung untuk toggle on/off mic dengan sekali pencet / klik tombol HUD.
         /// </summary>
@@ -329,14 +355,8 @@ namespace Pucaci.Network
                     InitializeLocalVoice();
                 }
 
-                // Cek input tombol [V] cerdas (Hold = PTT, Tap = Toggle)
+                // Deteksi input tombol V secara langsung & mandiri
                 CheckInputState();
-
-                // Sinkronisasi status bicara ke network jika ada perubahan
-                if (NetworkClient.active && syncIsSpeaking != IsSpeaking)
-                {
-                    CmdSetSpeaking(IsSpeaking);
-                }
 
                 // Jalankan transmisi audio jika sedang berbicara
                 UpdateLocalVoiceTransmission();
@@ -355,10 +375,9 @@ namespace Pucaci.Network
 
         private void CheckInputState()
         {
-            // Deteksi input V dari New Input System dan Legacy Input System
             bool isVDown = false;
-            bool isVHeld = false;
             bool isVUp = false;
+            bool isVHeld = false;
 
 #if ENABLE_INPUT_SYSTEM
             try
@@ -366,49 +385,51 @@ namespace Pucaci.Network
                 var kb = UnityEngine.InputSystem.Keyboard.current;
                 if (kb != null)
                 {
-                    if (kb.vKey.wasPressedThisFrame) isVDown = true;
-                    if (kb.vKey.isPressed) isVHeld = true;
-                    if (kb.vKey.wasReleasedThisFrame) isVUp = true;
+                    isVDown = kb.vKey.wasPressedThisFrame;
+                    isVUp = kb.vKey.wasReleasedThisFrame;
+                    isVHeld = kb.vKey.isPressed;
                 }
             }
             catch { }
 #endif
 
-            if (!isVDown && !isVHeld && !isVUp)
+            if (!isVDown && !isVUp && !isVHeld)
             {
                 try
                 {
-                    if (Input.GetKeyDown(pushToTalkKey)) isVDown = true;
-                    if (Input.GetKey(pushToTalkKey)) isVHeld = true;
-                    if (Input.GetKeyUp(pushToTalkKey)) isVUp = true;
+                    isVDown = Input.GetKeyDown(pushToTalkKey);
+                    isVUp = Input.GetKeyUp(pushToTalkKey);
+                    isVHeld = Input.GetKey(pushToTalkKey);
                 }
                 catch { }
             }
 
-            // Saat tombol V mulai ditekan
             if (isVDown)
             {
-                keyPressStartTime = Time.time;
+                voiceKeyDownTime = Time.time;
+                isToggleActive = !isToggleActive;
             }
 
-            // Saat tombol V dilepas
             if (isVUp)
             {
-                float holdDuration = Time.time - keyPressStartTime;
-                if (holdDuration < 0.35f)
+                float holdDuration = Time.time - voiceKeyDownTime;
+                if (holdDuration >= 0.25f)
                 {
-                    // Tap sebentar = Toggle ON / OFF
-                    isToggleActive = !isToggleActive;
-                }
-                else
-                {
-                    // Hold lama lalu lepas = PTT selesai -> MATIKAN
                     isToggleActive = false;
                 }
             }
 
-            // Bicara aktif saat tombol SEDANG DITAHAN atau MODE TOGGLE SEDANG AKTIF
-            IsSpeaking = isVHeld || isToggleActive;
+            // Suara aktif jika tombol V sedang ditahan atau mode toggle aktif
+            bool shouldSpeak = isVHeld || isToggleActive;
+            if (IsSpeaking != shouldSpeak)
+            {
+                IsSpeaking = shouldSpeak;
+                Debug.Log($"<color=#00FFAA>[ProximityVoiceChat] Status Bicara: {IsSpeaking} (Held={isVHeld}, Toggle={isToggleActive})</color>");
+                if (NetworkClient.active)
+                {
+                    CmdSetSpeaking(IsSpeaking);
+                }
+            }
         }
 
         private void UpdateLocalVoiceTransmission()
@@ -687,8 +708,8 @@ namespace Pucaci.Network
             if (overheadVoiceIndicator != null) return;
             overheadVoiceIndicator = new GameObject("OverheadVoiceIndicator");
             overheadVoiceIndicator.transform.SetParent(transform, false);
-            overheadVoiceIndicator.transform.localPosition = new Vector3(0f, 2.15f, 0f);
-            overheadVoiceIndicator.transform.localScale = new Vector3(0.75f, 0.75f, 0.75f);
+            overheadVoiceIndicator.transform.localPosition = new Vector3(0f, 2.45f, 0f);
+            overheadVoiceIndicator.transform.localScale = new Vector3(0.55f, 0.55f, 0.55f);
 
             overheadVoiceRenderer = overheadVoiceIndicator.AddComponent<SpriteRenderer>();
             overheadVoiceRenderer.sprite = GetSpeakerSprite();
@@ -712,6 +733,10 @@ namespace Pucaci.Network
 
                 if (isTalking)
                 {
+                    overheadVoiceIndicator.transform.localPosition = new Vector3(0f, 2.45f, 0f);
+                    float pulse = 0.55f + Mathf.PingPong(Time.time * 2.5f, 0.08f);
+                    overheadVoiceIndicator.transform.localScale = new Vector3(pulse, pulse, pulse);
+
                     Camera cam = Camera.main;
                     if (cam == null) cam = FindObjectOfType<Camera>();
                     if (cam != null)
@@ -727,7 +752,7 @@ namespace Pucaci.Network
         {
             if (hudVoiceIndicator != null) return;
 
-            // Selalu gunakan Canvas Overlay mandiri dengan DontDestroyOnLoad agar tidak pernah terpengaruh menu lain
+            // Gunakan Canvas Overlay mandiri dengan DontDestroyOnLoad agar selalu tampil konsisten di semua scene
             if (hudCanvasObj == null)
             {
                 hudCanvasObj = GameObject.Find("VoiceChatOverlayCanvas");
@@ -756,46 +781,29 @@ namespace Pucaci.Network
             }
 
             RectTransform rt = hudVoiceIndicator.GetComponent<RectTransform>();
-            // Posisi di tengah bawah (tepat di atas stamina bar) agar terlihat sangat jelas saat bicara
+            // Posisi di tengah bawah (tepat di atas action skill bar)
             rt.anchorMin = new Vector2(0.5f, 0f);
             rt.anchorMax = new Vector2(0.5f, 0f);
-            rt.pivot = new Vector2(0.5f, 0f);
-            rt.anchoredPosition = new Vector2(0f, 75f);
-            rt.sizeDelta = new Vector2(210f, 54f);
+            rt.pivot = new Vector2(0.5f, 0.5f);
+            rt.anchoredPosition = new Vector2(0f, 210f);
+            rt.sizeDelta = new Vector2(64f, 64f);
 
             var bgImg = hudVoiceIndicator.GetComponent<Image>();
-            bgImg.color = new Color(0.04f, 0.08f, 0.12f, 0.90f);
+            bgImg.color = new Color(0.04f, 0.08f, 0.12f, 0.85f);
 
-            // Icon Image (Logo Sound 🔊)
+            // Icon Image (Logo Sound murni 🔊 tanpa teks apa pun)
             GameObject iconObj = new GameObject("Icon", typeof(RectTransform), typeof(Image));
             iconObj.transform.SetParent(hudVoiceIndicator.transform, false);
             RectTransform irt = iconObj.GetComponent<RectTransform>();
-            irt.anchorMin = new Vector2(0f, 0.5f);
-            irt.anchorMax = new Vector2(0f, 0.5f);
-            irt.pivot = new Vector2(0f, 0.5f);
-            irt.anchoredPosition = new Vector2(14f, 0f);
-            irt.sizeDelta = new Vector2(36f, 36f);
+            irt.anchorMin = new Vector2(0.5f, 0.5f);
+            irt.anchorMax = new Vector2(0.5f, 0.5f);
+            irt.pivot = new Vector2(0.5f, 0.5f);
+            irt.anchoredPosition = Vector2.zero;
+            irt.sizeDelta = new Vector2(48f, 48f);
 
             hudVoiceIcon = iconObj.GetComponent<Image>();
             hudVoiceIcon.sprite = GetSpeakerSprite();
             hudVoiceIcon.color = new Color(0f, 1f, 0.65f, 1f);
-
-            // Text Label
-            GameObject textObj = new GameObject("Text", typeof(RectTransform), typeof(TMPro.TextMeshProUGUI));
-            textObj.transform.SetParent(hudVoiceIndicator.transform, false);
-            RectTransform trt = textObj.GetComponent<RectTransform>();
-            trt.anchorMin = new Vector2(0f, 0f);
-            trt.anchorMax = new Vector2(1f, 1f);
-            trt.pivot = new Vector2(0f, 0.5f);
-            trt.offsetMin = new Vector2(58f, 0f);
-            trt.offsetMax = new Vector2(-10f, 0f);
-
-            hudVoiceTmp = textObj.GetComponent<TMPro.TextMeshProUGUI>();
-            hudVoiceTmp.fontSize = 16;
-            hudVoiceTmp.fontStyle = TMPro.FontStyles.Bold;
-            hudVoiceTmp.alignment = TMPro.TextAlignmentOptions.MidlineLeft;
-            hudVoiceTmp.color = new Color(0f, 1f, 0.65f, 1f);
-            hudVoiceTmp.text = "[V] ||||";
 
             // Sembunyikan saat awal (Hanya MUNCUL / KELUAR saat tombol V ditekan / aktif!)
             hudVoiceIndicator.SetActive(false);
@@ -803,7 +811,7 @@ namespace Pucaci.Network
 
         private void UpdateHUDIndicator()
         {
-            if (hudVoiceIndicator == null || hudVoiceTmp == null || hudVoiceIcon == null) return;
+            if (hudVoiceIndicator == null || hudVoiceIcon == null) return;
 
             // KELUAR (TAMPIL) SAAT BICARA, SEMBUNYI SAAT TIDAK BICARA
             if (hudVoiceIndicator.activeSelf != IsSpeaking)
@@ -813,13 +821,8 @@ namespace Pucaci.Network
 
             if (IsSpeaking)
             {
-                bool hasHardwareMic = (Microphone.devices != null && Microphone.devices.Length > 0);
                 hudVoiceIcon.color = new Color(0f, 1f, 0.65f, 1f); // Neon green
                 hudVoiceIcon.transform.localScale = Vector3.one * (1f + Mathf.PingPong(Time.time * 3f, 0.18f));
-
-                int barCount = hasHardwareMic ? Mathf.Clamp((int)(CurrentMicLevel * 100f), 1, 5) : 3;
-                string meter = new string('|', barCount);
-                hudVoiceTmp.text = $"<color=#00FFAA><b>[V]</b></color> <color=#00FF88>{meter}</color>";
             }
         }
         #endregion
