@@ -23,6 +23,42 @@ namespace Pucaci.Editor
         private static readonly Color ColorDisabled = new Color(85f / 255f, 85f / 255f, 85f / 255f, 1f); // #555555
         private static readonly Color ColorDarkProp = new Color(15f / 255f, 18f / 255f, 25f / 255f, 1f); // #0F1219
 
+        [MenuItem("Tools/Pucaci/Capture Menu Screenshot")]
+        public static void CaptureMenuScreenshot()
+        {
+            CaptureMenuScreenshot(null);
+        }
+
+        public static void CaptureMenuScreenshot(Camera targetCam)
+        {
+            var cam = targetCam != null ? targetCam : Object.FindAnyObjectByType<Camera>();
+            if (cam == null)
+            {
+                Debug.LogError("[MainMenuBuilder] Camera tidak ditemukan untuk capture!");
+                return;
+            }
+
+            int width = 1280;
+            int height = 720;
+            var rt = new RenderTexture(width, height, 24);
+            cam.targetTexture = rt;
+            var tex = new Texture2D(width, height, TextureFormat.RGB24, false);
+            cam.Render();
+            RenderTexture.active = rt;
+            tex.ReadPixels(new Rect(0, 0, width, height), 0, 0);
+            tex.Apply();
+            cam.targetTexture = null;
+            RenderTexture.active = null;
+            Object.DestroyImmediate(rt);
+
+            byte[] bytes = tex.EncodeToPNG();
+            Object.DestroyImmediate(tex);
+
+            string savePath = "C:/Users/MUSA/.gemini/antigravity/brain/3104c68e-3988-4937-956a-544f03a4f729/mainmenu_kunti_far_back_check.png";
+            System.IO.File.WriteAllBytes(savePath, bytes);
+            Debug.Log($"[MainMenuBuilder] Screenshot berhasil disimpan ke {savePath}");
+        }
+
         [MenuItem("Tools/Pucaci/Build Main Menu Scene")]
         public static void BuildScene()
         {
@@ -146,6 +182,8 @@ namespace Pucaci.Editor
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
 
+            CaptureMenuScreenshot(cam);
+
             Debug.Log($"[MainMenuBuilder] Main Menu Scene berhasil dibangun dan disimpan ke {scenePath}!");
         }
 
@@ -248,19 +286,19 @@ namespace Pucaci.Editor
                             flashlightItem.transform.localRotation = Quaternion.Euler(315f, 130f, 15f);
                             flashlightItem.transform.localScale = Vector3.one * 0.01f;
 
-                            // Tune the existing Flashlight_Beam spot so it aims forward-down into the ground instead of his pants
+                            // Tune the existing Flashlight_Beam spot so it aims forward-down into the ground instead of backward into background
                             Transform flBeam = flashlightItem.transform.Find("Flashlight_Beam");
                             if (flBeam != null)
                             {
                                 var spot = flBeam.GetComponent<Light>();
                                 if (spot != null)
                                 {
-                                    spot.intensity = 6.0f;
-                                    spot.range = 18f;
+                                    spot.intensity = 5.5f;
+                                    spot.range = 7.0f;
                                     spot.spotAngle = 45f;
                                     spot.innerSpotAngle = 20f;
                                     spot.color = new Color(1f, 0.96f, 0.88f);
-                                    flBeam.rotation = Quaternion.Euler(45f, 180f, 0f);
+                                    flBeam.rotation = Quaternion.Euler(60f, 20f, 0f);
                                 }
                             }
                         }
@@ -301,16 +339,56 @@ namespace Pucaci.Editor
                 redLight.shadows = LightShadows.Soft;
             }
 
-            // --- Lampu Jalan (di latar belakang kanan) ---
-            GameObject lampPrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/_Game/Prefabs/Props/LampuJalan.prefab");
-            if (lampPrefab != null)
+            // --- Kuntilanak di latar belakang kiri (menyeramkan melayang halus lebih jauh di kedalaman background) ---
+            GameObject kuntiPrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/_Game/Models/Hantu/Kuntilanak/kunti.fbx");
+            if (kuntiPrefab != null)
             {
-                var lamp = (GameObject)PrefabUtility.InstantiatePrefab(lampPrefab);
-                lamp.name = "LampuJalan_Menu";
-                lamp.transform.SetParent(bgParent.transform, false);
-                lamp.transform.position = new Vector3(3.8f, 0f, 2.5f);
-                lamp.transform.rotation = Quaternion.Euler(270f, 90f, 0f); // Stand upright
-                StripNetworkAndColliders(lamp);
+                var kunti = (GameObject)PrefabUtility.InstantiatePrefab(kuntiPrefab);
+                kunti.name = "Kuntilanak_Silhouette";
+                kunti.transform.SetParent(bgParent.transform, false);
+                kunti.transform.position = new Vector3(-2.6f, -0.65f, 14.5f);
+                kunti.transform.rotation = Quaternion.Euler(0f, 170f, 0f);
+                kunti.transform.localScale = Vector3.one * 0.95f;
+                StripColliders(kunti);
+
+                var anim = kunti.GetComponent<Animator>();
+                if (anim == null) anim = kunti.AddComponent<Animator>();
+                var ctrl = AssetDatabase.LoadAssetAtPath<RuntimeAnimatorController>("Assets/_Game/Models/Hantu/Kuntilanak/Kuntilanak.controller");
+                if (ctrl != null && anim != null)
+                {
+                    anim.runtimeAnimatorController = ctrl;
+                }
+
+                var smr = kunti.GetComponentInChildren<SkinnedMeshRenderer>();
+                var kuntiMat = AssetDatabase.LoadAssetAtPath<Material>("Assets/_Game/Models/Hantu/Kuntilanak/M_Kuntilanak.mat");
+                if (smr != null && kuntiMat != null)
+                {
+                    smr.sharedMaterial = kuntiMat;
+                }
+
+                kunti.AddComponent<Pucaci.UI.MenuGhostFloating>();
+
+                // Cahaya lembut dingin di area wajah Kuntilanak agar tampak menyeramkan di kedalaman kegelapan
+                GameObject faceObj = new GameObject("KuntiFaceLight");
+                faceObj.transform.SetParent(kunti.transform, false);
+                faceObj.transform.localPosition = new Vector3(0f, 0.25f, -0.30f);
+                var faceLight = faceObj.AddComponent<Light>();
+                faceLight.type = LightType.Point;
+                faceLight.color = new Color(0.65f, 0.82f, 1.0f);
+                faceLight.range = 2.0f;
+                faceLight.intensity = 0.70f;
+                faceLight.shadows = LightShadows.None;
+
+                // Rim light dingin halus di belakang kepala Kuntilanak
+                GameObject rimObj = new GameObject("KuntiRimLight");
+                rimObj.transform.SetParent(kunti.transform, false);
+                rimObj.transform.localPosition = new Vector3(0f, 0.35f, 0.40f);
+                var rimLight = rimObj.AddComponent<Light>();
+                rimLight.type = LightType.Point;
+                rimLight.color = new Color(0.40f, 0.70f, 1.0f);
+                rimLight.range = 2.2f;
+                rimLight.intensity = 0.85f;
+                rimLight.shadows = LightShadows.None;
             }
 
             // --- Sesajen di depan (focal point dekat kaki) ---

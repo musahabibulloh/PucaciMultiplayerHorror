@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.InputSystem;
 
 namespace Pucaci.UI
 {
@@ -36,8 +37,12 @@ namespace Pucaci.UI
 
         private void Update()
         {
-            // 1. Mouse normalized coordinates [-1, 1]
-            Vector3 mousePos = Input.mousePosition;
+            // 1. Mouse normalized coordinates [-1, 1] using New Input System
+            Vector2 mousePos = Vector2.zero;
+            if (Mouse.current != null)
+            {
+                mousePos = Mouse.current.position.ReadValue();
+            }
             float normX = (mousePos.x / Mathf.Max(1f, Screen.width) - 0.5f) * 2f;
             float normY = (mousePos.y / Mathf.Max(1f, Screen.height) - 0.5f) * 2f;
             targetMouseNorm = new Vector2(Mathf.Clamp(normX, -1f, 1f), Mathf.Clamp(normY, -1f, 1f));

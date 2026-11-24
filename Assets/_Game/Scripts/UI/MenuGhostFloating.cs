@@ -33,21 +33,31 @@ namespace Pucaci.UI
 
         private void SetupEyes()
         {
+            Transform head = null;
+            foreach (var t in GetComponentsInChildren<Transform>())
+            {
+                if (t.name.ToLower().Contains("head")) { head = t; break; }
+            }
+
+            Transform eyeParent = head != null ? head : transform;
+            Vector3 leftOffset = head != null ? new Vector3(-0.06f, 0.08f, 0.12f) : new Vector3(-0.07f, 0.45f, 0.22f);
+            Vector3 rightOffset = head != null ? new Vector3(0.06f, 0.08f, 0.12f) : new Vector3(0.07f, 0.45f, 0.22f);
+
             if (leftEyeLight == null)
             {
-                leftEyeLight = CreateEye("KuntiEye_Left", new Vector3(-0.075f, 1.52f, 0.17f));
+                leftEyeLight = CreateEye("KuntiEye_Left", eyeParent, leftOffset);
             }
 
             if (rightEyeLight == null)
             {
-                rightEyeLight = CreateEye("KuntiEye_Right", new Vector3(0.075f, 1.52f, 0.17f));
+                rightEyeLight = CreateEye("KuntiEye_Right", eyeParent, rightOffset);
             }
         }
 
-        private Light CreateEye(string name, Vector3 localPos)
+        private Light CreateEye(string name, Transform parent, Vector3 localPos)
         {
             var eyeObj = new GameObject(name);
-            eyeObj.transform.SetParent(transform, false);
+            eyeObj.transform.SetParent(parent, false);
             eyeObj.transform.localPosition = localPos;
 
             // Bola mata bercahaya (emissive) agar terbaca dari kejauhan
