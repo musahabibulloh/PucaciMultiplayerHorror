@@ -78,6 +78,12 @@ namespace Pucaci.Network
             {
                 spectatorController = GetComponent<SpectatorController>();
             }
+
+            // Pastikan komponen Proximity Voice Chat terpasang di setiap karakter
+            if (GetComponent<ProximityVoiceChat>() == null)
+            {
+                gameObject.AddComponent<ProximityVoiceChat>();
+            }
         }
 
         public override void OnStartLocalPlayer()
