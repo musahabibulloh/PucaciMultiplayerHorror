@@ -24,12 +24,20 @@ namespace Pucaci.UI
         [SerializeField] private TMP_Text statusSubText;
         [SerializeField] private Image bannerBgImage;
 
+        [Header("Center Big Countdown")]
+        [SerializeField] private GameObject centerCountdownRoot;
+        [SerializeField] private CanvasGroup centerCanvasGroup;
+        [SerializeField] private TMP_Text centerCountdownTitle;
+        [SerializeField] private TMP_Text centerCountdownNumber;
+        private Coroutine pulseCoroutine;
+
         private PucaciNetworkManager netManager;
 
         private void Awake()
         {
             if (Instance == null) Instance = this;
             BuildUIIfMissing();
+            BuildCenterCountdownIfMissing();
         }
 
         private void Start()
@@ -86,11 +94,102 @@ namespace Pucaci.UI
             {
                 statusSubText.text = $"Permainan dimulai dalam <color=#FFB347><b>{Mathf.CeilToInt(remaining)}</b></color> detik...";
             }
+
+            // --- Tampilan Hitung Mundur Besar di Tengah Layar (5, 4, 3...) ---
+            if (centerCountdownRoot == null)
+            {
+                BuildCenterCountdownIfMissing();
+            }
+
+            if (centerCountdownRoot != null)
+            {
+                centerCountdownRoot.SetActive(true);
+                if (centerCanvasGroup != null) centerCanvasGroup.alpha = 1f;
+
+                int seconds = Mathf.CeilToInt(remaining);
+                if (centerCountdownNumber != null)
+                {
+                    string colorHex = (seconds <= 2) ? "#FF2233" : ((seconds <= 3) ? "#FF7711" : "#FFCC00");
+                    centerCountdownNumber.text = $"<color={colorHex}>{seconds}</color>";
+                }
+                if (centerCountdownTitle != null)
+                {
+                    centerCountdownTitle.text = "<color=#00FFAA>PERMAINAN DIMULAI DALAM</color>";
+                }
+
+                if (pulseCoroutine != null) StopCoroutine(pulseCoroutine);
+                pulseCoroutine = StartCoroutine(PulseCountdownRoutine());
+            }
+        }
+
+        private IEnumerator PulseCountdownRoutine()
+        {
+            if (centerCountdownNumber == null) yield break;
+            Transform numTr = centerCountdownNumber.transform;
+            numTr.localScale = Vector3.one * 1.45f;
+
+            float duration = 0.45f;
+            float elapsed = 0f;
+            while (elapsed < duration)
+            {
+                elapsed += Time.deltaTime;
+                float t = elapsed / duration;
+                numTr.localScale = Vector3.Lerp(Vector3.one * 1.45f, Vector3.one, Mathf.SmoothStep(0f, 1f, t));
+                yield return null;
+            }
+            numTr.localScale = Vector3.one;
         }
 
         private void OnMatchStarted()
         {
             StartCoroutine(FadeOutAndHideRoutine());
+            if (centerCountdownRoot != null && centerCountdownRoot.activeSelf)
+            {
+                StartCoroutine(FadeOutCenterCountdownRoutine());
+            }
+        }
+
+        private IEnumerator FadeOutCenterCountdownRoutine()
+        {
+            if (centerCountdownNumber != null)
+            {
+                centerCountdownNumber.text = "<color=#FF2244>MULAI!</color>";
+                centerCountdownNumber.transform.localScale = Vector3.one * 1.55f;
+            }
+            if (centerCountdownTitle != null)
+            {
+                centerCountdownTitle.text = "<color=#FFFFFF>WASPADA! HANTU MENYAMAR DI ANTARA KALIAN!</color>";
+            }
+
+            float elapsed = 0f;
+            while (elapsed < 0.35f)
+            {
+                elapsed += Time.deltaTime;
+                float t = elapsed / 0.35f;
+                if (centerCountdownNumber != null)
+                {
+                    centerCountdownNumber.transform.localScale = Vector3.Lerp(Vector3.one * 1.55f, Vector3.one, t);
+                }
+                yield return null;
+            }
+
+            yield return new WaitForSeconds(0.9f);
+
+            if (centerCanvasGroup != null)
+            {
+                float t = 1.0f;
+                while (t > 0f)
+                {
+                    t -= Time.deltaTime * 2.5f;
+                    centerCanvasGroup.alpha = Mathf.Clamp01(t);
+                    yield return null;
+                }
+            }
+
+            if (centerCountdownRoot != null)
+            {
+                centerCountdownRoot.SetActive(false);
+            }
         }
 
         private void UpdateStatusUI(int current, int target)
@@ -171,6 +270,7 @@ namespace Pucaci.UI
         private void HideBannerImmediate()
         {
             if (lobbyBannerRoot != null) lobbyBannerRoot.SetActive(false);
+            if (centerCountdownRoot != null) centerCountdownRoot.SetActive(false);
         }
 
         private void BuildUIIfMissing()
@@ -237,6 +337,70 @@ namespace Pucaci.UI
             statusSubText.alignment = TextAlignmentOptions.Center;
             statusSubText.color = new Color(0.75f, 0.80f, 0.85f, 1.0f);
             statusSubText.text = "Menunggu pemain bergabung...";
+        }
+
+        private void BuildCenterCountdownIfMissing()
+        {
+            if (centerCountdownRoot != null) return;
+
+            Canvas targetCanvas = GetComponentInParent<Canvas>() ?? FindObjectOfType<Canvas>();
+            if (targetCanvas == null) return;
+
+            centerCountdownRoot = new GameObject("CenterCountdownOverlay", typeof(RectTransform), typeof(CanvasGroup));
+            centerCountdownRoot.transform.SetParent(targetCanvas.transform, false);
+
+            RectTransform rootRect = centerCountdownRoot.GetComponent<RectTransform>();
+            rootRect.anchorMin = new Vector2(0.5f, 0.5f);
+            rootRect.anchorMax = new Vector2(0.5f, 0.5f);
+            rootRect.pivot = new Vector2(0.5f, 0.5f);
+            rootRect.anchoredPosition = new Vector2(0f, 40f);
+            rootRect.sizeDelta = new Vector2(700f, 320f);
+
+            centerCanvasGroup = centerCountdownRoot.GetComponent<CanvasGroup>();
+
+            // Soft dark backdrop panel
+            GameObject backdropObj = new GameObject("CountdownBackdrop", typeof(RectTransform), typeof(Image));
+            backdropObj.transform.SetParent(centerCountdownRoot.transform, false);
+            RectTransform bdRect = backdropObj.GetComponent<RectTransform>();
+            bdRect.anchorMin = new Vector2(0.5f, 0.5f);
+            bdRect.anchorMax = new Vector2(0.5f, 0.5f);
+            bdRect.sizeDelta = new Vector2(460f, 260f);
+            Image bdImg = backdropObj.GetComponent<Image>();
+            bdImg.color = new Color(0.03f, 0.05f, 0.08f, 0.78f);
+
+            // Title label
+            GameObject titleObj = new GameObject("CountdownTitle", typeof(RectTransform), typeof(TextMeshProUGUI));
+            titleObj.transform.SetParent(centerCountdownRoot.transform, false);
+            RectTransform titleRect = titleObj.GetComponent<RectTransform>();
+            titleRect.anchorMin = new Vector2(0f, 0.68f);
+            titleRect.anchorMax = new Vector2(1f, 1f);
+            titleRect.sizeDelta = Vector2.zero;
+            titleRect.anchoredPosition = new Vector2(0f, -10f);
+
+            centerCountdownTitle = titleObj.GetComponent<TextMeshProUGUI>();
+            centerCountdownTitle.fontSize = 24;
+            centerCountdownTitle.fontStyle = FontStyles.Bold;
+            centerCountdownTitle.alignment = TextAlignmentOptions.Center;
+            centerCountdownTitle.color = new Color(0f, 1f, 0.66f, 1f);
+            centerCountdownTitle.text = "PERMAINAN DIMULAI DALAM";
+
+            // Giant Number Text (5, 4, 3...)
+            GameObject numObj = new GameObject("CountdownNumber", typeof(RectTransform), typeof(TextMeshProUGUI));
+            numObj.transform.SetParent(centerCountdownRoot.transform, false);
+            RectTransform numRect = numObj.GetComponent<RectTransform>();
+            numRect.anchorMin = new Vector2(0f, 0f);
+            numRect.anchorMax = new Vector2(1f, 0.72f);
+            numRect.sizeDelta = Vector2.zero;
+            numRect.anchoredPosition = new Vector2(0f, -10f);
+
+            centerCountdownNumber = numObj.GetComponent<TextMeshProUGUI>();
+            centerCountdownNumber.fontSize = 150;
+            centerCountdownNumber.fontStyle = FontStyles.Bold;
+            centerCountdownNumber.alignment = TextAlignmentOptions.Center;
+            centerCountdownNumber.color = new Color(1f, 0.82f, 0.1f, 1f);
+            centerCountdownNumber.text = "5";
+
+            centerCountdownRoot.SetActive(false);
         }
     }
 }
