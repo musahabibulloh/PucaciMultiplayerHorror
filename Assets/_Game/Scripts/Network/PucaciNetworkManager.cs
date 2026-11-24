@@ -152,6 +152,11 @@ namespace Pucaci.Network
             {
                 matchStarted = true;
                 OnMatchStartedEvent?.Invoke();
+                var allSetups = FindObjectsOfType<PlayerNetworkSetup>();
+                foreach (var setup in allSetups)
+                {
+                    if (setup != null) setup.HideNameTag();
+                }
             });
         }
 
@@ -334,6 +339,13 @@ namespace Pucaci.Network
             if (SesajenManager.Instance != null)
             {
                 SesajenManager.Instance.NotifyRolesAssigned();
+            }
+
+            // Sembunyikan name tag semua pemain saat game sudah dimulai
+            var allPlayersSetup = FindObjectsOfType<PlayerNetworkSetup>();
+            foreach (var setup in allPlayersSetup)
+            {
+                if (setup != null) setup.HideNameTag();
             }
 
             OnMatchStartedEvent?.Invoke();

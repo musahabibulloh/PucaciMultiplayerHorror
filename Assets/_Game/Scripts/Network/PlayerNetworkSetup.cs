@@ -271,13 +271,17 @@ namespace Pucaci.Network
             }
 
             // Inisialisasi name tag jika belum ada
+            bool isLocal = false;
+            try { isLocal = isLocalPlayer; } catch { isLocal = true; }
+            bool matchStarted = (PucaciNetworkManager.singleton != null && PucaciNetworkManager.singleton.IsMatchStarted);
+
             if (nameTagObject == null)
             {
                 CreateOverheadNameTag();
             }
             else
             {
-                nameTagObject.SetActive(true);
+                nameTagObject.SetActive(!isLocal && !matchStarted);
                 if (nameTagText != null)
                 {
                     nameTagText.text = $"Pemain {netId}";
@@ -328,6 +332,15 @@ namespace Pucaci.Network
             nameTagText.anchor = TextAnchor.MiddleCenter;
             nameTagText.alignment = TextAlignment.Center;
             nameTagText.color = new Color(1f, 0.9f, 0.2f, 1f); // Kuning terang agar mudah dibaca di malam hari
+
+            // Jika diri sendiri atau pertandingan sudah dimulai, sembunyikan nametag
+            bool isLocal = false;
+            try { isLocal = isLocalPlayer; } catch { isLocal = true; }
+            bool matchStarted = (PucaciNetworkManager.singleton != null && PucaciNetworkManager.singleton.IsMatchStarted);
+            if (isLocal || matchStarted)
+            {
+                nameTagObject.SetActive(false);
+            }
         }
 
         private void LateUpdate()
@@ -335,8 +348,18 @@ namespace Pucaci.Network
             // Pastikan label nama pemain lain selalu menghadap kamera aktif
             bool isLocal = false;
             try { isLocal = isLocalPlayer; } catch { isLocal = true; }
+            bool matchStarted = (PucaciNetworkManager.singleton != null && PucaciNetworkManager.singleton.IsMatchStarted);
 
-            if (!isLocal && nameTagObject != null && nameTagObject.activeSelf)
+            if (isLocal || matchStarted)
+            {
+                if (nameTagObject != null && nameTagObject.activeSelf)
+                {
+                    nameTagObject.SetActive(false);
+                }
+                return;
+            }
+
+            if (nameTagObject != null && nameTagObject.activeSelf)
             {
                 Camera cam = Camera.main;
                 if (cam != null)
@@ -350,6 +373,14 @@ namespace Pucaci.Network
             }
         }
 
+        public void HideNameTag()
+        {
+            if (nameTagObject != null)
+            {
+                nameTagObject.SetActive(false);
+            }
+        }
+
         public void UpdateNameTagText(string newText)
         {
             if (nameTagObject == null)
@@ -360,6 +391,15 @@ namespace Pucaci.Network
             if (nameTagText != null)
             {
                 nameTagText.text = newText;
+            }
+
+            // Sembunyikan jika diri sendiri atau pertandingan sudah dimulai
+            bool isLocal = false;
+            try { isLocal = isLocalPlayer; } catch { isLocal = true; }
+            bool matchStarted = (PucaciNetworkManager.singleton != null && PucaciNetworkManager.singleton.IsMatchStarted);
+            if (isLocal || matchStarted)
+            {
+                if (nameTagObject != null) nameTagObject.SetActive(false);
             }
         }
 
