@@ -39,8 +39,8 @@ namespace Pucaci.Rendering
         [SerializeField] private bool outlineEnabled = true;
         [SerializeField] private Color outlineColor = Color.black;
         [Range(1.0f, 15.0f)]
-        [Tooltip("Ketebalan garis di layar (5.0 - 8.0 adalah standar tegas ala Fortnite)")]
-        [SerializeField] private float thickness = 7.5f;
+        [Tooltip("Ketebalan garis di layar (3.5 - 5.5 adalah standar tegas ala comic cartoon)")]
+        [SerializeField] private float thickness = 4.8f;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         private static void InitializeRuntime()
@@ -145,6 +145,30 @@ namespace Pucaci.Rendering
             if (togglePressed)
             {
                 ToggleOutline();
+            }
+
+            // Shortcut [F7] untuk menipiskan outline (-0.5f) dan [F8] untuk menebalkan outline (+0.5f)
+            bool decreasePressed = false;
+            bool increasePressed = false;
+#if ENABLE_INPUT_SYSTEM
+            if (UnityEngine.InputSystem.Keyboard.current != null)
+            {
+                if (UnityEngine.InputSystem.Keyboard.current.f7Key.wasPressedThisFrame) decreasePressed = true;
+                if (UnityEngine.InputSystem.Keyboard.current.f8Key.wasPressedThisFrame) increasePressed = true;
+            }
+#else
+            if (Input.GetKeyDown(KeyCode.F7)) decreasePressed = true;
+            if (Input.GetKeyDown(KeyCode.F8)) increasePressed = true;
+#endif
+            if (decreasePressed)
+            {
+                SetThickness(thickness - 0.5f);
+                Debug.Log($"<color=#00FFFF>[CartoonOutline] Ketebalan outline diturunkan: {thickness:F1}</color>");
+            }
+            else if (increasePressed)
+            {
+                SetThickness(thickness + 0.5f);
+                Debug.Log($"<color=#00FFFF>[CartoonOutline] Ketebalan outline dinaikkan: {thickness:F1}</color>");
             }
 
             // Periodic scan untuk memastikan pemain jaringan (Mirror) yang baru spawn / berganti wujud selalu mendapatkan outline

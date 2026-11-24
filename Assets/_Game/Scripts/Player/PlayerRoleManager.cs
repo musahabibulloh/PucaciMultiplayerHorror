@@ -372,7 +372,7 @@ namespace Pucaci.Player
             modelManager.ApplyCharacter(targetIndex);
             if (modelManager.ActiveModel != null)
             {
-                var applier = Pucaci.Rendering.ToonOutlineApplier.ApplyTo(modelManager.ActiveModel, 7.5f);
+                var applier = Pucaci.Rendering.ToonOutlineApplier.ApplyTo(modelManager.ActiveModel, 4.8f);
                 if (applier != null)
                 {
                     applier.ApplyOutline();
