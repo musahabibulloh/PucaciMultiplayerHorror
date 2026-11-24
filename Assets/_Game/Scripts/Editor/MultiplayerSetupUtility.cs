@@ -515,5 +515,80 @@ namespace Pucaci.Editor
                 Object.DestroyImmediate(goUI);
             }
         }
+
+        [MenuItem("Pucaci/Verify In-Game Settings UI Feature")]
+        public static void VerifyInGameSettingsUI()
+        {
+            GameObject testObj = null;
+            try
+            {
+                var ui = InGameSettingsUI.EnsureInstance();
+                bool instanceExists = ui != null;
+                Debug.Log($"[SETTINGS TEST 1] Instance Exists: {instanceExists}");
+
+                bool initialClosed = !ui.IsOpen;
+                Debug.Log($"[SETTINGS TEST 2] Initial Closed: {initialClosed}");
+
+                ui.OpenMenu();
+                bool isOpen = ui.IsOpen;
+                Debug.Log($"[SETTINGS TEST 3] Open Menu: {isOpen}");
+
+                // Test Cycle Quality
+                int initQuality = ui.CurrentQualityIndex;
+                ui.CycleQuality(1);
+                int nextQuality = ui.CurrentQualityIndex;
+                bool qualityChanged = QualitySettings.names.Length <= 1 || nextQuality != initQuality;
+                Debug.Log($"[SETTINGS TEST 4] Cycle Quality: {qualityChanged} ({initQuality} -> {nextQuality})");
+
+                // Test Cycle Fullscreen
+                int initMode = ui.CurrentFullscreenMode;
+                ui.CycleFullscreen(1);
+                int nextMode = ui.CurrentFullscreenMode;
+                bool modeChanged = nextMode != initMode;
+                Debug.Log($"[SETTINGS TEST 5] Cycle Fullscreen: {modeChanged} ({initMode} -> {nextMode})");
+
+                // Test Close Menu
+                ui.CloseMenu();
+                bool closedAgain = !ui.IsOpen;
+                Debug.Log($"[SETTINGS TEST 6] Close Menu: {closedAgain}");
+
+                bool allSuccess = instanceExists && initialClosed && isOpen && qualityChanged && modeChanged && closedAgain;
+
+                string report = $"[TEST 1] Instance Exists: {instanceExists}\n" +
+                                $"[TEST 2] Initial Closed: {initialClosed}\n" +
+                                $"[TEST 3] Open Menu: {isOpen}\n" +
+                                $"[TEST 4] Cycle Quality: {qualityChanged}\n" +
+                                $"[TEST 5] Cycle Fullscreen: {modeChanged}\n" +
+                                $"[TEST 6] Close Menu: {closedAgain}\n" +
+                                $"ALL TESTS PASSED: {allSuccess}\n";
+
+                System.IO.File.WriteAllText("C:/Users/MUSA/.gemini/antigravity/brain/3104c68e-3988-4937-956a-544f03a4f729/settings_menu_report.txt", report);
+
+                if (allSuccess)
+                {
+                    Debug.Log("<color=#00FFAA><b>[VERIFICATION SUCCESS] In-Game Settings UI [ESC] sesuai instruksi!</b></color>");
+                }
+                else
+                {
+                    Debug.LogError("[VERIFICATION FAILED] In-Game Settings UI tidak sesuai.");
+                }
+            }
+            catch (System.Exception ex)
+            {
+                System.IO.File.WriteAllText("C:/Users/MUSA/.gemini/antigravity/brain/3104c68e-3988-4937-956a-544f03a4f729/settings_menu_report.txt", "EXCEPTION: " + ex.ToString());
+                Debug.LogException(ex);
+            }
+            finally
+            {
+                if (InGameSettingsUI.Instance != null)
+                {
+                    Object.DestroyImmediate(InGameSettingsUI.Instance.gameObject);
+                }
+                if (SettingsManager.Instance != null)
+                {
+                    Object.DestroyImmediate(SettingsManager.Instance.gameObject);
+                }
+            }
+        }
     }
 }

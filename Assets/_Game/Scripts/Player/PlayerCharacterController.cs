@@ -793,17 +793,40 @@ namespace Pucaci.Player
 
         private void HandleCursorToggle()
         {
-            // Jangan ubah status kursor saat peta penuh sedang aktif
+            // 1. Jangan ubah status kursor saat menu penyamaran wujud sedang aktif
+            if (Pucaci.UI.DisguiseSelectionUI.Instance != null && Pucaci.UI.DisguiseSelectionUI.Instance.IsOpen)
+            {
+                return;
+            }
+
+            // 2. Jangan ubah status kursor saat peta penuh sedang aktif
             if (Pucaci.UI.MinimapController.Instance != null && Pucaci.UI.MinimapController.Instance.IsFullMapOpen)
             {
                 return;
             }
 
+            // 3. Tombol [ESC] membuka/menutup InGameSettingsUI
 #if ENABLE_INPUT_SYSTEM
             if (Keyboard.current != null && Keyboard.current.escapeKey.wasPressedThisFrame)
             {
-                SetCursorLock(!isCursorLocked);
+                Pucaci.UI.InGameSettingsUI.EnsureInstance().ToggleMenu();
+                return;
             }
+#else
+            if (Input.GetKeyDown(KeyCode.Escape))
+            {
+                Pucaci.UI.InGameSettingsUI.EnsureInstance().ToggleMenu();
+                return;
+            }
+#endif
+
+            // Jika menu pengaturan in-game sedang terbuka, biarkan kursor tetap terbuka
+            if (Pucaci.UI.InGameSettingsUI.Instance != null && Pucaci.UI.InGameSettingsUI.Instance.IsOpen)
+            {
+                return;
+            }
+
+#if ENABLE_INPUT_SYSTEM
             if (Mouse.current != null && Mouse.current.leftButton.wasPressedThisFrame && !isCursorLocked)
             {
                 // Jangan kunci kursor jika klik mouse berada di atas elemen UI (UGUI / IMGUI)
@@ -813,10 +836,6 @@ namespace Pucaci.Player
                 }
             }
 #else
-            if (Input.GetKeyDown(KeyCode.Escape))
-            {
-                SetCursorLock(!isCursorLocked);
-            }
             if (Input.GetMouseButtonDown(0) && !isCursorLocked)
             {
                 if (!IsPointerOverUI())
@@ -829,6 +848,12 @@ namespace Pucaci.Player
 
         private bool IsPointerOverUI()
         {
+            // Cek jika menu pengaturan in-game sedang terbuka
+            if (Pucaci.UI.InGameSettingsUI.Instance != null && Pucaci.UI.InGameSettingsUI.Instance.IsOpen)
+            {
+                return true;
+            }
+
             // 1. Cek UGUI (Canvas UI seperti Button, Slider, Panel)
             if (UnityEngine.EventSystems.EventSystem.current != null &&
                 UnityEngine.EventSystems.EventSystem.current.IsPointerOverGameObject())
@@ -918,6 +943,7 @@ namespace Pucaci.Player
         {
             if (!isCursorLocked) return;
             if (Pucaci.UI.MinimapController.Instance != null && Pucaci.UI.MinimapController.Instance.IsFullMapOpen) return;
+            if (Pucaci.UI.InGameSettingsUI.Instance != null && Pucaci.UI.InGameSettingsUI.Instance.IsOpen) return;
 
             Vector2 lookInput = Vector2.zero;
 
@@ -934,14 +960,19 @@ namespace Pucaci.Player
             lookInput = new Vector2(Input.GetAxis("Mouse X"), Input.GetAxis("Mouse Y"));
 #endif
 
+            float mouseSensMultiplier = (Pucaci.UI.SettingsManager.Instance != null)
+                ? Mathf.Max(0.1f, Pucaci.UI.SettingsManager.Instance.MouseSensitivity * 2f)
+                : 1f;
+            float currentSensitivity = lookSensitivity * mouseSensMultiplier;
+
             // Horizontal Yaw (rotasi karakter)
-            float yaw = lookInput.x * lookSensitivity;
+            float yaw = lookInput.x * currentSensitivity;
             transform.Rotate(Vector3.up * yaw);
 
             // Vertical Pitch (rotasi kamera mata)
             if (cameraRoot != null)
             {
-                cameraPitch -= lookInput.y * lookSensitivity;
+                cameraPitch -= lookInput.y * currentSensitivity;
                 cameraPitch = Mathf.Clamp(cameraPitch, bottomClamp, topClamp);
                 cameraRoot.localRotation = Quaternion.Euler(cameraPitch, 0f, 0f);
             }
@@ -950,7 +981,8 @@ namespace Pucaci.Player
         private void HandleMovement()
         {
             Vector2 moveInput = GetMoveInput();
-            if (Pucaci.UI.MinimapController.Instance != null && Pucaci.UI.MinimapController.Instance.IsFullMapOpen)
+            if ((Pucaci.UI.MinimapController.Instance != null && Pucaci.UI.MinimapController.Instance.IsFullMapOpen) ||
+                (Pucaci.UI.InGameSettingsUI.Instance != null && Pucaci.UI.InGameSettingsUI.Instance.IsOpen))
             {
                 moveInput = Vector2.zero;
             }

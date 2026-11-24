@@ -46,18 +46,37 @@ namespace Pucaci.UI
 
         public event Action OnSettingsChanged;
 
+        public static SettingsManager EnsureInstance()
+        {
+            if (Instance != null) return Instance;
+            var existing = FindObjectOfType<SettingsManager>();
+            if (existing != null)
+            {
+                Instance = existing;
+                return Instance;
+            }
+            var go = new GameObject("SettingsManager");
+            existing = go.AddComponent<SettingsManager>();
+            Instance = existing;
+            existing.LoadSettings();
+            existing.ApplySettings();
+            if (Application.isPlaying) DontDestroyOnLoad(go);
+            return Instance;
+        }
+
         private void Awake()
         {
             if (Instance == null)
             {
                 Instance = this;
-                DontDestroyOnLoad(gameObject);
+                if (Application.isPlaying) DontDestroyOnLoad(gameObject);
                 LoadSettings();
                 ApplySettings();
             }
             else if (Instance != this)
             {
-                Destroy(gameObject);
+                if (Application.isPlaying) Destroy(gameObject);
+                else DestroyImmediate(gameObject);
             }
         }
 
