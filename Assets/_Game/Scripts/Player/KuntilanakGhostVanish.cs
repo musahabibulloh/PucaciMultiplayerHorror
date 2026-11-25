@@ -390,14 +390,13 @@ namespace Pucaci.Player
         }
 
         /// <summary>
-        /// Mengatur visibilitas Kuntilanak saat mode menghilang:
-        /// Tubuh berubah menjadi arwah putih bercahaya (Casper White Ghost) yang seragam di Editor maupun Build Standalone,
-        /// serta outline hitam disembunyikan agar tidak ada garis hitam di badan putih.
+        /// Mengatur visibilitas Kuntilanak saat mode menghilang (tekan F atau R):
+        /// Tubuh Kuntilanak, outline, dan nametag disembunyikan sepenuhnya (rend.enabled = false)
+        /// agar benar-benar menghilang dari pandangan player selama durasi skill berlangsung,
+        /// dan dimunculkan kembali saat durasi habis atau kembali ke wujud padat.
         /// </summary>
         public void ApplyGhostVisibility(bool isGhost)
         {
-            EnsureGhostMaterial();
-
             if (kuntiRenderers != null && kuntiRenderers.Length > 0)
             {
                 for (int i = 0; i < kuntiRenderers.Length; i++)
@@ -405,19 +404,11 @@ namespace Pucaci.Player
                     var rend = kuntiRenderers[i];
                     if (rend == null) continue;
 
-                    rend.enabled = true;
+                    // Saat menghilang (isGhost == true): Matikan renderer tubuh sepenuhnya
+                    // Saat muncul kembali (isGhost == false): Nyalakan kembali
+                    rend.enabled = !isGhost;
 
-                    if (isGhost)
-                    {
-                        if (ghostWhiteMaterial != null)
-                        {
-                            int matCount = Mathf.Max(1, rend.sharedMaterials != null ? rend.sharedMaterials.Length : 1);
-                            var mats = new Material[matCount];
-                            for (int m = 0; m < matCount; m++) mats[m] = ghostWhiteMaterial;
-                            rend.sharedMaterials = mats;
-                        }
-                    }
-                    else
+                    if (!isGhost)
                     {
                         if (originalSharedMaterials != null && i < originalSharedMaterials.Length && originalSharedMaterials[i] != null)
                         {
@@ -425,7 +416,7 @@ namespace Pucaci.Player
                         }
                     }
 
-                    // Sembunyikan outline hitam saat dalam wujud gaib putih agar arwah putih tampak bersih
+                    // Sembunyikan outline hitam saat dalam wujud menghilang
                     var outlineChild = rend.transform.Find("ToonOutline_Backface");
                     if (outlineChild != null)
                     {

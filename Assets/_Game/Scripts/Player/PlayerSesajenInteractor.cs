@@ -12,7 +12,8 @@ namespace Pucaci.Player
         None = 0,
         Destroy = 1,
         Repair = 2,
-        BlockedMustBeHuman = 3
+        BlockedMustBeHuman = 3,
+        BlockedGameNotStarted = 4
     }
 
     /// <summary>
@@ -139,11 +140,31 @@ namespace Pucaci.Player
             EvaluateInteractionMode();
         }
 
+        public static bool IsMatchStarted()
+        {
+            if (Pucaci.Network.PucaciNetworkManager.singleton != null)
+            {
+                return Pucaci.Network.PucaciNetworkManager.singleton.IsMatchStarted;
+            }
+            if (!NetworkClient.active && !NetworkServer.active)
+            {
+                return true;
+            }
+            return false;
+        }
+
         private void EvaluateInteractionMode()
         {
             if (currentAimSesajen == null)
             {
                 currentMode = SesajenInteractionMode.None;
+                return;
+            }
+
+            // Sesajen hanya bisa dihancurkan saat game dimulai
+            if (!IsMatchStarted())
+            {
+                currentMode = SesajenInteractionMode.BlockedGameNotStarted;
                 return;
             }
 

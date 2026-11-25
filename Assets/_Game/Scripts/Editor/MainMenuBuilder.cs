@@ -54,7 +54,7 @@ namespace Pucaci.Editor
             byte[] bytes = tex.EncodeToPNG();
             Object.DestroyImmediate(tex);
 
-            string savePath = "C:/Users/MUSA/.gemini/antigravity/brain/3104c68e-3988-4937-956a-544f03a4f729/mainmenu_kunti_far_back_check.png";
+            string savePath = "C:/Users/MUSA/.gemini/antigravity/brain/3104c68e-3988-4937-956a-544f03a4f729/pos_ronda_larger_check.png";
             System.IO.File.WriteAllBytes(savePath, bytes);
             Debug.Log($"[MainMenuBuilder] Screenshot berhasil disimpan ke {savePath}");
         }
@@ -224,9 +224,9 @@ namespace Pucaci.Editor
                 var pos = (GameObject)PrefabUtility.InstantiatePrefab(posPrefab);
                 pos.name = "PosRonda";
                 pos.transform.SetParent(bgParent.transform, false);
-                pos.transform.position = new Vector3(3.3f, 0f, 2.3f);
+                pos.transform.position = new Vector3(3.6f, 0f, 2.7f);
                 pos.transform.rotation = Quaternion.Euler(0f, 205f, 0f);
-                pos.transform.localScale = Vector3.one * 1.15f;
+                pos.transform.localScale = Vector3.one * 1.65f;
                 StripColliders(pos);
 
                 // Assign authentic textured wood material
@@ -246,8 +246,8 @@ namespace Pucaci.Editor
                 var lanternLight = lanternObj.AddComponent<Light>();
                 lanternLight.type = LightType.Point;
                 lanternLight.color = new Color(1f, 0.55f, 0.15f);
-                lanternLight.range = 6.0f;
-                lanternLight.intensity = 2.4f;
+                lanternLight.range = 7.5f;
+                lanternLight.intensity = 2.8f;
                 lanternLight.shadows = LightShadows.Soft;
                 lanternObj.AddComponent<LampFlicker>();
             }

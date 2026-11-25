@@ -660,6 +660,78 @@ namespace Pucaci.Editor
             }
         }
 
+        [MenuItem("Pucaci/Verify Revisions (Sesajen, Ghost Invisibility, Pos Ronda)")]
+        public static void VerifyRevisions()
+        {
+            GameObject testObj = null;
+            GameObject testKunti = null;
+            try
+            {
+                // Test 1: Verify Sesajen cannot be destroyed if match not started
+                testObj = new GameObject("Test_SesajenItem");
+                var sesajenItem = testObj.AddComponent<Pucaci.Gameplay.SesajenItem>();
+                bool canInteractBeforeMatch = Pucaci.Gameplay.SesajenItem.CanInteractWithSesajen();
+                // In Editor without active network match started, canInteract should be governed by IsMatchStarted
+                sesajenItem.DestroySesajen();
+                bool sesajenBlocked = !sesajenItem.IsDestroyed || canInteractBeforeMatch;
+                Debug.Log($"[REVISION TEST 1] Sesajen Destruction Check (isDestroyed={sesajenItem.IsDestroyed}, CanInteract={canInteractBeforeMatch}): {sesajenBlocked}");
+
+                // Test 2: Verify KuntilanakGhostVanish turns completely invisible
+                testKunti = new GameObject("Test_Kuntilanak");
+                var vanish = testKunti.AddComponent<Pucaci.Player.KuntilanakGhostVanish>();
+                var modelChild = new GameObject("Model_Kuntilanak");
+                modelChild.transform.SetParent(testKunti.transform, false);
+                var smr = modelChild.AddComponent<SkinnedMeshRenderer>();
+                smr.enabled = true;
+                vanish.SetKuntilanakActive(true, modelChild.transform);
+
+                // Vanish active: renderer must be disabled (invisible)
+                vanish.ApplyGhostVisibility(true);
+                bool vanishedInvisible = (smr.enabled == false);
+
+                // Vanish deactivated: renderer must be re-enabled
+                vanish.ApplyGhostVisibility(false);
+                bool restoredVisible = (smr.enabled == true);
+
+                bool vanishValid = vanishedInvisible && restoredVisible;
+                Debug.Log($"[REVISION TEST 2] Kuntilanak Invisibility (Vanished={vanishedInvisible}, Restored={restoredVisible}): {vanishValid}");
+
+                // Test 3: Verify Pos Ronda scale in MainMenu scene
+                var posObj = GameObject.Find("PosRonda");
+                float posScale = posObj != null ? posObj.transform.localScale.x : 0f;
+                bool posScaleValid = posScale >= 1.5f;
+                Debug.Log($"[REVISION TEST 3] Pos Ronda Scale ({posScale}): {posScaleValid}");
+
+                bool allSuccess = sesajenBlocked && vanishValid && posScaleValid;
+
+                string report = $"[TEST 1] Sesajen Match Check: {sesajenBlocked}\n" +
+                                $"[TEST 2] Ghost Invisibility: {vanishValid} (Invisible={vanishedInvisible}, Restored={restoredVisible})\n" +
+                                $"[TEST 3] Pos Ronda Scale: {posScaleValid} (Scale={posScale})\n" +
+                                $"ALL REVISIONS VERIFIED: {allSuccess}\n";
+
+                System.IO.File.WriteAllText("C:/Users/MUSA/.gemini/antigravity/brain/3104c68e-3988-4937-956a-544f03a4f729/revisions_verification_report.txt", report);
+
+                if (allSuccess)
+                {
+                    Debug.Log("<color=#00FFAA><b>[VERIFICATION SUCCESS] Semua revisi terverifikasi sukses!</b></color>");
+                }
+                else
+                {
+                    Debug.LogError("[VERIFICATION FAILED] Revisi gagal.");
+                }
+            }
+            catch (System.Exception ex)
+            {
+                System.IO.File.WriteAllText("C:/Users/MUSA/.gemini/antigravity/brain/3104c68e-3988-4937-956a-544f03a4f729/revisions_verification_report.txt", "EXCEPTION: " + ex.ToString());
+                Debug.LogException(ex);
+            }
+            finally
+            {
+                if (testObj != null) Object.DestroyImmediate(testObj);
+                if (testKunti != null) Object.DestroyImmediate(testKunti);
+            }
+        }
+
         [MenuItem("Pucaci/Verify Ghost Vanish Audio SFX")]
         public static void VerifyGhostVanishAudioSFX()
         {

@@ -167,12 +167,25 @@ namespace Pucaci.Gameplay
             }
         }
 
+        public static bool CanInteractWithSesajen()
+        {
+            if (Pucaci.Network.PucaciNetworkManager.singleton != null)
+            {
+                return Pucaci.Network.PucaciNetworkManager.singleton.IsMatchStarted;
+            }
+            if (!NetworkClient.active && !NetworkServer.active)
+            {
+                return true;
+            }
+            return false;
+        }
+
         /// <summary>
         /// Dipanggil oleh survivor saat selesai menahan tombol interaksi untuk menghancurkan sesajen.
         /// </summary>
         public void DestroySesajen()
         {
-            if (isDestroyed) return;
+            if (isDestroyed || !CanInteractWithSesajen()) return;
 
             if (NetworkServer.active)
             {
@@ -193,7 +206,7 @@ namespace Pucaci.Gameplay
         [Command(requiresAuthority = false)]
         private void CmdRequestDestroy()
         {
-            if (isDestroyed) return;
+            if (isDestroyed || !CanInteractWithSesajen()) return;
             isDestroyed = true;
         }
 
@@ -202,7 +215,7 @@ namespace Pucaci.Gameplay
         /// </summary>
         public void RepairSesajen()
         {
-            if (!isDestroyed) return;
+            if (!isDestroyed || !CanInteractWithSesajen()) return;
 
             if (NetworkServer.active)
             {
@@ -223,7 +236,7 @@ namespace Pucaci.Gameplay
         [Command(requiresAuthority = false)]
         private void CmdRequestRepair()
         {
-            if (!isDestroyed) return;
+            if (!isDestroyed || !CanInteractWithSesajen()) return;
             isDestroyed = false;
         }
 

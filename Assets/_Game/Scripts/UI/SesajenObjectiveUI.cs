@@ -393,6 +393,19 @@ namespace Pucaci.UI
                 return;
             }
 
+            if (mode == SesajenInteractionMode.BlockedGameNotStarted)
+            {
+                // Game belum dimulai (masih di lobby/menunggu pemain)
+                if (crosshairRadialRingBG != null) crosshairRadialRingBG.enabled = false;
+                if (crosshairRadialRing != null) crosshairRadialRing.enabled = false;
+                if (crosshairPromptText != null)
+                {
+                    crosshairPromptText.enabled = true;
+                    crosshairPromptText.text = "<color=#FFFF77><b>Tunggu Permainan Dimulai Untuk Menghancurkan Sesajen</b></color>";
+                }
+                return;
+            }
+
             if (mode == SesajenInteractionMode.BlockedMustBeHuman)
             {
                 // Impostor dalam wujud Kuntilanak melihat sesajen hancur
