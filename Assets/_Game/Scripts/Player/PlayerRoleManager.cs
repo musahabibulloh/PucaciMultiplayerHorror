@@ -65,6 +65,7 @@ namespace Pucaci.Player
         private CharacterModelManager modelManager;
         private KuntilanakChokeMechanic chokeMechanic;
         private AudioSource audioSource;
+        private AudioSource transformAudioSource;
 
         private void Awake()
         {
@@ -477,44 +478,102 @@ namespace Pucaci.Player
             ps.Play();
         }
 
-        private void PlayTransformAudio(bool toKuntilanak)
+        private AudioSource GetTransformAudioSource()
         {
-            if (audioSource != null)
-            {
-                AudioClip clip = null;
-                if (toKuntilanak)
-                {
-                    clip = Resources.Load<AudioClip>("Audio/Screech_Monster");
-                    if (clip == null) clip = CreateKuntiTransformSound();
-                }
-                else
-                {
-                    clip = Resources.Load<AudioClip>("Audio/Death_Gasp");
-                    if (clip == null) clip = CreateHumanTransformSound();
-                }
+            if (transformAudioSource != null) return transformAudioSource;
 
-                if (clip != null)
-                {
-                    audioSource.PlayOneShot(clip, 0.95f);
-                }
+            Transform child = transform.Find("TransformAudioSource");
+            if (child != null)
+            {
+                transformAudioSource = child.GetComponent<AudioSource>();
+            }
+            if (transformAudioSource == null)
+            {
+                GameObject go = new GameObject("TransformAudioSource");
+                go.transform.SetParent(transform, false);
+                transformAudioSource = go.AddComponent<AudioSource>();
+                transformAudioSource.playOnAwake = false;
+            }
+
+            return transformAudioSource;
+        }
+
+        public void PlayTransformAudio(bool toKuntilanak)
+        {
+            var source = GetTransformAudioSource();
+            if (source == null) source = audioSource;
+            if (source == null) source = GetComponent<AudioSource>();
+            if (source == null)
+            {
+                source = gameObject.AddComponent<AudioSource>();
+                source.playOnAwake = false;
+            }
+
+            AudioClip clip = GetTransformClip(toKuntilanak);
+
+            if (clip != null && source != null)
+            {
+                bool isLocal = (netIdentity == null || netIdentity.isLocalPlayer || netIdentity.isOwned);
+                source.spatialBlend = isLocal ? 0.2f : 1.0f;
+                source.minDistance = 3.0f;
+                source.maxDistance = 30.0f;
+                source.rolloffMode = AudioRolloffMode.Logarithmic;
+                source.PlayOneShot(clip, 1.0f);
             }
         }
 
-        private static AudioClip CreateKuntiTransformSound()
+        public static AudioClip GetTransformClip(bool toKuntilanak)
         {
-            int sampleRate = 22050;
-            float duration = 1.8f;
+            AudioClip clip = null;
+            if (toKuntilanak)
+            {
+                clip = Resources.Load<AudioClip>("Audio/Transform_Kuntilanak");
+                if (clip == null) clip = Resources.Load<AudioClip>("Audio/Screech_Monster");
+                if (clip == null) clip = CreateKuntiTransformSound();
+            }
+            else
+            {
+                clip = Resources.Load<AudioClip>("Audio/Transform_Human");
+                if (clip == null) clip = Resources.Load<AudioClip>("Audio/Death_Gasp");
+                if (clip == null) clip = CreateHumanTransformSound();
+            }
+            return clip;
+        }
+
+        public static AudioClip CreateKuntiTransformSound()
+        {
+            int sampleRate = 44100;
+            float duration = 2.2f;
             int totalSamples = Mathf.FloorToInt(sampleRate * duration);
             float[] samples = new float[totalSamples];
 
             for (int i = 0; i < totalSamples; i++)
             {
                 float t = (float)i / sampleRate;
-                float env = Mathf.Exp(-t * 2.0f);
-                float pitch = Mathf.Lerp(450f, 160f, t / duration);
-                float hiss = (UnityEngine.Random.value * 2f - 1f) * 0.25f;
-                float howl = Mathf.Sin(2f * Mathf.PI * pitch * t) * 0.5f;
-                samples[i] = (howl + hiss) * env;
+                float subEnv = t < 1.0f ? Mathf.Exp(-t * 3.5f) : 0f;
+                float sub = Mathf.Sin(2f * Mathf.PI * (70f - t * 25f) * t) * 0.45f * subEnv;
+
+                float screechEnv = 0f;
+                if (t > 0.03f)
+                {
+                    float ts = t - 0.03f;
+                    screechEnv = Mathf.Sin(Mathf.Min(Mathf.PI, ts * 2.0f)) * Mathf.Exp(-ts * 1.5f);
+                }
+                float vibrato = Mathf.Sin(2f * Mathf.PI * 9.0f * t) * 35f;
+                float freq1 = 880f - 280f * (t / duration) + vibrato;
+                float wail1 = Mathf.Sin(2f * Mathf.PI * freq1 * t);
+                float wail2 = Mathf.Sin(2f * Mathf.PI * (freq1 * 1.5f) * t) * 0.5f;
+                float wail3 = Mathf.Sin(2f * Mathf.PI * (freq1 * 1.06f) * t) * 0.4f;
+                float screech = (wail1 + wail2 + wail3) * 0.35f * screechEnv;
+
+                float noise = UnityEngine.Random.Range(-1f, 1f);
+                float smokeEnv = (1f - Mathf.Cos(Mathf.Min(Mathf.PI * 2f, t * 4f))) * Mathf.Exp(-t * 2f);
+                float smoke = noise * 0.25f * smokeEnv;
+
+                float chimeEnv = t > 0.2f ? Mathf.Exp(-(t - 0.2f) * 2.5f) : 0f;
+                float chime = (Mathf.Sin(2f * Mathf.PI * 523.25f * t) + 0.6f * Mathf.Sin(2f * Mathf.PI * 554.37f * t)) * 0.25f * chimeEnv;
+
+                samples[i] = Mathf.Clamp(sub + screech + smoke + chime, -1f, 1f);
             }
 
             var clip = AudioClip.Create("Transform_Kuntilanak", totalSamples, 1, sampleRate, false);
@@ -522,20 +581,27 @@ namespace Pucaci.Player
             return clip;
         }
 
-        private static AudioClip CreateHumanTransformSound()
+        public static AudioClip CreateHumanTransformSound()
         {
-            int sampleRate = 22050;
-            float duration = 1.2f;
+            int sampleRate = 44100;
+            float duration = 1.6f;
             int totalSamples = Mathf.FloorToInt(sampleRate * duration);
             float[] samples = new float[totalSamples];
 
             for (int i = 0; i < totalSamples; i++)
             {
                 float t = (float)i / sampleRate;
-                float env = Mathf.Exp(-t * 3.0f);
-                float breath = Mathf.Sin(2f * Mathf.PI * 220f * t) * 0.3f;
-                float puff = (UnityEngine.Random.value * 2f - 1f) * 0.25f;
-                samples[i] = (breath + puff) * env;
+                float whooshEnv = Mathf.Sin(Mathf.Min(Mathf.PI, t * (Mathf.PI / duration))) * Mathf.Exp(-t * 1.2f);
+                float whooshFreq = 120f + 350f * Mathf.Sin(Mathf.Min(Mathf.PI, t * 2.5f));
+                float whooshTonal = Mathf.Sin(2f * Mathf.PI * whooshFreq * t) * 0.35f;
+
+                float noise = UnityEngine.Random.Range(-1f, 1f);
+                float whoosh = (whooshTonal + noise * 0.28f) * whooshEnv;
+
+                float settleEnv = t > 0.4f ? Mathf.Exp(-(t - 0.4f) * 3f) : 0f;
+                float settle = Mathf.Sin(2f * Mathf.PI * 220f * t) * 0.25f * settleEnv;
+
+                samples[i] = Mathf.Clamp(whoosh + settle, -1f, 1f);
             }
 
             var clip = AudioClip.Create("Transform_Human", totalSamples, 1, sampleRate, false);

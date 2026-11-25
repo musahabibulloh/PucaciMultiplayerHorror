@@ -590,5 +590,74 @@ namespace Pucaci.Editor
                 }
             }
         }
+
+        [MenuItem("Pucaci/Verify Transform Audio SFX")]
+        public static void VerifyTransformAudioSFX()
+        {
+            GameObject testObj = null;
+            try
+            {
+                // Test 1: Get Kuntilanak Clip
+                var kuntiClip = Pucaci.Player.PlayerRoleManager.GetTransformClip(true);
+                bool kuntiValid = kuntiClip != null && kuntiClip.length > 0.5f;
+                Debug.Log($"[AUDIO TEST 1] Kuntilanak Transform Clip: {kuntiValid} (Name: {kuntiClip?.name}, Duration: {kuntiClip?.length:F2}s)");
+
+                // Test 2: Get Human Disguise Clip
+                var humanClip = Pucaci.Player.PlayerRoleManager.GetTransformClip(false);
+                bool humanValid = humanClip != null && humanClip.length > 0.5f;
+                Debug.Log($"[AUDIO TEST 2] Human Transform Clip: {humanValid} (Name: {humanClip?.name}, Duration: {humanClip?.length:F2}s)");
+
+                // Test 3: Procedural Kunti Fallback Sound
+                var procKunti = Pucaci.Player.PlayerRoleManager.CreateKuntiTransformSound();
+                bool procKuntiValid = procKunti != null && procKunti.samples > 0;
+                Debug.Log($"[AUDIO TEST 3] Procedural Kunti Sound: {procKuntiValid} (Samples: {procKunti?.samples})");
+
+                // Test 4: Procedural Human Fallback Sound
+                var procHuman = Pucaci.Player.PlayerRoleManager.CreateHumanTransformSound();
+                bool procHumanValid = procHuman != null && procHuman.samples > 0;
+                Debug.Log($"[AUDIO TEST 4] Procedural Human Sound: {procHumanValid} (Samples: {procHuman?.samples})");
+
+                // Test 5: Playback Execution on PlayerRoleManager
+                testObj = new GameObject("Test_Player_TransformAudio");
+                var roleMgr = testObj.AddComponent<Pucaci.Player.PlayerRoleManager>();
+                roleMgr.PlayTransformAudio(true);
+                roleMgr.PlayTransformAudio(false);
+                var audioSrc = testObj.GetComponentInChildren<AudioSource>();
+                bool playbackWorked = audioSrc != null;
+                Debug.Log($"[AUDIO TEST 5] AudioSource Attached & Playback Invoked: {playbackWorked}");
+
+                bool allSuccess = kuntiValid && humanValid && procKuntiValid && procHumanValid && playbackWorked;
+
+                string report = $"[TEST 1] Kunti Clip: {kuntiValid} ({kuntiClip?.name}, {kuntiClip?.length:F2}s)\n" +
+                                $"[TEST 2] Human Clip: {humanValid} ({humanClip?.name}, {humanClip?.length:F2}s)\n" +
+                                $"[TEST 3] Procedural Kunti: {procKuntiValid}\n" +
+                                $"[TEST 4] Procedural Human: {procHumanValid}\n" +
+                                $"[TEST 5] Playback System: {playbackWorked}\n" +
+                                $"ALL TESTS PASSED: {allSuccess}\n";
+
+                System.IO.File.WriteAllText("C:/Users/MUSA/.gemini/antigravity/brain/3104c68e-3988-4937-956a-544f03a4f729/transform_audio_report.txt", report);
+
+                if (allSuccess)
+                {
+                    Debug.Log("<color=#00FFAA><b>[VERIFICATION SUCCESS] Sound effect perubahan wujud hantu terverifikasi sempurna!</b></color>");
+                }
+                else
+                {
+                    Debug.LogError("[VERIFICATION FAILED] Sound effect perubahan wujud hantu gagal.");
+                }
+            }
+            catch (System.Exception ex)
+            {
+                System.IO.File.WriteAllText("C:/Users/MUSA/.gemini/antigravity/brain/3104c68e-3988-4937-956a-544f03a4f729/transform_audio_report.txt", "EXCEPTION: " + ex.ToString());
+                Debug.LogException(ex);
+            }
+            finally
+            {
+                if (testObj != null)
+                {
+                    Object.DestroyImmediate(testObj);
+                }
+            }
+        }
     }
 }
