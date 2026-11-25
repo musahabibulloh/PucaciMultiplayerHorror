@@ -713,7 +713,7 @@ namespace Pucaci.Editor
                 bool allSuccess = sesajenBlocked && vanishValid && posScaleValid;
 
                 string report = $"[TEST 1] Sesajen Match Check: {sesajenBlocked}\n" +
-                                $"[TEST 2] Ghost Invisibility: {vanishValid} (Invisible={vanishedInvisible}, Restored={restoredVisible})\n" +
+                                $"[TEST 2] Ghost Invisibility: {vanishValid} (LocalSeesSelf={localSeesSelf}, RemoteInvisible={remoteInvisible}, Restored={restoredVisible})\n" +
                                 $"[TEST 3] Pos Ronda Scale: {posScaleValid} (Scale={posScale})\n" +
                                 $"ALL REVISIONS VERIFIED: {allSuccess}\n";
 
