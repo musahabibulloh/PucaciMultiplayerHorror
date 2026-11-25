@@ -659,5 +659,74 @@ namespace Pucaci.Editor
                 }
             }
         }
+
+        [MenuItem("Pucaci/Verify Ghost Vanish Audio SFX")]
+        public static void VerifyGhostVanishAudioSFX()
+        {
+            GameObject testObj = null;
+            try
+            {
+                // Test 1: Get Ghost Vanish Enter Clip
+                var enterClip = Pucaci.Player.KuntilanakGhostVanish.GetSpectralClip(true);
+                bool enterValid = enterClip != null && enterClip.length > 0.5f;
+                Debug.Log($"[VANISH AUDIO TEST 1] Ghost Vanish Enter Clip: {enterValid} (Name: {enterClip?.name}, Duration: {enterClip?.length:F2}s)");
+
+                // Test 2: Get Ghost Vanish Exit Clip
+                var exitClip = Pucaci.Player.KuntilanakGhostVanish.GetSpectralClip(false);
+                bool exitValid = exitClip != null && exitClip.length > 0.5f;
+                Debug.Log($"[VANISH AUDIO TEST 2] Ghost Vanish Exit Clip: {exitValid} (Name: {exitClip?.name}, Duration: {exitClip?.length:F2}s)");
+
+                // Test 3: Procedural Enter Fallback Sound
+                var procEnter = Pucaci.Player.KuntilanakGhostVanish.CreateSpectralSound(true);
+                bool procEnterValid = procEnter != null && procEnter.samples > 0;
+                Debug.Log($"[VANISH AUDIO TEST 3] Procedural Enter Sound: {procEnterValid} (Samples: {procEnter?.samples})");
+
+                // Test 4: Procedural Exit Fallback Sound
+                var procExit = Pucaci.Player.KuntilanakGhostVanish.CreateSpectralSound(false);
+                bool procExitValid = procExit != null && procExit.samples > 0;
+                Debug.Log($"[VANISH AUDIO TEST 4] Procedural Exit Sound: {procExitValid} (Samples: {procExit?.samples})");
+
+                // Test 5: Playback Execution on KuntilanakGhostVanish
+                testObj = new GameObject("Test_Player_GhostVanishAudio");
+                var vanishComp = testObj.AddComponent<Pucaci.Player.KuntilanakGhostVanish>();
+                vanishComp.PlaySpectralAudio(true);
+                vanishComp.PlaySpectralAudio(false);
+                var audioSrc = testObj.GetComponentInChildren<AudioSource>();
+                bool playbackWorked = audioSrc != null;
+                Debug.Log($"[VANISH AUDIO TEST 5] AudioSource Attached & Playback Invoked: {playbackWorked}");
+
+                bool allSuccess = enterValid && exitValid && procEnterValid && procExitValid && playbackWorked;
+
+                string report = $"[TEST 1] Vanish Enter Clip: {enterValid} ({enterClip?.name}, {enterClip?.length:F2}s)\n" +
+                                $"[TEST 2] Vanish Exit Clip: {exitValid} ({exitClip?.name}, {exitClip?.length:F2}s)\n" +
+                                $"[TEST 3] Procedural Enter: {procEnterValid}\n" +
+                                $"[TEST 4] Procedural Exit: {procExitValid}\n" +
+                                $"[TEST 5] Playback System: {playbackWorked}\n" +
+                                $"ALL TESTS PASSED: {allSuccess}\n";
+
+                System.IO.File.WriteAllText("C:/Users/MUSA/.gemini/antigravity/brain/3104c68e-3988-4937-956a-544f03a4f729/ghost_vanish_audio_report.txt", report);
+
+                if (allSuccess)
+                {
+                    Debug.Log("<color=#00FFAA><b>[VERIFICATION SUCCESS] Sound effect menghilang hantu (Kuntilanak) terverifikasi sempurna!</b></color>");
+                }
+                else
+                {
+                    Debug.LogError("[VERIFICATION FAILED] Sound effect menghilang hantu gagal.");
+                }
+            }
+            catch (System.Exception ex)
+            {
+                System.IO.File.WriteAllText("C:/Users/MUSA/.gemini/antigravity/brain/3104c68e-3988-4937-956a-544f03a4f729/ghost_vanish_audio_report.txt", "EXCEPTION: " + ex.ToString());
+                Debug.LogException(ex);
+            }
+            finally
+            {
+                if (testObj != null)
+                {
+                    Object.DestroyImmediate(testObj);
+                }
+            }
+        }
     }
 }

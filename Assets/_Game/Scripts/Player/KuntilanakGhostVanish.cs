@@ -63,8 +63,11 @@ namespace Pucaci.Player
 
         private PlayerCharacterController pcc;
         private AudioSource audioSource;
+        private AudioSource vanishAudioSource;
         private AudioClip enterGhostClip;
         private AudioClip exitGhostClip;
+        private float lastSpectralAudioTime = -10f;
+        private bool lastSpectralAudioState = false;
 
         private SkinnedMeshRenderer[] kuntiRenderers;
         private Material[] instanceMaterials;
@@ -91,18 +94,57 @@ namespace Pucaci.Player
 
         private void SetupAudio()
         {
-            audioSource = GetComponent<AudioSource>();
-            if (audioSource == null)
+            GetVanishAudioSource();
+            enterGhostClip = GetSpectralClip(isEnter: true);
+            exitGhostClip = GetSpectralClip(isEnter: false);
+        }
+
+        private AudioSource GetVanishAudioSource()
+        {
+            if (vanishAudioSource != null) return vanishAudioSource;
+
+            Transform child = transform.Find("GhostVanishAudioSource");
+            if (child != null)
             {
-                audioSource = gameObject.AddComponent<AudioSource>();
-                audioSource.playOnAwake = false;
-                audioSource.spatialBlend = 1.0f;
-                audioSource.minDistance = 2.0f;
-                audioSource.maxDistance = 30.0f;
+                vanishAudioSource = child.GetComponent<AudioSource>();
+            }
+            if (vanishAudioSource == null)
+            {
+                GameObject go = new GameObject("GhostVanishAudioSource");
+                go.transform.SetParent(transform, false);
+                vanishAudioSource = go.AddComponent<AudioSource>();
+                vanishAudioSource.playOnAwake = false;
             }
 
-            enterGhostClip = CreateSpectralSound(isEnter: true);
-            exitGhostClip = CreateSpectralSound(isEnter: false);
+            return vanishAudioSource;
+        }
+
+        public static AudioClip GetSpectralClip(bool isEnter)
+        {
+            AudioClip clip = null;
+            if (isEnter)
+            {
+                clip = Resources.Load<AudioClip>("Audio/Ghost_Vanish_Enter");
+                if (clip == null)
+                {
+#if UNITY_EDITOR
+                    clip = UnityEditor.AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/_Game/Audio/Ghost_Vanish_Enter.wav");
+#endif
+                }
+                if (clip == null) clip = CreateSpectralSound(true);
+            }
+            else
+            {
+                clip = Resources.Load<AudioClip>("Audio/Ghost_Vanish_Exit");
+                if (clip == null)
+                {
+#if UNITY_EDITOR
+                    clip = UnityEditor.AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/_Game/Audio/Ghost_Vanish_Exit.wav");
+#endif
+                }
+                if (clip == null) clip = CreateSpectralSound(false);
+            }
+            return clip;
         }
 
         private void EnsureGhostMaterial()
@@ -285,6 +327,8 @@ namespace Pucaci.Player
             }
             else
             {
+                // Putar audio di client seketika untuk respon horror instan tanpa jeda latency
+                PlaySpectralAudio(state);
                 CmdSetGhostForm(state);
                 if (pcc != null)
                 {
@@ -485,25 +529,50 @@ namespace Pucaci.Player
             }
         }
 
-        private void PlaySpectralAudio(bool isEnteringGhost)
+        public void PlaySpectralAudio(bool isEnteringGhost)
         {
-            if (audioSource == null) return;
+            // Cegah pemutaran ganda jika state yang sama dipanggil beruntun dalam 0.25s (client prediction + SyncVar hook)
+            if (Mathf.Abs(Time.time - lastSpectralAudioTime) < 0.25f && lastSpectralAudioState == isEnteringGhost)
+            {
+                return;
+            }
+            lastSpectralAudioTime = Time.time;
+            lastSpectralAudioState = isEnteringGhost;
+
+            var source = GetVanishAudioSource();
+            if (source == null) source = audioSource;
+            if (source == null) source = GetComponent<AudioSource>();
+            if (source == null)
+            {
+                source = gameObject.AddComponent<AudioSource>();
+                source.playOnAwake = false;
+            }
 
             AudioClip clip = isEnteringGhost ? enterGhostClip : exitGhostClip;
-            if (clip != null)
+            if (clip == null)
             {
-                audioSource.pitch = isEnteringGhost ? 1.0f : 0.88f;
-                audioSource.PlayOneShot(clip, 0.75f);
+                clip = GetSpectralClip(isEnteringGhost);
+            }
+
+            if (clip != null && source != null)
+            {
+                bool isLocal = (netIdentity == null || netIdentity.isLocalPlayer || netIdentity.isOwned);
+                source.spatialBlend = isLocal ? 0.15f : 1.0f;
+                source.minDistance = 3.0f;
+                source.maxDistance = 35.0f;
+                source.rolloffMode = AudioRolloffMode.Logarithmic;
+                source.pitch = isEnteringGhost ? 1.0f : 0.95f;
+                source.PlayOneShot(clip, 1.0f);
             }
         }
 
         /// <summary>
-        /// Menghasilkan audio desau gaib prosedural (haunting ethereal whoosh)
+        /// Menghasilkan audio desau gaib prosedural kualitas tinggi (haunting ethereal whoosh fallback)
         /// </summary>
-        private AudioClip CreateSpectralSound(bool isEnter)
+        public static AudioClip CreateSpectralSound(bool isEnter)
         {
             int sampleRate = 44100;
-            float duration = 0.55f;
+            float duration = isEnter ? 1.8f : 1.4f;
             int totalSamples = Mathf.FloorToInt(sampleRate * duration);
             float[] samples = new float[totalSamples];
 
@@ -512,22 +581,39 @@ namespace Pucaci.Player
                 float t = (float)i / sampleRate;
                 float progress = t / duration;
 
-                // Frekuensi desau gaib naik saat memudar, turun saat memadat
-                float startFreq = isEnter ? 240f : 480f;
-                float endFreq = isEnter ? 560f : 190f;
-                float freq = Mathf.Lerp(startFreq, endFreq, progress);
+                if (isEnter)
+                {
+                    // Haunting sub-bass + rising ethereal whoosh + spectral wind
+                    float subEnv = t < 1.0f ? Mathf.Sin(t * Mathf.PI) : 0f;
+                    float sub = Mathf.Sin(2f * Mathf.PI * (60f + t * 40f) * t) * 0.4f * subEnv;
 
-                // Kombinasi sinewave halus + white noise berbisik
-                float tone = Mathf.Sin(t * freq * Mathf.PI * 2f) * 0.45f;
-                float noise = (Random.value * 2f - 1f) * 0.15f;
+                    float freq = Mathf.Lerp(220f, 740f, Mathf.Pow(progress, 0.7f));
+                    float whooshEnv = Mathf.Sin(progress * Mathf.PI);
+                    float tone = Mathf.Sin(2f * Mathf.PI * freq * t) * 0.45f;
+                    float toneHarmonic = Mathf.Sin(2f * Mathf.PI * (freq * 1.5f) * t) * 0.2f;
 
-                // Envelope kurva halus berbentuk lonceng
-                float envelope = Mathf.Sin(progress * Mathf.PI);
+                    float noise = (Random.value * 2f - 1f) * 0.35f;
+                    float chimeEnv = t > 0.3f ? Mathf.Exp(-(t - 0.3f) * 2f) : 0f;
+                    float chime = Mathf.Sin(2f * Mathf.PI * 880f * t) * 0.25f * chimeEnv;
 
-                samples[i] = (tone + noise) * envelope * 0.35f;
+                    samples[i] = Mathf.Clamp((sub + (tone + toneHarmonic + noise) * whooshEnv + chime) * 0.85f, -1f, 1f);
+                }
+                else
+                {
+                    // Falling re-materialization whoosh + solidifying snap
+                    float freq = Mathf.Lerp(650f, 180f, Mathf.Pow(progress, 1.2f));
+                    float whooshEnv = Mathf.Sin(progress * Mathf.PI);
+                    float tone = Mathf.Sin(2f * Mathf.PI * freq * t) * 0.45f;
+                    float noise = (Random.value * 2f - 1f) * 0.3f;
+
+                    float snapEnv = (t > 0.1f && t < 0.45f) ? Mathf.Sin((t - 0.1f) / 0.35f * Mathf.PI) : 0f;
+                    float snap = Mathf.Sin(2f * Mathf.PI * 110f * t) * 0.5f * snapEnv;
+
+                    samples[i] = Mathf.Clamp(((tone + noise) * whooshEnv + snap) * 0.85f, -1f, 1f);
+                }
             }
 
-            AudioClip clip = AudioClip.Create(isEnter ? "Casper_Enter" : "Casper_Exit", totalSamples, 1, sampleRate, false);
+            AudioClip clip = AudioClip.Create(isEnter ? "Ghost_Vanish_Enter" : "Ghost_Vanish_Exit", totalSamples, 1, sampleRate, false);
             clip.SetData(samples, 0);
             return clip;
         }
