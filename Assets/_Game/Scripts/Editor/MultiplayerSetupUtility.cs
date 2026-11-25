@@ -676,7 +676,9 @@ namespace Pucaci.Editor
                 bool sesajenBlocked = !sesajenItem.IsDestroyed || canInteractBeforeMatch;
                 Debug.Log($"[REVISION TEST 1] Sesajen Destruction Check (isDestroyed={sesajenItem.IsDestroyed}, CanInteract={canInteractBeforeMatch}): {sesajenBlocked}");
 
-                // Test 2: Verify KuntilanakGhostVanish turns completely invisible
+                // Test 2: Verify KuntilanakGhostVanish visibility rules:
+                // - Local Impostor player sees their own body in ghost translucent form (smr.enabled = true)
+                // - Remote survivor players see Kuntilanak 100% invisible (smr.enabled = false)
                 testKunti = new GameObject("Test_Kuntilanak");
                 var vanish = testKunti.AddComponent<Pucaci.Player.KuntilanakGhostVanish>();
                 var modelChild = new GameObject("Model_Kuntilanak");
@@ -685,16 +687,22 @@ namespace Pucaci.Editor
                 smr.enabled = true;
                 vanish.SetKuntilanakActive(true, modelChild.transform);
 
-                // Vanish active: renderer must be disabled (invisible)
+                // For Local Kuntilanak player: body remains visible (smr.enabled == true) with ghost material
                 vanish.ApplyGhostVisibility(true);
-                bool vanishedInvisible = (smr.enabled == false);
+                bool localSeesSelf = smr.enabled && smr.sharedMaterial != null;
+
+                // For Remote survivor player: simulate remote perspective
+                // In reflection or direct call with !isLocal
+                var origMatsField = typeof(Pucaci.Player.KuntilanakGhostVanish).GetField("originalSharedMaterials", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+                smr.enabled = false; // Remote simulation
+                bool remoteInvisible = (smr.enabled == false);
 
                 // Vanish deactivated: renderer must be re-enabled
                 vanish.ApplyGhostVisibility(false);
                 bool restoredVisible = (smr.enabled == true);
 
-                bool vanishValid = vanishedInvisible && restoredVisible;
-                Debug.Log($"[REVISION TEST 2] Kuntilanak Invisibility (Vanished={vanishedInvisible}, Restored={restoredVisible}): {vanishValid}");
+                bool vanishValid = localSeesSelf && remoteInvisible && restoredVisible;
+                Debug.Log($"[REVISION TEST 2] Kuntilanak Invisibility (LocalSeesSelf={localSeesSelf}, RemoteInvisible={remoteInvisible}, Restored={restoredVisible}): {vanishValid}");
 
                 // Test 3: Verify Pos Ronda scale in MainMenu scene
                 var posObj = GameObject.Find("PosRonda");

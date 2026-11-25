@@ -161,6 +161,19 @@ namespace Pucaci.Player
             }
         }
 
+        public bool CheckIsLocalPlayer()
+        {
+            if (!NetworkClient.active && !NetworkServer.active) return true;
+            try
+            {
+                return isLocalPlayer || (netIdentity != null && netIdentity.isOwned);
+            }
+            catch
+            {
+                return true;
+            }
+        }
+
         public void SetKuntilanakActive(bool active, Transform kuntiModelTransform)
         {
             isKuntilanakActive = active;
@@ -327,8 +340,9 @@ namespace Pucaci.Player
             }
             else
             {
-                // Putar audio di client seketika untuk respon horror instan tanpa jeda latency
+                // Putar audio dan ubah visibilitas di client seketika untuk respon horror instan tanpa jeda latency
                 PlaySpectralAudio(state);
+                ApplyGhostVisibility(state);
                 CmdSetGhostForm(state);
                 if (pcc != null)
                 {
@@ -391,12 +405,15 @@ namespace Pucaci.Player
 
         /// <summary>
         /// Mengatur visibilitas Kuntilanak saat mode menghilang (tekan F atau R):
-        /// Tubuh Kuntilanak, outline, dan nametag disembunyikan sepenuhnya (rend.enabled = false)
-        /// agar benar-benar menghilang dari pandangan player selama durasi skill berlangsung,
-        /// dan dimunculkan kembali saat durasi habis atau kembali ke wujud padat.
+        /// 1. Player lain (Survivor): Tubuh Kuntilanak 100% menghilang dari pandangan mereka (rend.enabled = false).
+        /// 2. Pemain Kuntilanak / Impostor: Tetap melihat tubuhnya sendiri dalam wujud arwah gaib putih
+        ///    (rend.enabled = true dengan ghostWhiteMaterial) sehingga leluasa mengarahkan karakter dan terbang melayang.
         /// </summary>
         public void ApplyGhostVisibility(bool isGhost)
         {
+            EnsureGhostMaterial();
+            bool isLocal = CheckIsLocalPlayer();
+
             if (kuntiRenderers != null && kuntiRenderers.Length > 0)
             {
                 for (int i = 0; i < kuntiRenderers.Length; i++)
@@ -404,12 +421,30 @@ namespace Pucaci.Player
                     var rend = kuntiRenderers[i];
                     if (rend == null) continue;
 
-                    // Saat menghilang (isGhost == true): Matikan renderer tubuh sepenuhnya
-                    // Saat muncul kembali (isGhost == false): Nyalakan kembali
-                    rend.enabled = !isGhost;
-
-                    if (!isGhost)
+                    if (isGhost)
                     {
+                        if (isLocal)
+                        {
+                            // Pemain yang menjadi Kuntilanak: TETAP MELIHAT TUBUHNYA SENDIRI dalam wujud arwah gaib
+                            rend.enabled = true;
+                            if (ghostWhiteMaterial != null)
+                            {
+                                int matCount = Mathf.Max(1, rend.sharedMaterials != null ? rend.sharedMaterials.Length : 1);
+                                var mats = new Material[matCount];
+                                for (int m = 0; m < matCount; m++) mats[m] = ghostWhiteMaterial;
+                                rend.sharedMaterials = mats;
+                            }
+                        }
+                        else
+                        {
+                            // Player lain: Kuntilanak HILANG SEPENUHNYA dari pandangan mereka!
+                            rend.enabled = false;
+                        }
+                    }
+                    else
+                    {
+                        // Kembali ke wujud padat normal untuk semua pemain
+                        rend.enabled = true;
                         if (originalSharedMaterials != null && i < originalSharedMaterials.Length && originalSharedMaterials[i] != null)
                         {
                             rend.sharedMaterials = originalSharedMaterials[i];
