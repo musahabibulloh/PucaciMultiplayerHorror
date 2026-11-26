@@ -31,6 +31,9 @@ namespace Pucaci.UI
         private bool isOpen = false;
         public bool IsOpen => isOpen;
 
+        private int openedAtFrame = -1;
+        private float openTimestamp = 0f;
+
         private struct CharacterCardItem
         {
             public int characterIndex;
@@ -47,6 +50,7 @@ namespace Pucaci.UI
 
         public static DisguiseSelectionUI EnsureInstance()
         {
+            EnsureEventSystem();
             if (Instance != null) return Instance;
 
             var existing = FindObjectOfType<DisguiseSelectionUI>();
@@ -60,6 +64,15 @@ namespace Pucaci.UI
             Instance = go.AddComponent<DisguiseSelectionUI>();
             if (Application.isPlaying) DontDestroyOnLoad(go);
             return Instance;
+        }
+
+        private static void EnsureEventSystem()
+        {
+            if (UnityEngine.EventSystems.EventSystem.current == null)
+            {
+                var esGo = new GameObject("EventSystem", typeof(UnityEngine.EventSystems.EventSystem), typeof(UnityEngine.EventSystems.StandaloneInputModule));
+                if (Application.isPlaying) DontDestroyOnLoad(esGo);
+            }
         }
 
         private void Awake()
@@ -90,6 +103,10 @@ namespace Pucaci.UI
                 Cursor.visible = true;
             }
 
+            // Jangan izinkan penutupan menu di frame yang sama saat menu baru saja dibuka!
+            // Menghindari konflik penekanan tombol [X] yang terdeteksi bersamaan di PlayerRoleManager dan DisguiseSelectionUI
+            bool canCloseFromInput = (Time.frameCount > openedAtFrame) && (Time.unscaledTime - openTimestamp > 0.15f);
+
             // Shortcut navigasi cepat saat menu terbuka
             bool pressClose = false;
             int selectedIndex = -1;
@@ -98,14 +115,14 @@ namespace Pucaci.UI
             var kb = Keyboard.current;
             if (kb != null)
             {
-                if (kb.xKey.wasPressedThisFrame || kb.escapeKey.wasPressedThisFrame) pressClose = true;
+                if (canCloseFromInput && (kb.xKey.wasPressedThisFrame || kb.escapeKey.wasPressedThisFrame)) pressClose = true;
                 if (kb.digit1Key.wasPressedThisFrame || kb.numpad1Key.wasPressedThisFrame) selectedIndex = 0; // Laras
                 if (kb.digit2Key.wasPressedThisFrame || kb.numpad2Key.wasPressedThisFrame) selectedIndex = 1; // Pak Mamat
                 if (kb.digit3Key.wasPressedThisFrame || kb.numpad3Key.wasPressedThisFrame) selectedIndex = 3; // Pak Vincent
                 if (kb.digit4Key.wasPressedThisFrame || kb.numpad4Key.wasPressedThisFrame) selectedIndex = 4; // Mas Rocky
             }
 #else
-            if (Input.GetKeyDown(KeyCode.X) || Input.GetKeyDown(KeyCode.Escape)) pressClose = true;
+            if (canCloseFromInput && (Input.GetKeyDown(KeyCode.X) || Input.GetKeyDown(KeyCode.Escape))) pressClose = true;
             if (Input.GetKeyDown(KeyCode.Alpha1) || Input.GetKeyDown(KeyCode.Keypad1)) selectedIndex = 0;
             if (Input.GetKeyDown(KeyCode.Alpha2) || Input.GetKeyDown(KeyCode.Keypad2)) selectedIndex = 1;
             if (Input.GetKeyDown(KeyCode.Alpha3) || Input.GetKeyDown(KeyCode.Keypad3)) selectedIndex = 3;
@@ -126,11 +143,12 @@ namespace Pucaci.UI
 
         public void ToggleMenu(PlayerRoleManager roleMgr)
         {
-            if (isOpen)
+            // Debounce: jika baru saja dibuka dalam < 0.15 detik, abaikan toggle agar tidak langsung menutup
+            if (isOpen && (Time.frameCount > openedAtFrame) && (Time.unscaledTime - openTimestamp > 0.15f))
             {
                 CloseMenu();
             }
-            else
+            else if (!isOpen)
             {
                 OpenMenu(roleMgr);
             }
@@ -148,6 +166,8 @@ namespace Pucaci.UI
 
             RefreshCardsState();
             isOpen = true;
+            openedAtFrame = Time.frameCount;
+            openTimestamp = Time.unscaledTime;
 
             if (panelRoot != null) panelRoot.SetActive(true);
             if (canvasGroup != null)
@@ -206,7 +226,10 @@ namespace Pucaci.UI
 
             if (activeRoleManager.TransformCooldownRemaining > 0.05f)
             {
-                Debug.Log($"[ROLE] Peniruan wujud sedang cooldown! ({activeRoleManager.TransformCooldownRemaining:F1}s)");
+                string cdMsg = $"Cooldown peniruan wujud! Tunggu {activeRoleManager.TransformCooldownRemaining:F1}s";
+                Debug.Log($"[ROLE] {cdMsg}");
+                var inv = activeRoleManager.GetComponent<Pucaci.Inventory.PlayerInventory>();
+                if (inv != null) inv.ShowToast(cdMsg);
                 return;
             }
 
@@ -394,6 +417,10 @@ namespace Pucaci.UI
             var cardImg = card.AddComponent<Image>();
             cardImg.color = new Color(0.10f, 0.12f, 0.18f, 0.98f);
 
+            int capturedIndex = charIndex;
+            var cardBtn = card.AddComponent<Button>();
+            cardBtn.onClick.AddListener(() => SelectCharacter(capturedIndex));
+
             var cardLayout = card.AddComponent<VerticalLayoutGroup>();
             cardLayout.padding = new RectOffset(14, 14, 16, 14);
             cardLayout.spacing = 10;
@@ -446,7 +473,6 @@ namespace Pucaci.UI
             btnImg.color = themeColor;
 
             var btn = btnObj.AddComponent<Button>();
-            int capturedIndex = charIndex;
             btn.onClick.AddListener(() => SelectCharacter(capturedIndex));
 
             var btnTextObj = new GameObject("BtnText", typeof(RectTransform));

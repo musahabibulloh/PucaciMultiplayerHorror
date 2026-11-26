@@ -186,7 +186,17 @@ namespace Pucaci.Props
             shape.radius = 0.03f;
 
             var psRenderer = smokeObj.GetComponent<ParticleSystemRenderer>();
-            psRenderer.material = new Material(Shader.Find("Legacy Shaders/Particles/Alpha Blended Premultiply"));
+            Material smokeMat = AssetDatabase.LoadAssetAtPath<Material>(MaterialDir + "/M_Sesajen_Smoke.mat");
+            if (smokeMat == null)
+            {
+                Shader particleShader = Shader.Find("Universal Render Pipeline/Particles/Unlit") ?? Shader.Find("Particles/Standard Unlit") ?? Shader.Find("Sprites/Default");
+                smokeMat = new Material(particleShader) { name = "M_Sesajen_Smoke" };
+                smokeMat.SetFloat("_Surface", 1); // Transparent
+                smokeMat.SetFloat("_Blend", 0); // Alpha
+                smokeMat.SetColor("_BaseColor", new Color(0.9f, 0.9f, 0.95f, 0.35f));
+                AssetDatabase.CreateAsset(smokeMat, MaterialDir + "/M_Sesajen_Smoke.mat");
+            }
+            psRenderer.sharedMaterial = smokeMat;
 
             // Hubungkan referensi ke SesajenItem
             var visField = typeof(SesajenItem).GetField("visualContainer", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);

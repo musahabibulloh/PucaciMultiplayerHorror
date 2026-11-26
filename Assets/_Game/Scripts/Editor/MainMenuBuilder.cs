@@ -1432,20 +1432,20 @@ namespace Pucaci.Editor
 
         private static MenuPanel BuildCreditsPanel(Transform canvas, MainMenuController controller)
         {
-            GameObject panelObj = CreatePanelContainer(canvas, "CreditsPanel", new Vector2(550f, 420f), new Vector2(330f, -20f));
+            GameObject panelObj = CreatePanelContainer(canvas, "CreditsPanel", new Vector2(560f, 520f), new Vector2(330f, -20f));
             MenuPanel panel = panelObj.AddComponent<MenuPanel>();
 
             VerticalLayoutGroup layout = panelObj.AddComponent<VerticalLayoutGroup>();
-            layout.spacing = 18f;
+            layout.spacing = 14f;
             layout.childAlignment = TextAnchor.MiddleCenter;
             layout.childControlWidth = true;
             layout.childControlHeight = false;
-            layout.padding = new RectOffset(35, 35, 30, 30);
+            layout.padding = new RectOffset(35, 35, 25, 25);
 
             CreateTMPText(panelObj.transform, "Header", "KREDIT", 28, TextAlignmentOptions.Center);
 
-            string creditsContent = "PUCACI\n\nDibuat oleh:\nMusa & Tim Pengembang Pucaci\n\nGenre: Co-op Horor-Komedi Kampung\nDibuat dengan Unity 2022 LTS & Universal Render Pipeline";
-            CreateTMPText(panelObj.transform, "Content", creditsContent, 20, TextAlignmentOptions.Center);
+            string creditsContent = "PUCACI\n\nDIBUAT OLEH:\nMusa Habibulloh Al Faruq\nAchmad Aryo Sangkelad\nBachtiar Julianandi\nAdinda Gisha Maulidah\n\nGenre: Co-op Horor-Komedi Kampung\nDibuat dengan Unity 2022 LTS & Universal Render Pipeline";
+            CreateTMPText(panelObj.transform, "Content", creditsContent, 18, TextAlignmentOptions.Center);
 
             Button btnBack = CreateButton(panelObj.transform, "BtnBack", "Kembali", ColorText, ColorBg);
 

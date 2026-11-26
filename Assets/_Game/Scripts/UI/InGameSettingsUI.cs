@@ -2,11 +2,13 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
+using UnityEngine.EventSystems;
 using TMPro;
 using Mirror;
 using UnityEngine.SceneManagement;
 #if ENABLE_INPUT_SYSTEM
 using UnityEngine.InputSystem;
+using UnityEngine.InputSystem.UI;
 #endif
 
 namespace Pucaci.UI
@@ -60,7 +62,8 @@ namespace Pucaci.UI
 
         public static InGameSettingsUI EnsureInstance()
         {
-            if (Instance != null) return Instance;
+            EventSystemHelper.EnsureEventSystem();
+            if (Instance != null && Instance.gameObject != null) return Instance;
 
             var existing = FindObjectOfType<InGameSettingsUI>();
             if (existing != null)
@@ -71,12 +74,22 @@ namespace Pucaci.UI
 
             var go = new GameObject("InGameSettingsUI");
             Instance = go.AddComponent<InGameSettingsUI>();
+            Instance.CloseMenuInstant();
             if (Application.isPlaying) DontDestroyOnLoad(go);
             return Instance;
         }
 
+        private void OnDestroy()
+        {
+            if (Instance == this)
+            {
+                Instance = null;
+            }
+        }
+
         private void Awake()
         {
+            EventSystemHelper.EnsureEventSystem();
             if (Instance == null)
             {
                 Instance = this;
@@ -166,6 +179,7 @@ namespace Pucaci.UI
 
         public void OpenMenu()
         {
+            EventSystemHelper.EnsureEventSystem();
             if (panelRoot == null)
             {
                 BuildUI();
@@ -473,7 +487,9 @@ namespace Pucaci.UI
             borderRt.anchorMax = new Vector2(1, 1);
             borderRt.pivot = new Vector2(0.5f, 1);
             borderRt.sizeDelta = new Vector2(0, 5);
-            borderTop.GetComponent<Image>().color = new Color(0.95f, 0.35f, 0.25f, 1f);
+            var borderImg = borderTop.GetComponent<Image>();
+            borderImg.color = new Color(0.95f, 0.35f, 0.25f, 1f);
+            borderImg.raycastTarget = false;
 
             // Header Container
             var headerObj = new GameObject("Header", typeof(RectTransform));
@@ -489,6 +505,7 @@ namespace Pucaci.UI
             title.text = "<b><color=#FFFFFF>PENGATURAN & JEDA</color></b>\n<size=16><color=#8899AA>Tekan [ESC] atau klik Lanjutkan untuk kembali bermain</size>";
             title.alignment = TextAlignmentOptions.Center;
             title.fontSize = 26;
+            title.raycastTarget = false;
 
             // Content Container
             var contentObj = new GameObject("ContentContainer", typeof(RectTransform), typeof(VerticalLayoutGroup));
@@ -580,6 +597,7 @@ namespace Pucaci.UI
             text.text = $"<b><color=#{ColorUtility.ToHtmlStringRGB(accent)}>■ {title}</color></b>";
             text.fontSize = 15;
             text.alignment = TextAlignmentOptions.MidlineLeft;
+            text.raycastTarget = false;
         }
 
         private Slider CreateSliderRow(Transform parent, string label, float defaultValue, out TextMeshProUGUI valText, Action<float> onValueChanged)
@@ -604,6 +622,7 @@ namespace Pucaci.UI
             lText.fontSize = 15;
             lText.color = new Color(0.85f, 0.88f, 0.92f, 1f);
             lText.alignment = TextAlignmentOptions.MidlineLeft;
+            lText.raycastTarget = false;
 
             // Slider Body (360px)
             var sliderObj = new GameObject("Slider", typeof(RectTransform), typeof(Slider));
@@ -619,7 +638,9 @@ namespace Pucaci.UI
             // Background
             var bgObj = new GameObject("Background", typeof(RectTransform), typeof(Image));
             bgObj.transform.SetParent(sliderObj.transform, false);
-            bgObj.GetComponent<Image>().color = new Color(0.14f, 0.16f, 0.22f, 1f);
+            var bgImg = bgObj.GetComponent<Image>();
+            bgImg.color = new Color(0.14f, 0.16f, 0.22f, 1f);
+            bgImg.raycastTarget = true;
             var bgRt = bgObj.GetComponent<RectTransform>();
             bgRt.anchorMin = new Vector2(0f, 0.35f);
             bgRt.anchorMax = new Vector2(1f, 0.65f);
@@ -637,7 +658,9 @@ namespace Pucaci.UI
 
             var fill = new GameObject("Fill", typeof(RectTransform), typeof(Image));
             fill.transform.SetParent(fillArea.transform, false);
-            fill.GetComponent<Image>().color = new Color(0.95f, 0.35f, 0.25f, 1f);
+            var fillImg = fill.GetComponent<Image>();
+            fillImg.color = new Color(0.95f, 0.35f, 0.25f, 1f);
+            fillImg.raycastTarget = false;
             var fRt = fill.GetComponent<RectTransform>();
             fRt.anchorMin = Vector2.zero;
             fRt.anchorMax = Vector2.zero;
@@ -657,14 +680,16 @@ namespace Pucaci.UI
 
             var handle = new GameObject("Handle", typeof(RectTransform), typeof(Image));
             handle.transform.SetParent(handleArea.transform, false);
-            handle.GetComponent<Image>().color = new Color(0.95f, 0.95f, 0.95f, 1f);
+            var handleImg = handle.GetComponent<Image>();
+            handleImg.color = new Color(0.95f, 0.95f, 0.95f, 1f);
+            handleImg.raycastTarget = true;
             var hRt = handle.GetComponent<RectTransform>();
             hRt.anchorMin = new Vector2(0, 0);
             hRt.anchorMax = new Vector2(0, 1);
             hRt.offsetMin = new Vector2(-6, -2);
             hRt.offsetMax = new Vector2(6, 2);
             slider.handleRect = hRt;
-            slider.targetGraphic = handle.GetComponent<Image>();
+            slider.targetGraphic = handleImg;
 
             // Value Badge Kanan (70px)
             var valObj = new GameObject("ValueText", typeof(RectTransform));
@@ -674,6 +699,7 @@ namespace Pucaci.UI
             valText.fontSize = 14;
             valText.color = new Color(0.95f, 0.75f, 0.25f, 1f);
             valText.alignment = TextAlignmentOptions.MidlineRight;
+            valText.raycastTarget = false;
             UpdateSliderLabel(valText, defaultValue, true);
 
             slider.onValueChanged.AddListener((v) => onValueChanged?.Invoke(v));
@@ -702,11 +728,14 @@ namespace Pucaci.UI
             lText.fontSize = 15;
             lText.color = new Color(0.85f, 0.88f, 0.92f, 1f);
             lText.alignment = TextAlignmentOptions.MidlineLeft;
+            lText.raycastTarget = false;
 
             // Stepper Container (440px)
             var stepObj = new GameObject("StepperBox", typeof(RectTransform), typeof(HorizontalLayoutGroup), typeof(Image));
             stepObj.transform.SetParent(row.transform, false);
-            stepObj.GetComponent<Image>().color = new Color(0.12f, 0.14f, 0.20f, 1f);
+            var stepImg = stepObj.GetComponent<Image>();
+            stepImg.color = new Color(0.12f, 0.14f, 0.20f, 1f);
+            stepImg.raycastTarget = false;
             var sRt = stepObj.GetComponent<RectTransform>();
             sRt.sizeDelta = new Vector2(440, 30);
 
@@ -717,7 +746,7 @@ namespace Pucaci.UI
             sLayout.childControlHeight = false;
 
             // Tombol Left <
-            var btnLeft = CreateSmallStepButton(stepObj.transform, "◀", onPrev);
+            var btnLeft = CreateSmallStepButton(stepObj.transform, "<", onPrev);
 
             // Teks Tengah (340px)
             var textObj = new GameObject("DisplayText", typeof(RectTransform));
@@ -727,9 +756,10 @@ namespace Pucaci.UI
             displayLabel.fontSize = 14;
             displayLabel.color = Color.white;
             displayLabel.alignment = TextAlignmentOptions.Center;
+            displayLabel.raycastTarget = false;
 
             // Tombol Right >
-            var btnRight = CreateSmallStepButton(stepObj.transform, "▶", onNext);
+            var btnRight = CreateSmallStepButton(stepObj.transform, ">", onNext);
         }
 
         private Button CreateSmallStepButton(Transform parent, string icon, Action onClick)
@@ -737,7 +767,9 @@ namespace Pucaci.UI
             var btnObj = new GameObject("Btn_" + icon, typeof(RectTransform), typeof(Image), typeof(Button));
             btnObj.transform.SetParent(parent, false);
             btnObj.GetComponent<RectTransform>().sizeDelta = new Vector2(36, 26);
-            btnObj.GetComponent<Image>().color = new Color(0.20f, 0.24f, 0.34f, 1f);
+            var img = btnObj.GetComponent<Image>();
+            img.color = new Color(0.20f, 0.24f, 0.34f, 1f);
+            img.raycastTarget = true;
 
             var textObj = new GameObject("Icon", typeof(RectTransform));
             textObj.transform.SetParent(btnObj.transform, false);
@@ -752,8 +784,15 @@ namespace Pucaci.UI
             t.fontSize = 14;
             t.color = Color.white;
             t.alignment = TextAlignmentOptions.Center;
+            t.raycastTarget = false;
 
             var btn = btnObj.GetComponent<Button>();
+            btn.targetGraphic = img;
+            var colors = btn.colors;
+            colors.highlightedColor = new Color(0.35f, 0.40f, 0.55f, 1f);
+            colors.pressedColor = new Color(0.15f, 0.18f, 0.25f, 1f);
+            btn.colors = colors;
+
             btn.onClick.AddListener(() => onClick?.Invoke());
             return btn;
         }
@@ -779,6 +818,7 @@ namespace Pucaci.UI
             lText.fontSize = 15;
             lText.color = new Color(0.85f, 0.88f, 0.92f, 1f);
             lText.alignment = TextAlignmentOptions.MidlineLeft;
+            lText.raycastTarget = false;
 
             var togObj = new GameObject("Toggle", typeof(RectTransform), typeof(Toggle));
             togObj.transform.SetParent(row.transform, false);
@@ -787,7 +827,9 @@ namespace Pucaci.UI
 
             var bg = new GameObject("Background", typeof(RectTransform), typeof(Image));
             bg.transform.SetParent(togObj.transform, false);
-            bg.GetComponent<Image>().color = new Color(0.14f, 0.16f, 0.22f, 1f);
+            var bgImg = bg.GetComponent<Image>();
+            bgImg.color = new Color(0.14f, 0.16f, 0.22f, 1f);
+            bgImg.raycastTarget = true;
             var bgRt = bg.GetComponent<RectTransform>();
             bgRt.anchorMin = new Vector2(0, 0.5f);
             bgRt.anchorMax = new Vector2(0, 0.5f);
@@ -796,7 +838,9 @@ namespace Pucaci.UI
 
             var check = new GameObject("Checkmark", typeof(RectTransform), typeof(Image));
             check.transform.SetParent(bg.transform, false);
-            check.GetComponent<Image>().color = new Color(0.35f, 0.85f, 0.55f, 1f);
+            var checkImg = check.GetComponent<Image>();
+            checkImg.color = new Color(0.35f, 0.85f, 0.55f, 1f);
+            checkImg.raycastTarget = false;
             var cRt = check.GetComponent<RectTransform>();
             cRt.anchorMin = new Vector2(0.2f, 0.2f);
             cRt.anchorMax = new Vector2(0.8f, 0.8f);
@@ -804,8 +848,8 @@ namespace Pucaci.UI
             cRt.offsetMax = Vector2.zero;
 
             var toggle = togObj.GetComponent<Toggle>();
-            toggle.graphic = check.GetComponent<Image>();
-            toggle.targetGraphic = bg.GetComponent<Image>();
+            toggle.graphic = checkImg;
+            toggle.targetGraphic = bgImg;
             toggle.isOn = true;
             toggle.onValueChanged.AddListener((v) => onToggleChanged?.Invoke(v));
 
@@ -816,7 +860,9 @@ namespace Pucaci.UI
         {
             var btnObj = new GameObject("Btn_" + title, typeof(RectTransform), typeof(Image), typeof(Button));
             btnObj.transform.SetParent(parent, false);
-            btnObj.GetComponent<Image>().color = bgColor;
+            var img = btnObj.GetComponent<Image>();
+            img.color = bgColor;
+            img.raycastTarget = true;
 
             var textObj = new GameObject("Text", typeof(RectTransform));
             textObj.transform.SetParent(btnObj.transform, false);
@@ -831,8 +877,10 @@ namespace Pucaci.UI
             t.fontSize = 15;
             t.color = Color.white;
             t.alignment = TextAlignmentOptions.Center;
+            t.raycastTarget = false;
 
             var btn = btnObj.GetComponent<Button>();
+            btn.targetGraphic = img;
             var colors = btn.colors;
             colors.highlightedColor = bgColor * 1.25f;
             colors.pressedColor = bgColor * 0.8f;
@@ -842,5 +890,66 @@ namespace Pucaci.UI
             return btn;
         }
         #endregion
+    }
+
+    /// <summary>
+    /// Utility untuk memastikan EventSystem aktif dengan Input Module yang sesuai (InputSystemUIInputModule untuk New Input System)
+    /// dan membersihkan EventSystem ganda yang berkonflik.
+    /// </summary>
+    public static class EventSystemHelper
+    {
+        public static EventSystem EnsureEventSystem()
+        {
+            var allES = UnityEngine.Object.FindObjectsOfType<EventSystem>(true);
+            EventSystem primaryES = null;
+
+            foreach (var es in allES)
+            {
+                if (es == null) continue;
+
+                // Hapus StandaloneInputModule legacy jika ada karena tidak kompatibel dengan New Input System
+                var standalone = es.GetComponent<StandaloneInputModule>();
+                if (standalone != null)
+                {
+                    if (Application.isPlaying) UnityEngine.Object.Destroy(standalone);
+                    else UnityEngine.Object.DestroyImmediate(standalone);
+                }
+
+#if ENABLE_INPUT_SYSTEM
+                var inputMod = es.GetComponent<InputSystemUIInputModule>();
+                if (inputMod == null)
+                {
+                    inputMod = es.gameObject.AddComponent<InputSystemUIInputModule>();
+                }
+#endif
+
+                if (primaryES == null)
+                {
+                    primaryES = es;
+                    es.gameObject.SetActive(true);
+                    es.enabled = true;
+                }
+                else
+                {
+                    // Bersihkan duplikat EventSystem tambahan
+                    if (Application.isPlaying) UnityEngine.Object.Destroy(es.gameObject);
+                    else UnityEngine.Object.DestroyImmediate(es.gameObject);
+                }
+            }
+
+            if (primaryES == null)
+            {
+                var go = new GameObject("EventSystem");
+                primaryES = go.AddComponent<EventSystem>();
+#if ENABLE_INPUT_SYSTEM
+                go.AddComponent<InputSystemUIInputModule>();
+#else
+                go.AddComponent<StandaloneInputModule>();
+#endif
+                if (Application.isPlaying) UnityEngine.Object.DontDestroyOnLoad(go);
+            }
+
+            return primaryES;
+        }
     }
 }

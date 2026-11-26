@@ -57,6 +57,14 @@ namespace Pucaci.UI
             {
                 ReturnToMainMenu();
             }
+
+            // Tombol Pengaturan [ESC] di sebelah kiri tombol Menu Utama
+            Rect settingsRect = new Rect(Screen.width - (btnWidth * 3) - margin - 20, margin, btnWidth, btnHeight);
+            GUI.backgroundColor = new Color(0.2f, 0.7f, 0.4f, 0.95f);
+            if (GUI.Button(settingsRect, "Pengaturan [ESC]"))
+            {
+                InGameSettingsUI.EnsureInstance().ToggleMenu();
+            }
         }
 
         public void ReturnToMainMenu()

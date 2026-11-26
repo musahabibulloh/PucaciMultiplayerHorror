@@ -84,6 +84,12 @@ namespace Pucaci.Network
             {
                 gameObject.AddComponent<ProximityVoiceChat>();
             }
+
+            // Pastikan komponen Inventory terpasang di setiap karakter
+            if (GetComponent<Pucaci.Inventory.PlayerInventory>() == null)
+            {
+                gameObject.AddComponent<Pucaci.Inventory.PlayerInventory>();
+            }
         }
 
         public override void OnStartLocalPlayer()
@@ -164,6 +170,15 @@ namespace Pucaci.Network
             if (Pucaci.UI.StaminaUI.Instance != null && characterController != null)
             {
                 Pucaci.UI.StaminaUI.Instance.SetTarget(characterController);
+            }
+
+            // Inisialisasi PlayerInventoryUI untuk pemain lokal jika belum ada di scene
+            if (FindObjectOfType<Pucaci.UI.PlayerInventoryUI>() == null)
+            {
+                var uiObj = new GameObject("PlayerInventoryUI");
+                var ui = uiObj.AddComponent<Pucaci.UI.PlayerInventoryUI>();
+                var inv = GetComponent<Pucaci.Inventory.PlayerInventory>();
+                if (inv != null) ui.SetTargetInventory(inv);
             }
         }
 

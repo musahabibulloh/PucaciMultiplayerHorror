@@ -3847,6 +3847,8 @@ GameObject:
   - component: {fileID: 4189935569837226799}
   - component: {fileID: -3781343704380684747}
   - component: {fileID: -5502232948422181902}
+  - component: {fileID: -73827551453953060}
+  - component: {fileID: -3839252497727902430}
   m_Layer: 0
   m_Name: PlayerCharacter
   m_TagString: Player
@@ -4258,6 +4260,7 @@ MonoBehaviour:
   syncInterval: 0
   currentRole: 1
   humanDisguiseIndex: 1
+  initialDisguiseIndex: -1
   currentForm: 0
   transformCooldown: 4
 --- !u!114 &988741853184362560
@@ -4433,6 +4436,36 @@ AudioSource:
     m_PreInfinity: 2
     m_PostInfinity: 2
     m_RotationOrder: 4
+--- !u!114 &-73827551453953060
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4946537967781627025}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d2b6b320cc55cb64aaaefda90726fbec, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  syncMethod: 0
+  syncDirection: 0
+  syncMode: 0
+  syncInterval: 0
+  characterConfig: {fileID: 0}
+  audioSource: {fileID: 0}
+--- !u!114 &-3839252497727902430
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4946537967781627025}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fbb8406f9ba56fb4caaf460704827d0a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!1 &4994762236272243773
 GameObject:
   m_ObjectHideFlags: 0

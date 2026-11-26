@@ -339,6 +339,10 @@ namespace Pucaci.Player
             var targetHealth = targetPcc.GetComponent<PlayerHealth>();
             if (targetHealth != null && targetHealth.IsDead) return false;
 
+            // Korban yang sedang memegang (equip) Jimat/Totem kebal terhadap serangan/cekikan hantu
+            var victimInv = targetPcc.GetComponent<Pucaci.Inventory.PlayerInventory>();
+            if (victimInv != null && victimInv.IsItemEquipped(Pucaci.Inventory.ItemType.Totem)) return false;
+
             // Kuntilanak tidak bisa mencekik sesama Kuntilanak
             var targetRole = targetPcc.GetComponent<PlayerRoleManager>();
             if (targetRole != null && targetRole.IsKuntilanakForm) return false;
@@ -418,6 +422,16 @@ namespace Pucaci.Player
         [Command]
         private void CmdStartChoke(uint victimId)
         {
+            if (NetworkServer.spawned.TryGetValue(victimId, out var victimCheckIdentity))
+            {
+                var victimInv = victimCheckIdentity.GetComponent<Pucaci.Inventory.PlayerInventory>();
+                if (victimInv != null && victimInv.IsItemEquipped(Pucaci.Inventory.ItemType.Totem))
+                {
+                    Debug.Log("[KuntilanakChokeMechanic] Korban kebal berkat perlindungan Jimat/Totem! Serangan ditolak.");
+                    return;
+                }
+            }
+
             syncIsChoking = true;
             syncVictimNetId = victimId;
             isChoking = true;

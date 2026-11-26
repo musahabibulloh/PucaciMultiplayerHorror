@@ -130,7 +130,7 @@ namespace Pucaci.Player
             bool isLocal = true;
             if (netIdentity != null && (NetworkClient.active || NetworkServer.active))
             {
-                try { isLocal = isLocalPlayer; } catch { isLocal = true; }
+                try { isLocal = isLocalPlayer || isOwned; } catch { isLocal = true; }
             }
             if (!isLocal) return;
 
@@ -158,16 +158,21 @@ namespace Pucaci.Player
 
             if (!pressDisguiseMenu && !pressKunti) return;
 
-            // Jika sedang bermain sendiri/testing dan belum Impostor, otomatis jadikan Impostor
+            // Jika belum menjadi Impostor:
+            // Pada mode testing/solo atau saat match belum dimulai, otomatis aktifkan role Impostor
             if (!IsImpostor)
             {
+                bool isPreMatch = (Pucaci.Network.PucaciNetworkManager.singleton == null || !Pucaci.Network.PucaciNetworkManager.singleton.IsMatchStarted);
                 var allPlayers = FindObjectsOfType<PlayerRoleManager>();
-                if (allPlayers.Length <= 1)
+                if (allPlayers.Length <= 1 || isPreMatch)
                 {
                     SetRole(PlayerRole.Impostor, humanDisguiseIndex);
+                    Debug.Log("<color=#00FFAA>[ROLE] Beralih ke Hantu (Impostor) untuk testing penyamaran.</color>");
                 }
                 else
                 {
+                    var inv = GetComponent<Pucaci.Inventory.PlayerInventory>();
+                    if (inv != null) inv.ShowToast("Hanya Hantu yang dapat menyamar! Tekan [F1] untuk ganti Role.");
                     Debug.Log("<color=#FFAA00>[ROLE] Anda adalah Survivor! Tekan F1 untuk beralih role ke Hantu (Impostor).</color>");
                     return;
                 }

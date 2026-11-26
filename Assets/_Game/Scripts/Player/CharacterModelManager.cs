@@ -40,6 +40,8 @@ namespace Pucaci.Player
         private int characterIndex = -1;
         private int localCharacterIndex = -1;
 
+        public event System.Action<CharacterType> OnCharacterChanged;
+
         public CharacterType ActiveCharacterType => (CharacterType)Mathf.Max(0, (characterIndex >= 0 ? characterIndex : localCharacterIndex));
         public GameObject ActiveModel
         {
@@ -299,6 +301,8 @@ namespace Pucaci.Player
                 string charName = CharacterSelectionData.GetCharacterName((CharacterType)clamped);
                 networkSetup.UpdateNameTagText(charName);
             }
+
+            OnCharacterChanged?.Invoke(ActiveCharacterType);
         }
     }
 }

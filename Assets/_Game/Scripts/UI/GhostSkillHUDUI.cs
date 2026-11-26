@@ -78,6 +78,24 @@ namespace Pucaci.UI
         private void Start()
         {
             TryResolveLocalPlayer();
+            SetupCardClickInteractions();
+        }
+
+        private void SetupCardClickInteractions()
+        {
+            if (disguiseCard.rootObject != null)
+            {
+                var btn = disguiseCard.rootObject.GetComponent<Button>() ?? disguiseCard.rootObject.AddComponent<Button>();
+                btn.onClick.RemoveAllListeners();
+                btn.onClick.AddListener(() =>
+                {
+                    if (roleManager != null && roleManager.IsImpostor)
+                    {
+                        var ui = DisguiseSelectionUI.EnsureInstance();
+                        ui.ToggleMenu(roleManager);
+                    }
+                });
+            }
         }
 
         private void TryResolveLocalPlayer()
