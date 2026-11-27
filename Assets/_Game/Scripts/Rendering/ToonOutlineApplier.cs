@@ -26,6 +26,11 @@ namespace Pucaci.Rendering
         [SerializeField] private bool applyOnStart = true;
         [SerializeField] private bool includeChildren = true;
 
+        // [TAMBAHAN] Daftar nama objek yang dikecualikan dari outline (rumput, tanaman)
+        [Header("Pengecualian")]
+        [Tooltip("Objek (atau parent-nya) yang namanya diawali salah satu kata ini tidak diberi outline")]
+        [SerializeField] private string[] excludeNamePrefixes = { "grass", "plant" };
+
         private Material materialInstance;
         private bool isApplied;
         private float lastExtrudedWidth = -1f;
@@ -71,6 +76,27 @@ namespace Pucaci.Rendering
             }
         }
 
+        // [TAMBAHAN] Cek apakah objek ini (atau salah satu parent-nya sampai ke objek pemilik script) termasuk pengecualian
+        private bool IsExcluded(Transform t)
+        {
+            if (excludeNamePrefixes == null || excludeNamePrefixes.Length == 0) return false;
+
+            Transform cur = t;
+            while (cur != null)
+            {
+                string n = cur.name.ToLower();
+                foreach (var p in excludeNamePrefixes)
+                {
+                    if (!string.IsNullOrEmpty(p) && n.StartsWith(p.ToLower()))
+                        return true;
+                }
+
+                if (cur == transform) break;
+                cur = cur.parent;
+            }
+            return false;
+        }
+
         private void EnsureMaterial(Renderer sourceRenderer = null)
         {
             if (materialInstance == null)
@@ -82,7 +108,7 @@ namespace Pucaci.Rendering
                 }
                 else
                 {
-                    Shader uShader = Shader.Find("Universal Render Pipeline/Unlit") 
+                    Shader uShader = Shader.Find("Universal Render Pipeline/Unlit")
                         ?? Shader.Find("Universal Render Pipeline/Lit");
                     if (uShader != null)
                     {
@@ -104,7 +130,7 @@ namespace Pucaci.Rendering
                 if (materialInstance.HasProperty("_MainTex")) materialInstance.SetTexture("_MainTex", null);
                 if (materialInstance.HasProperty("_BaseColor")) materialInstance.SetColor("_BaseColor", outlineColor);
                 if (materialInstance.HasProperty("_Color")) materialInstance.SetColor("_Color", outlineColor);
-                
+
                 // Cull Front agar hanya poligon belakang (backface) yang tampak melebar mengelilingi karakter
                 materialInstance.SetInt("_Cull", (int)UnityEngine.Rendering.CullMode.Front);
                 materialInstance.SetFloat("_Cull", 1f);
@@ -125,10 +151,22 @@ namespace Pucaci.Rendering
                 if (rend == null) continue;
                 if (rend.name.Contains("ToonOutline"))
                 {
+                    // [TAMBAHAN] Outline lama yang menempel di rumput/tanaman: hapus, jangan diaktifkan lagi
+                    if (rend.transform.parent != null && IsExcluded(rend.transform.parent))
+                    {
+                        if (Application.isPlaying) Destroy(rend.gameObject);
+                        else DestroyImmediate(rend.gameObject);
+                        continue;
+                    }
+
                     rend.enabled = true;
                     if (!outlineRenderers.Contains(rend)) outlineRenderers.Add(rend);
                     continue;
                 }
+
+                // [TAMBAHAN] Lewati rumput/tanaman
+                if (IsExcluded(rend.transform)) continue;
+
                 if (rend is ParticleSystemRenderer || rend is TrailRenderer || rend is LineRenderer)
                     continue;
 
